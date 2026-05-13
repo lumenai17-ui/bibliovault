@@ -267,32 +267,48 @@ app.get('/api/books/:id/html', async (req, res) => {
   }
 });
 
-// â”€â”€ Serve book files for the reader â”€â”€
+// ── Serve book files for the reader ──
+const TUNNEL_URL = process.env.TUNNEL_URL || ''; // e.g. https://xyz.trycloudflare.com
+const TUNNEL_SECRET = process.env.TUNNEL_SECRET || 'bv-tunnel-2026';
+
 app.get('/api/books/:id/file', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const filePath = book.file_path as string;
 
-  if (!existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+  // Try local file first (dev mode)
+  if (existsSync(filePath)) {
+    const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+    const mimeMap: Record<string, string> = {
+      pdf: 'application/pdf', epub: 'application/epub+zip',
+      doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff', bmp: 'image/bmp',
+    };
+    res.setHeader('Content-Type', mimeMap[ext || ''] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${book.file_name}"`);
+    return res.sendFile(filePath);
+  }
 
-  const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
-  const mimeMap: Record<string, string> = {
-    pdf: 'application/pdf',
-    epub: 'application/epub+zip',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    tif: 'image/tiff',
-    tiff: 'image/tiff',
-    bmp: 'image/bmp',
-  };
+  // Production: proxy through Cloudflare Tunnel
+  if (TUNNEL_URL) {
+    try {
+      const tunnelFileUrl = `${TUNNEL_URL}/file?path=${encodeURIComponent(filePath)}&secret=${TUNNEL_SECRET}`;
+      const tunnelRes = await fetch(tunnelFileUrl);
+      if (!tunnelRes.ok) {
+        return res.status(tunnelRes.status).json({ error: 'File not available via tunnel' });
+      }
+      res.setHeader('Content-Type', tunnelRes.headers.get('content-type') || 'application/octet-stream');
+      res.setHeader('Content-Disposition', tunnelRes.headers.get('content-disposition') || `inline; filename="${book.file_name}"`);
+      const buffer = Buffer.from(await tunnelRes.arrayBuffer());
+      return res.send(buffer);
+    } catch (err) {
+      console.error('Tunnel proxy error:', err);
+      return res.status(502).json({ error: 'Tunnel unavailable' });
+    }
+  }
 
-  res.setHeader('Content-Type', mimeMap[ext || ''] || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${book.file_name}"`);
-  res.sendFile(filePath);
+  res.status(404).json({ error: 'File not found. Start the tunnel on your PC.' });
 });
 
 // â”€â”€ Cover serving (supports JPG from API/PDF and SVG fallback) â”€â”€
