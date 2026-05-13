@@ -134,8 +134,8 @@ body {
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -143,12 +143,30 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
+  background: rgba(92, 99, 145, 0.3);
   border-radius: var(--radius-full);
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: rgba(92, 99, 145, 0.6);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(102, 126, 234, 0.3);
+  color: var(--text-primary);
+}
+
+/* ── Focus Visible ── */
+:focus-visible {
+  outline: 2px solid rgba(102, 126, 234, 0.5);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ── Typography Classes ── */
@@ -216,6 +234,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-secondary:hover {
   background: var(--bg-elevated);
   border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -226,6 +245,10 @@ h1, h2, h3, h4, h5, h6 {
 .btn-ghost:hover {
   background: rgba(102, 126, 234, 0.1);
   color: var(--text-primary);
+}
+
+.btn-ghost:active {
+  transform: scale(0.96);
 }
 
 .btn-icon {

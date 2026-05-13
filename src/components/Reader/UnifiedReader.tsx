@@ -307,18 +307,18 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
         </div>
 
         <div className="reader-toolbar-actions">
-          {/* Page layout toggle */}
+          {/* Group 1: Layout */}
           {book.format !== 'image' && (
-            <div className="reader-layout-toggle">
+            <div className="reader-toolbar-group">
               <button
-                className={`btn btn-ghost btn-icon btn-sm ${pageLayout === 'single' ? 'active' : ''}`}
+                className={`btn-icon ${pageLayout === 'single' ? 'active' : ''}`}
                 onClick={() => setPageLayout('single')}
                 title="Una página"
               >
                 <BookOpen size={14} />
               </button>
               <button
-                className={`btn btn-ghost btn-icon btn-sm ${pageLayout === 'double' ? 'active' : ''}`}
+                className={`btn-icon ${pageLayout === 'double' ? 'active' : ''}`}
                 onClick={() => setPageLayout('double')}
                 title="Dos páginas"
               >
@@ -327,153 +327,150 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             </div>
           )}
 
-          <div className="reader-toolbar-divider" />
-
-          {/* Zoom */}
-          <div className="reader-zoom">
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomOut} title="Alejar">
+          {/* Group 2: Zoom */}
+          <div className="reader-toolbar-group">
+            <button className="btn-icon" onClick={handleZoomOut} title="Alejar">
               <ZoomOut size={14} />
             </button>
-            <span>{Math.round(scale * 100)}%</span>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomIn} title="Acercar">
+            <span style={{ minWidth: 38, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              {Math.round(scale * 100)}%
+            </span>
+            <button className="btn-icon" onClick={handleZoomIn} title="Acercar">
               <ZoomIn size={14} />
             </button>
           </div>
 
-          <div className="reader-toolbar-divider" />
-
-          {/* Theme Picker */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className="btn btn-ghost btn-icon btn-sm"
-              onClick={() => setShowThemePicker(!showThemePicker)}
-              title={`Tema: ${themeConfig.label}`}
-            >
-              <Palette size={14} />
-            </button>
-            {showThemePicker && (
-              <div className="reader-theme-picker">
-                {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((t) => (
-                  <button
-                    key={t}
-                    className={`reader-theme-option ${t === theme ? 'active' : ''}`}
-                    onClick={() => { setTheme(t); setShowThemePicker(false); }}
-                  >
-                    <span>{THEME_CONFIG[t].icon}</span>
-                    <span>{THEME_CONFIG[t].label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Bookmark toggle */}
-          <button
-            className={`btn btn-ghost btn-icon btn-sm ${isCurrentPageBookmarked ? 'reader-bookmarked' : ''}`}
-            onClick={handleToggleBookmark}
-            title={isCurrentPageBookmarked ? 'Quitar marcador' : 'Agregar marcador (B)'}
-          >
-            {isCurrentPageBookmarked ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-          </button>
-
-          {/* Bookmark list */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className={`btn btn-ghost btn-icon btn-sm ${bookmarks.length > 0 ? 'reader-has-bookmarks' : ''}`}
-              onClick={() => setShowBookmarks(!showBookmarks)}
-              title={`Marcadores (${bookmarks.length})`}
-            >
-              <List size={14} />
-              {bookmarks.length > 0 && <span className="reader-bookmark-count">{bookmarks.length}</span>}
-            </button>
-
-            {showBookmarks && (
-              <div className="reader-bookmarks-panel">
-                <div className="reader-bookmarks-header">
-                  <h4>📑 Marcadores</h4>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setShowBookmarks(false)}>
-                    <X size={12} />
-                  </button>
+          {/* Group 3: Tools */}
+          <div className="reader-toolbar-group">
+            {/* Theme */}
+            <div style={{ position: 'relative' }}>
+              <button
+                className={`btn-icon ${showThemePicker ? 'active' : ''}`}
+                onClick={() => setShowThemePicker(!showThemePicker)}
+                title={`Tema: ${themeConfig.label}`}
+              >
+                <Palette size={14} />
+              </button>
+              {showThemePicker && (
+                <div className="reader-theme-picker">
+                  {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((t) => (
+                    <button
+                      key={t}
+                      className={`reader-theme-option ${t === theme ? 'active' : ''}`}
+                      onClick={() => { setTheme(t); setShowThemePicker(false); }}
+                    >
+                      <span>{THEME_CONFIG[t].icon}</span>
+                      <span>{THEME_CONFIG[t].label}</span>
+                    </button>
+                  ))}
                 </div>
-                {bookmarks.length === 0 ? (
-                  <div className="reader-bookmarks-empty">
-                    <Bookmark size={24} />
-                    <p>Sin marcadores aún.<br />Presiona <strong>B</strong> para marcar una página.</p>
+              )}
+            </div>
+
+            {/* Bookmark toggle */}
+            <button
+              className={`btn-icon ${isCurrentPageBookmarked ? 'reader-bookmarked' : ''}`}
+              onClick={handleToggleBookmark}
+              title={isCurrentPageBookmarked ? 'Quitar marcador' : 'Agregar marcador (B)'}
+            >
+              {isCurrentPageBookmarked ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+            </button>
+
+            {/* Bookmark list */}
+            <div style={{ position: 'relative' }}>
+              <button
+                className={`btn-icon ${showBookmarks ? 'active' : ''}`}
+                onClick={() => setShowBookmarks(!showBookmarks)}
+                title={`Marcadores (${bookmarks.length})`}
+              >
+                <List size={14} />
+                {bookmarks.length > 0 && <span className="reader-bookmark-count">{bookmarks.length}</span>}
+              </button>
+
+              {showBookmarks && (
+                <div className="reader-bookmarks-panel">
+                  <div className="reader-bookmarks-header">
+                    <h4>📑 Marcadores</h4>
+                    <button className="btn-icon" onClick={() => setShowBookmarks(false)}>
+                      <X size={12} />
+                    </button>
                   </div>
-                ) : (
-                  <div className="reader-bookmarks-list">
-                    {bookmarks.map((bm) => (
-                      <div
-                        key={bm.id}
-                        className={`reader-bookmark-item ${bm.page === currentPage ? 'active' : ''}`}
-                        onClick={() => handleGoToBookmark(bm.page)}
-                      >
-                        <BookmarkCheck size={12} style={{ color: bm.color }} />
-                        <span className="reader-bookmark-label">{bm.label}</span>
-                        <button
-                          className="reader-bookmark-delete"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await removeBookmark(book.id, bm.id);
-                            setBookmarks(prev => prev.filter(b => b.id !== bm.id));
-                          }}
+                  {bookmarks.length === 0 ? (
+                    <div className="reader-bookmarks-empty">
+                      <Bookmark size={24} />
+                      <p>Sin marcadores aún.<br />Presiona <strong>B</strong> para marcar una página.</p>
+                    </div>
+                  ) : (
+                    <div className="reader-bookmarks-list">
+                      {bookmarks.map((bm) => (
+                        <div
+                          key={bm.id}
+                          className={`reader-bookmark-item ${bm.page === currentPage ? 'active' : ''}`}
+                          onClick={() => handleGoToBookmark(bm.page)}
                         >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                          <BookmarkCheck size={12} style={{ color: bm.color }} />
+                          <span className="reader-bookmark-label">{bm.label}</span>
+                          <button
+                            className="reader-bookmark-delete"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await removeBookmark(book.id, bm.id);
+                              setBookmarks(prev => prev.filter(b => b.id !== bm.id));
+                            }}
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Search */}
-          <button
-            className={`btn btn-ghost btn-icon btn-sm ${showSearch ? 'active' : ''}`}
-            onClick={() => {
-              setShowSearch(!showSearch);
-              if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 100);
-            }}
-            title="Buscar en libro (Ctrl+F)"
-          >
-            <Search size={14} />
-          </button>
-
-          {/* Fullscreen */}
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={handleFullscreen} title="Pantalla completa">
-            <Maximize size={14} />
-          </button>
+          {/* Group 4: View */}
+          <div className="reader-toolbar-group">
+            <button
+              className={`btn-icon ${showSearch ? 'active' : ''}`}
+              onClick={() => {
+                setShowSearch(!showSearch);
+                if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 100);
+              }}
+              title="Buscar en libro (Ctrl+F)"
+            >
+              <Search size={14} />
+            </button>
+            <button className="btn-icon" onClick={handleFullscreen} title="Pantalla completa">
+              <Maximize size={14} />
+            </button>
+          </div>
 
           {/* TTS */}
-          <div style={{ position: 'relative' }}>
-            <TtsControls
-              text={pageText || `${book.title}. Página ${currentPage}`}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={(p) => {
-                setCurrentPage(p);
-                setPageInput(String(p));
-              }}
-              fetchPageText={async (page: number) => {
-                try {
-                  const result = await fetchBookText(book.id, page, page);
-                  return result.fullText?.trim() || '';
-                } catch {
-                  return '';
-                }
-              }}
-            />
-          </div>
+          <TtsControls
+            text={pageText || `${book.title}. Página ${currentPage}`}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(p) => {
+              setCurrentPage(p);
+              setPageInput(String(p));
+            }}
+            fetchPageText={async (page: number) => {
+              try {
+                const result = await fetchBookText(book.id, page, page);
+                return result.fullText?.trim() || '';
+              } catch {
+                return '';
+              }
+            }}
+          />
 
-          <div className="reader-toolbar-divider" />
-
-          {/* AI Toggle */}
+          {/* AI Toggle — Premium button */}
           <button
-            className={`btn btn-sm ${showAiPanel ? 'btn-primary' : 'btn-secondary'}`}
+            className={`reader-ai-toggle ${showAiPanel ? 'active' : ''}`}
             onClick={() => setShowAiPanel(!showAiPanel)}
           >
-            <Bot size={14} /> AI
+            <Bot size={14} /> Hermes
           </button>
         </div>
       </div>

@@ -68,43 +68,139 @@
   gap: 6px;
 }
 
-/* Enhanced toolbar buttons */
-.reader-toolbar-actions .btn-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+/* ── Button Groups (Islands) ── */
+.reader-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+/* Base toolbar button */
+.reader-toolbar-actions .btn-icon,
+.reader-toolbar-group .btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--duration-fast);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
 }
 
-.reader-toolbar-actions .btn-icon:hover {
-  background: rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.3);
+.reader-toolbar-actions .btn-icon:hover,
+.reader-toolbar-group .btn-icon:hover {
+  background: rgba(102, 126, 234, 0.12);
   color: var(--text-primary);
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
-.reader-toolbar-actions .btn-icon.active {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: var(--accent-primary);
+.reader-toolbar-actions .btn-icon.active,
+.reader-toolbar-group .btn-icon.active {
+  background: rgba(102, 126, 234, 0.18);
+  border-color: rgba(102, 126, 234, 0.35);
+  color: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(102, 126, 234, 0.15);
+}
+
+.reader-toolbar-actions .btn-icon svg,
+.reader-toolbar-group .btn-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Bookmark active state — gold */
+.reader-bookmarked {
+  color: #f59e0b !important;
+}
+
+.reader-bookmarked:hover {
+  background: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Bookmark count badge */
+.reader-bookmark-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* AI Toggle Button — Premium style */
+.reader-ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  background: rgba(102, 126, 234, 0.08);
   color: var(--accent-primary);
 }
 
-.reader-toolbar-actions .btn-icon svg {
-  width: 16px;
-  height: 16px;
+.reader-ai-toggle:hover {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.4);
+  box-shadow: 0 0 12px rgba(102, 126, 234, 0.2);
+  transform: translateY(-1px);
 }
 
+.reader-ai-toggle.active {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 0 16px rgba(102, 126, 234, 0.35);
+}
+
+.reader-ai-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Divider */
 .reader-toolbar-divider {
   width: 1px;
-  height: 24px;
-  background: var(--glass-border);
-  margin: 0 var(--space-xs);
+  height: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 2px;
+}
+
+/* Zoom display */
+.reader-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reader-zoom span {
+  min-width: 38px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Main Content Area ── */
