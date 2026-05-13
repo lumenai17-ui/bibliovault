@@ -66,6 +66,10 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const LIBRARY_PATH = process.env.LIBRARY_PATH || 'C:\\Users\\Usuario\\OneDrive\\Documentos\\Lectura';
 
+// Trust proxy for Render (HTTPS termination)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
@@ -435,7 +439,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
 
 // â”€â”€ Categories â”€â”€
 app.get('/api/categories', async (_req, res) => {
-  res.json(getCategories());
+  res.json(await getCategories());
 });
 
 // â”€â”€ Collections â”€â”€
@@ -491,7 +495,7 @@ app.delete('/api/collections/:id/books/:bookId', optionalAuth, async (req, res) 
 
 // â”€â”€ Stats â”€â”€
 app.get('/api/stats', async (_req, res) => {
-  res.json(getStats());
+  res.json(await getStats());
 });
 
 // â”€â”€ Scan â”€â”€
