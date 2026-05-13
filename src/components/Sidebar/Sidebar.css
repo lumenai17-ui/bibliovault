@@ -12,7 +12,7 @@
   flex-shrink: 0;
   transition: width var(--duration-slow) var(--ease-out);
   z-index: 10;
-  overflow: hidden;
+  overflow-y: auto;
   position: relative;
 }
 
@@ -203,6 +203,10 @@
   padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--glass-border);
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-secondary);
+  z-index: 2;
 }
 
 .sidebar-user-info {

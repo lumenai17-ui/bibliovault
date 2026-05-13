@@ -374,7 +374,9 @@ export default function App() {
               categories={categories} 
               collections={collections} 
               books={books}
-              onSelectSection={setActiveSection} 
+              onSelectSection={setActiveSection}
+              userName={currentUser?.display_name}
+              stats={stats}
             />
           ) : activeSection === 'stats' ? (
             <Statistics />

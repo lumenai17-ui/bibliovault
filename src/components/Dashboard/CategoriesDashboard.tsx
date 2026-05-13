@@ -3,7 +3,7 @@ import {
   Folder, BookText, BookOpen, Layers, LibraryBig,
   Flame, Sparkles, BookMarked, Telescope, Brain,
   Globe2, Leaf, Atom, HeartPulse, History,
-  Compass, Shield, Sword, Shapes
+  Compass, Shield, Sword, Shapes, Library
 } from 'lucide-react';
 import type { ApiCategory } from '../../services/api';
 import type { Collection, Book } from '../../types';
@@ -14,6 +14,8 @@ interface CategoriesDashboardProps {
   collections: Collection[];
   books: Book[];
   onSelectSection: (section: string) => void;
+  userName?: string;
+  stats?: { total: number; favorites: number; reading: number; categories: number };
 }
 
 const getCategoryIcon = (index: number) => {
@@ -36,7 +38,7 @@ const getCategoryColor = (index: number) => {
 // URL helper for covers
 const getCoverUrl = (bookId: number) => `${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${bookId}/cover`;
 
-export default function CategoriesDashboard({ categories, collections, books, onSelectSection }: CategoriesDashboardProps) {
+export default function CategoriesDashboard({ categories, collections, books, onSelectSection, userName, stats }: CategoriesDashboardProps) {
   
   // Pre-calculate 3 sample books with REAL covers per category (skip SVG placeholders)
   const categoryFanCovers = useMemo(() => {
@@ -65,8 +67,28 @@ export default function CategoriesDashboard({ categories, collections, books, on
     return map;
   }, [categories, books]);
 
+  // Time-based greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+
   return (
     <div className="categories-dashboard animate-fade-in">
+
+      {/* Greeting Bar */}
+      <div className="dashboard-greeting">
+        <div className="greeting-icon">
+          <Library size={20} />
+        </div>
+        <div className="greeting-text">
+          <h2>{greeting}{userName ? `, ${userName}` : ''}</h2>
+          {stats && (
+            <p>
+              {stats.total.toLocaleString()} libros · {stats.categories} categorías
+              {stats.reading > 0 && <> · {stats.reading} leyendo</>}
+            </p>
+          )}
+        </div>
+      </div>
       
       {collections.length > 0 && (
         <section className="dashboard-section">
