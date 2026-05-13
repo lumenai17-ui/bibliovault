@@ -1,4 +1,4 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
@@ -1066,9 +1066,10 @@ app.post('/api/covers/batch/cancel', async (_req, res) => {
   res.json({ message: 'Cancelled' });
 });
 
-// AI Title Identification â€” read PDF text and ask LLM to find real title
+// AI Title Identification with Vision AI fallback
 app.post('/api/books/:id/identify-title', async (req, res) => {
-  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const bookId = parseInt(req.params.id);
+  const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const origPath = book.file_path as string;
@@ -1079,29 +1080,26 @@ app.post('/api/books/:id/identify-title', async (req, res) => {
     let result = null;
 
     if (ext === 'pdf') {
-      // Standard PDF text extraction
-      result = await identifyTitleFromPdf(filePath, book.title as string);
-    } else {
-      // For non-PDF formats (.doc, .docx, .epub, etc.), 
-      // use filename + folder context to ask AI
-      const folderCategory = book.folder_category as string || '';
-      const fileName = book.file_name as string || '';
-
-      // Call Hermes with filename context only
-      const fakeText = `Nombre del archivo: "${fileName}"\nCategorÃ­a/carpeta: "${folderCategory}"\n\nEste es un archivo .${ext} cuyo texto no puede extraerse directamente.`;
-
-      // Use the identifier with the filename as context
-      result = await identifyTitleFromPdf(filePath, book.title as string).catch(() => null);
-
-      // If PDF extraction failed (expected for .doc), try using just filename
-      if (!result) {
-        const { identifyTitleFromFilename } = await import('./aiTitleIdentifier.js');
-        result = await identifyTitleFromFilename(
-          book.title as string,
-          book.file_name as string,
-          book.folder_category as string || '',
-        );
+      let coverImagePath: string | undefined;
+      const coverPath = book.cover_path as string;
+      
+      if (coverPath && !coverPath.startsWith('http') && existsSync(coverPath)) {
+        coverImagePath = coverPath;
+      } else {
+        try {
+          const extracted = await extractPdfCover(filePath, bookId);
+          if (extracted && existsSync(extracted)) coverImagePath = extracted;
+        } catch { /* ignore */ }
       }
+
+      result = await identifyTitleFromPdf(filePath, book.title as string, coverImagePath);
+    } else {
+      const { identifyTitleFromFilename } = await import('./aiTitleIdentifier.js');
+      result = await identifyTitleFromFilename(
+        book.title as string,
+        book.file_name as string,
+        book.folder_category as string || '',
+      );
     }
 
     if (result && result.confidence !== 'low') {
