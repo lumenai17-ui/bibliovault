@@ -773,6 +773,22 @@ app.delete('/api/uploads/:id', requireAuth, (req, res) => {
 });
 
 // ══════════════════════════════════════
+//  Production: Serve Frontend Static Files
+// ══════════════════════════════════════
+const DIST_DIR = join(__dirname, '..', '..', 'dist');
+if (existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  // SPA fallback: serve index.html for any non-API route
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/covers/') || req.path.startsWith('/uploads/')) {
+      return next();
+    }
+    res.sendFile(join(DIST_DIR, 'index.html'));
+  });
+  console.log('🌐 Serving production frontend from', DIST_DIR);
+}
+
+// ══════════════════════════════════════
 //  Start Server
 // ══════════════════════════════════════
 app.listen(PORT, async () => {
