@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Library, Loader2 } from 'lucide-react';
 import './AuthPage.css';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 export interface AuthUser {
   id: string;

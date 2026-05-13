@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, X, FileText, Trash2, CloudUpload } from 'lucide-react';
 import './UploadPanel.css';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 interface UserUpload {
   id: string;

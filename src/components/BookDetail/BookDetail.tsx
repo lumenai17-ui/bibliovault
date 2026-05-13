@@ -103,7 +103,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
     }).catch(console.error);
 
     // Fetch affiliate links
-    fetch(`http://localhost:3001/api/books/${book.id}/affiliate-links`, { credentials: 'include' })
+    fetch(`${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${book.id}/affiliate-links`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : [])
       .then(setAffiliateLinks)
       .catch(() => setAffiliateLinks([]));
@@ -513,7 +513,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => {
-                      fetch(`http://localhost:3001/api/affiliate/click/${link.id}`, {
+                      fetch(`${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/affiliate/click/${link.id}`, {
                         method: 'POST', credentials: 'include'
                       });
                     }}

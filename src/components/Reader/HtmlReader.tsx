@@ -15,7 +15,7 @@ export default function HtmlReader({ bookId, scale, nightMode }: HtmlReaderProps
   useEffect(() => {
     let mounted = true;
     
-    fetch(`http://localhost:3001/api/books/${bookId}/html`)
+    fetch(`${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${bookId}/html`)
       .then(res => {
         if (!res.ok) throw new Error('No se pudo cargar el documento');
         return res.text();

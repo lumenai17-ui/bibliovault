@@ -34,7 +34,7 @@ const getCategoryColor = (index: number) => {
 };
 
 // URL helper for covers
-const getCoverUrl = (bookId: number) => `http://localhost:3001/api/books/${bookId}/cover`;
+const getCoverUrl = (bookId: number) => `${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${bookId}/cover`;
 
 export default function CategoriesDashboard({ categories, collections, books, onSelectSection }: CategoriesDashboardProps) {
   
