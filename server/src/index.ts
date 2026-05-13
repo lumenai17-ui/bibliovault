@@ -978,7 +978,8 @@ app.post('/api/enrich/cancel', async (_req, res) => {
 
 // Extract PDF first page as cover image
 app.post('/api/books/:id/extract-cover', async (req, res) => {
-  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const bookId = parseInt(req.params.id);
+  const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   if (book.format !== 'pdf') {
@@ -986,17 +987,42 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
   }
 
   try {
-    const coverPath = await extractPdfCover(
-      book.file_path as string,
-      parseInt(req.params.id),
-    );
+    // Resolve file path (local or via tunnel)
+    const filePath = await resolveFilePath(book.file_path as string);
+    if (!filePath) return res.status(404).json({ error: 'PDF file not accessible' });
 
-    if (coverPath) {
-      await updateBook(parseInt(req.params.id), {
-        cover_path: coverPath,
+    const coverPath = await extractPdfCover(filePath, bookId);
+
+    if (coverPath && existsSync(coverPath)) {
+      // Upload to Supabase Storage if configured
+      let finalCoverPath = coverPath;
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const coverBuffer = readFileSync(coverPath);
+          const coverFilename = `${bookId}_pdf.jpg`;
+          
+          await supabase.storage.from('covers').upload(coverFilename, coverBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true,
+          });
+          
+          finalCoverPath = `${supabaseUrl}/storage/v1/object/public/covers/${coverFilename}`;
+          console.log(`📸 Cover uploaded to Supabase: ${coverFilename}`);
+        } catch (uploadErr) {
+          console.error('Supabase cover upload failed, using local path:', uploadErr);
+        }
+      }
+
+      await updateBook(bookId, {
+        cover_path: finalCoverPath,
         cover_source: 'pdf',
       } as any);
-      res.json({ success: true, coverPath });
+      res.json({ success: true, coverPath: finalCoverPath });
     } else {
       res.json({ success: false, message: 'Could not extract cover' });
     }
@@ -1157,34 +1183,40 @@ app.get('/api/search/index/stats', async (_req, res) => {
 
 // Extended statistics for the Dashboard
 app.get('/api/stats/extended', async (_req, res) => {
-  const db = getDb();
   try {
-    const totalBooks = (db.prepare('SELECT COUNT(*) as c FROM books').get() as { c: number }).c;
-    const totalPages = (db.prepare('SELECT SUM(pages) as s FROM books').get() as { s: number }).s || 0;
+    const allBooks = await getAllBooks() as Array<Record<string, any>>;
     
-    // Books completed (progress >= 0.99)
-    const completedBooks = (db.prepare('SELECT COUNT(*) as c FROM books WHERE reading_progress >= 0.99').get() as { c: number }).c;
-
+    const totalBooks = allBooks.length;
+    const totalPages = allBooks.reduce((sum, b) => sum + (b.pages || 0), 0);
+    const completedBooks = allBooks.filter(b => (b.reading_progress || 0) >= 0.99).length;
+    
     // Books by format
-    const formatStats = db.prepare(`
-      SELECT format as name, COUNT(*) as value 
-      FROM books 
-      GROUP BY format
-    `).all() as Array<{ name: string; value: number }>;
+    const formatMap = new Map<string, number>();
+    allBooks.forEach(b => {
+      const fmt = b.format || 'unknown';
+      formatMap.set(fmt, (formatMap.get(fmt) || 0) + 1);
+    });
+    const formatStats = Array.from(formatMap.entries()).map(([name, value]) => ({ name, value }));
 
     // Top 5 categories
-    const categoryStats = db.prepare(`
-      SELECT c.name as name, COUNT(b.id) as value
-      FROM categories c
-      JOIN books b ON b.category_id = c.id
-      GROUP BY c.id
-      ORDER BY value DESC
-      LIMIT 5
-    `).all() as Array<{ name: string; value: number }>;
+    const categories = await getCategories() as Array<Record<string, any>>;
+    const catMap = new Map<number, string>();
+    categories.forEach(c => catMap.set(c.id, c.name));
+    
+    const catCountMap = new Map<string, number>();
+    allBooks.forEach(b => {
+      const catName = catMap.get(b.category_id) || 'Sin categoría';
+      catCountMap.set(catName, (catCountMap.get(catName) || 0) + 1);
+    });
+    const categoryStats = Array.from(catCountMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
 
-    // Calculate approximate pages read
-    const pagesReadRows = db.prepare('SELECT pages, reading_progress FROM books WHERE reading_progress > 0').all() as Array<{ pages: number; reading_progress: number }>;
-    const totalPagesRead = Math.round(pagesReadRows.reduce((acc, row) => acc + (row.pages * row.reading_progress), 0));
+    // Pages read
+    const totalPagesRead = Math.round(
+      allBooks.reduce((acc, b) => acc + ((b.pages || 0) * (b.reading_progress || 0)), 0)
+    );
 
     res.json({
       totalBooks,
@@ -1202,29 +1234,30 @@ app.get('/api/stats/extended', async (_req, res) => {
 
 // Export library as CSV
 app.get('/api/export/csv', async (_req, res) => {
-  const db = getDb();
   try {
-    const books = db.prepare(`
-      SELECT b.id, b.title, b.author, b.isbn, b.format, b.pages, c.name as category, b.reading_progress, b.date_added
-      FROM books b
-      LEFT JOIN categories c ON b.category_id = c.id
-      ORDER BY b.id ASC
-    `).all() as Array<any>;
+    const allBooks = await getAllBooks() as Array<Record<string, any>>;
+    const categories = await getCategories() as Array<Record<string, any>>;
+    const catMap = new Map<number, string>();
+    categories.forEach(c => catMap.set(c.id, c.name));
 
-    if (books.length === 0) {
+    if (allBooks.length === 0) {
       return res.status(404).send('No books to export');
     }
 
-    const headers = Object.keys(books[0]).join(',');
-    const rows = books.map(b => {
-      return Object.values(b).map(v => {
+    const headers = ['id', 'title', 'author', 'isbn', 'format', 'pages', 'category', 'reading_progress', 'date_added'];
+    const rows = allBooks.map(b => {
+      const values = [
+        b.id, b.title, b.author, b.isbn, b.format, b.pages,
+        catMap.get(b.category_id) || '', b.reading_progress, b.date_added
+      ];
+      return values.map(v => {
         if (v === null || v === undefined) return '""';
         const str = String(v).replace(/"/g, '""');
         return `"${str}"`;
       }).join(',');
     });
 
-    const csvStr = headers + '\\n' + rows.join('\\n');
+    const csvStr = headers.join(',') + '\n' + rows.join('\n');
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="bibliovault_export.csv"');

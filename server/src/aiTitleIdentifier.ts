@@ -1,16 +1,12 @@
 /**
- * AI Title Identifier — Uses LLM to read the first pages of a PDF
- * and identify the REAL title and author from the content.
+ * AI Title Identifier — Uses LLM (Groq Cloud or Hermes) to read the first pages 
+ * of a PDF and identify the REAL title and author from the content.
  * 
- * This solves the problem where filenames are abbreviated or wrong,
- * e.g. "05 Feynman.pdf" → the LLM reads the first pages and identifies
- * "La Electrodinámica Cuántica - Feynman - Cuando un fotón conoce a un electrón"
+ * Uses llmComplete from hermes.ts which auto-routes to Groq or local Hermes.
  */
 
 import { extractPdfText } from './textExtractor.js';
-import { extractOcrText } from './ocrExtractor.js';
-
-const HERMES_URL = 'http://127.0.0.1:8642/v1/chat/completions';
+import { llmComplete } from './hermes.js';
 
 export interface TitleIdentification {
   title: string;
@@ -33,12 +29,16 @@ export async function identifyTitleFromPdf(
     let firstPagesText = result.fullText?.trim();
 
     if (!firstPagesText || firstPagesText.length < 20) {
-      console.log(`⚠️ No readable text in first pages of "${currentTitle}" — likely scanned. Falling back to OCR...`);
-      // Fallback to OCR using Tesseract for scanned books (Fase 8)
-      firstPagesText = await extractOcrText(filePath, 2);
+      console.log(`⚠️ No readable text in first pages of "${currentTitle}" — trying OCR...`);
+      try {
+        const { extractOcrText } = await import('./ocrExtractor.js');
+        firstPagesText = await extractOcrText(filePath, 2);
+      } catch {
+        // OCR not available (production without tesseract)
+      }
       
       if (!firstPagesText || firstPagesText.length < 20) {
-        console.log(`❌ OCR failed to extract meaningful text from "${currentTitle}"`);
+        console.log(`❌ Cannot extract text from "${currentTitle}"`);
         return null;
       }
     }
@@ -46,15 +46,7 @@ export async function identifyTitleFromPdf(
     // Limit to first 1200 chars to keep prompt small and fast
     const textSample = firstPagesText.substring(0, 1200);
 
-    const response = await fetch(HERMES_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'hermes',
-        messages: [
-          {
-            role: 'system',
-            content: `Eres un bibliotecario experto. Tu tarea es identificar el TÍTULO REAL y el AUTOR de un libro a partir del texto de sus primeras páginas.
+    const systemPrompt = `Eres un bibliotecario experto. Tu tarea es identificar el TÍTULO REAL y el AUTOR de un libro a partir del texto de sus primeras páginas.
 
 REGLAS:
 - Responde SOLO en formato JSON: {"title": "...", "author": "...", "confidence": "high|medium|low"}
@@ -64,30 +56,15 @@ REGLAS:
 - Si no puedes identificar el autor, usa ""
 - "high" = claramente visible en el texto, "medium" = inferido, "low" = adivinado
 - NO inventes datos. Si no estás seguro, pon confidence "low"
-- NO respondas con nada más que el JSON`,
-          },
-          {
-            role: 'user',
-            content: `El archivo se llama "${currentTitle}". Aquí está el texto de las primeras páginas del PDF:\n\n---\n${textSample}\n---\n\nIdentifica el título real y autor de este libro.`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 200,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(60000),
+- NO respondas con nada más que el JSON`;
+
+    const userPrompt = `El archivo se llama "${currentTitle}". Aquí está el texto de las primeras páginas del PDF:\n\n---\n${textSample}\n---\n\nIdentifica el título real y autor de este libro.`;
+
+    const content = await llmComplete(systemPrompt, userPrompt, {
+      temperature: 0.1,
+      max_tokens: 200,
     });
 
-    if (!response.ok) {
-      console.error('Hermes AI title identification failed:', response.status);
-      return null;
-    }
-
-    const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) return null;
 
     // Parse JSON response — handle markdown code blocks
@@ -96,7 +73,6 @@ REGLAS:
     if (jsonMatch) {
       jsonStr = jsonMatch[1];
     } else {
-      // Try to find raw JSON
       const rawMatch = content.match(/\{[\s\S]*\}/);
       if (rawMatch) jsonStr = rawMatch[0];
     }
@@ -129,15 +105,7 @@ export async function identifyTitleFromFilename(
   folderCategory: string,
 ): Promise<TitleIdentification | null> {
   try {
-    const response = await fetch(HERMES_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'hermes',
-        messages: [
-          {
-            role: 'system',
-            content: `Eres un bibliotecario experto. Tu tarea es limpiar y mejorar el título de un libro a partir de su nombre de archivo.
+    const systemPrompt = `Eres un bibliotecario experto. Tu tarea es limpiar y mejorar el título de un libro a partir de su nombre de archivo.
 
 REGLAS:
 - Responde SOLO en formato JSON: {"title": "...", "author": "...", "confidence": "high|medium|low"}
@@ -146,27 +114,15 @@ REGLAS:
 - Capitaliza correctamente (cada palabra con mayúscula inicial en español)
 - Si la categoría/carpeta da pistas del tema, úsalas para clarificar
 - Si no puedes mejorar significativamente el título, devuelve confidence "low"
-- NO inventes datos`,
-          },
-          {
-            role: 'user',
-            content: `Archivo: "${fileName}"\nTítulo actual en la DB: "${currentTitle}"\nCategoría/carpeta: "${folderCategory}"\n\nIdentifica el título real y autor de este libro basándote en el nombre del archivo.`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 200,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(30000),
+- NO inventes datos`;
+
+    const userPrompt = `Archivo: "${fileName}"\nTítulo actual en la DB: "${currentTitle}"\nCategoría/carpeta: "${folderCategory}"\n\nIdentifica el título real y autor de este libro basándote en el nombre del archivo.`;
+
+    const content = await llmComplete(systemPrompt, userPrompt, {
+      temperature: 0.1,
+      max_tokens: 200,
     });
 
-    if (!response.ok) return null;
-
-    const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) return null;
 
     let jsonStr = content;
