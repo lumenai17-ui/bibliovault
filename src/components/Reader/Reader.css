@@ -942,24 +942,10 @@
 .reader-paper .reader-search-input { background: #d0d0d0; border-color: #bbb; color: #333; }
 
 /* ── Responsive ── */
+
+/* === TABLET (1024px) === */
 @media (max-width: 1024px) {
-  .reader-toolbar {
-    padding: 0 var(--space-sm);
-    gap: var(--space-sm);
-  }
-
   .reader-toolbar-title {
-    display: none;
-  }
-
-  .reader-toolbar-actions {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-shrink: 0;
-  }
-
-  .reader-toolbar-actions::-webkit-scrollbar {
     display: none;
   }
 
@@ -975,46 +961,385 @@
   }
 }
 
-@media (max-width: 640px) {
+/* === MOBILE FAB SYSTEM (<768px) === */
+@media (max-width: 768px) {
+  /* Hide desktop toolbar actions, show mobile compact bar */
   .reader-toolbar {
-    height: auto;
-    min-height: 48px;
-    flex-wrap: nowrap;
+    height: 44px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .reader-toolbar-title {
+    display: none;
+  }
+
+  .reader-toolbar-actions {
+    display: none !important;
   }
 
   .reader-toolbar-back {
-    font-size: 12px;
-    padding: 6px 10px;
+    font-size: 0;
+    padding: 6px;
+    gap: 0;
   }
 
-  .reader-toolbar-back span {
-    display: none; /* Hide "Biblioteca" text, keep arrow */
+  .reader-toolbar-back svg {
+    width: 20px;
+    height: 20px;
   }
 
-  .reader-toolbar-group .btn-icon,
-  .reader-toolbar-actions .btn-icon {
-    width: 30px;
-    height: 30px;
+  /* ── Mobile Page Indicator (in top bar) ── */
+  .reader-mobile-page {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
   }
 
-  .reader-toolbar-group .btn-icon svg,
-  .reader-toolbar-actions .btn-icon svg {
-    width: 13px;
-    height: 13px;
+  .reader-mobile-page input {
+    width: 36px;
+    text-align: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 4px;
+    font-family: var(--font-ui);
   }
 
-  .reader-ai-toggle {
-    padding: 5px 10px;
-    font-size: 11px;
+  .reader-mobile-page input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
   }
 
-  /* Nav bar touch targets */
+  /* ── FAB Button ── */
+  .reader-fab {
+    position: fixed;
+    bottom: 80px;
+    right: 16px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4), 0 0 0 0 rgba(102, 126, 234, 0);
+    transition: all 250ms var(--ease-spring);
+  }
+
+  .reader-fab:active {
+    transform: scale(0.92);
+  }
+
+  .reader-fab.open {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transform: rotate(45deg);
+  }
+
+  .reader-fab svg {
+    width: 22px;
+    height: 22px;
+    transition: transform 250ms var(--ease-out);
+  }
+
+  /* ── FAB Backdrop ── */
+  .reader-fab-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 49;
+    animation: fadeIn 200ms var(--ease-out);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+
+  /* ── Bottom Sheet ── */
+  .reader-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--glass-border);
+    border-radius: 20px 20px 0 0;
+    z-index: 51;
+    padding: 8px 16px 24px;
+    animation: sheetSlideUp 300ms var(--ease-spring);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  @keyframes sheetSlideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Handle bar */
+  .reader-sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--text-muted);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+    opacity: 0.4;
+  }
+
+  .reader-sheet-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+    text-align: center;
+  }
+
+  /* ── Tool Grid ── */
+  .reader-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .reader-sheet-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    transition: all 200ms var(--ease-out);
+    min-height: 70px;
+    justify-content: center;
+  }
+
+  .reader-sheet-btn:active {
+    transform: scale(0.95);
+  }
+
+  .reader-sheet-btn.active {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.35);
+    color: var(--accent-primary);
+  }
+
+  .reader-sheet-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .reader-sheet-btn .sheet-btn-label {
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  /* ── Zoom Row (inside sheet) ── */
+  .reader-sheet-zoom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  .reader-sheet-zoom button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 150ms;
+  }
+
+  .reader-sheet-zoom button:active {
+    background: rgba(102, 126, 234, 0.15);
+    transform: scale(0.92);
+  }
+
+  .reader-sheet-zoom .zoom-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 52px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Mobile bottom nav ── */
   .reader-nav {
-    padding: var(--space-sm) var(--space-md);
+    padding: 8px 20px;
+    gap: 12px;
   }
 
   .reader-nav .btn-icon {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .reader-nav .btn-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* ── TTS mini bar (when playing on mobile) ── */
+  .reader-tts-mobile {
+    position: fixed;
+    bottom: 64px;
+    left: 16px;
+    right: 80px;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 16px;
+    padding: 8px 12px;
+    z-index: 48;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: fadeInUp 200ms var(--ease-out);
+  }
+
+  .reader-tts-mobile .tts-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .reader-tts-mobile .tts-status {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  /* Theme overrides for bottom sheet */
+  .reader-sepia .reader-bottom-sheet {
+    background: #ebe3cb;
+  }
+  .reader-sepia .reader-sheet-btn {
+    background: #ddd5bc;
+    border-color: #c9bfa5;
+    color: #6b5d4a;
+  }
+  .reader-sepia .reader-sheet-zoom {
+    background: #ddd5bc;
+    border-color: #c9bfa5;
+  }
+  .reader-night .reader-bottom-sheet {
+    background: #1a1a2e;
+  }
+  .reader-paper .reader-bottom-sheet {
+    background: #e0e0e0;
+  }
+
+  /* ── Theme picker inside sheet ── */
+  .reader-sheet-themes {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    justify-content: center;
+  }
+
+  .reader-sheet-theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    transition: all 150ms;
+  }
+
+  .reader-sheet-theme-btn.active {
+    border-color: var(--accent-primary);
+    background: rgba(102, 126, 234, 0.1);
+    color: var(--accent-primary);
+  }
+
+  .reader-sheet-theme-btn .theme-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  /* Hide desktop-only elements on mobile */
+  .reader-theme-picker,
+  .reader-bookmarks-panel {
+    display: none !important;
+  }
+
+  /* Mobile bookmarks panel (inside sheet) */
+  .reader-sheet-bookmarks {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .reader-sheet-bookmarks .reader-bookmark-item {
+    padding: 10px 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 150ms;
+    font-size: 13px;
+  }
+
+  .reader-sheet-bookmarks .reader-bookmark-item:active {
+    background: rgba(102, 126, 234, 0.12);
+  }
+}
+
+/* Hide mobile-only elements on desktop */
+@media (min-width: 769px) {
+  .reader-fab,
+  .reader-fab-backdrop,
+  .reader-bottom-sheet,
+  .reader-mobile-page,
+  .reader-tts-mobile {
+    display: none !important;
   }
 }

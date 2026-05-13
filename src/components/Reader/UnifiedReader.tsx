@@ -17,6 +17,11 @@ import {
   Palette,
   X,
   Search,
+  Plus,
+  Volume2,
+  Play,
+  Pause,
+  Square,
 } from 'lucide-react';
 import PdfReader, { type PageLayout } from './PdfReader';
 import ImageViewer from './ImageViewer';
@@ -72,6 +77,8 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentPageRef = useRef(savedPage);
   const totalPagesRef = useRef(0);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [mobileSubView, setMobileSubView] = useState<'none' | 'themes' | 'bookmarks'>('none');
 
   const fileUrl = getBookFileUrl(book.id);
 
@@ -304,6 +311,16 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
         <div className="reader-toolbar-title">
           {book.title}
           {book.author && <span>— {book.author}</span>}
+        </div>
+
+        {/* Mobile page indicator (visible only <768px via CSS) */}
+        <div className="reader-mobile-page">
+          <input
+            type="text"
+            value={pageInput}
+            onChange={(e) => handlePageInput(e.target.value)}
+          />
+          <span>/ {totalPages || '—'}</span>
         </div>
 
         <div className="reader-toolbar-actions">
@@ -593,6 +610,164 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
           >
             <ChevronRight size={18} />
           </button>
+        </div>
+      )}
+
+      {/* ═══ MOBILE FAB + BOTTOM SHEET ═══ */}
+
+      {/* FAB Button */}
+      <button
+        className={`reader-fab ${showMobileMenu ? 'open' : ''}`}
+        onClick={() => { setShowMobileMenu(!showMobileMenu); setMobileSubView('none'); }}
+      >
+        <Plus size={22} />
+      </button>
+
+      {/* Backdrop */}
+      {showMobileMenu && (
+        <div
+          className="reader-fab-backdrop"
+          onClick={() => { setShowMobileMenu(false); setMobileSubView('none'); }}
+        />
+      )}
+
+      {/* Bottom Sheet */}
+      {showMobileMenu && (
+        <div className="reader-bottom-sheet">
+          <div className="reader-sheet-handle" />
+          <p className="reader-sheet-title">Herramientas</p>
+
+          {/* Zoom Row */}
+          <div className="reader-sheet-zoom">
+            <button onClick={handleZoomOut}><ZoomOut size={18} /></button>
+            <span className="zoom-value">{Math.round(scale * 100)}%</span>
+            <button onClick={handleZoomIn}><ZoomIn size={18} /></button>
+          </div>
+
+          {/* Theme Row (conditional) */}
+          {mobileSubView === 'themes' && (
+            <div className="reader-sheet-themes">
+              {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((t) => (
+                <button
+                  key={t}
+                  className={`reader-sheet-theme-btn ${t === theme ? 'active' : ''}`}
+                  onClick={() => { setTheme(t); setMobileSubView('none'); }}
+                >
+                  <span className="theme-icon">{THEME_CONFIG[t].icon}</span>
+                  <span>{THEME_CONFIG[t].label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Bookmarks (conditional) */}
+          {mobileSubView === 'bookmarks' && (
+            <div className="reader-sheet-bookmarks">
+              {bookmarks.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 16 }}>
+                  Sin marcadores aún. Usa el botón "Marcar" para agregar uno.
+                </p>
+              ) : (
+                bookmarks.map((bm) => (
+                  <div
+                    key={bm.id}
+                    className={`reader-bookmark-item ${bm.page === currentPage ? 'active' : ''}`}
+                    onClick={() => { handleGoToBookmark(bm.page); setShowMobileMenu(false); }}
+                  >
+                    <BookmarkCheck size={14} style={{ color: bm.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>{bm.label}</span>
+                    <button
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await removeBookmark(book.id, bm.id);
+                        setBookmarks(prev => prev.filter(b => b.id !== bm.id));
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Tool Grid */}
+          <div className="reader-sheet-grid">
+            {book.format !== 'image' && (
+              <button
+                className={`reader-sheet-btn ${pageLayout === 'single' ? 'active' : ''}`}
+                onClick={() => setPageLayout(pageLayout === 'single' ? 'double' : 'single')}
+              >
+                {pageLayout === 'single' ? <Columns2 size={20} /> : <BookOpen size={20} />}
+                <span className="sheet-btn-label">
+                  {pageLayout === 'single' ? 'Doble' : 'Simple'}
+                </span>
+              </button>
+            )}
+
+            <button
+              className={`reader-sheet-btn ${mobileSubView === 'themes' ? 'active' : ''}`}
+              onClick={() => setMobileSubView(mobileSubView === 'themes' ? 'none' : 'themes')}
+            >
+              <Palette size={20} />
+              <span className="sheet-btn-label">Tema</span>
+            </button>
+
+            <button
+              className={`reader-sheet-btn ${isCurrentPageBookmarked ? 'active' : ''}`}
+              onClick={() => { handleToggleBookmark(); }}
+            >
+              {isCurrentPageBookmarked ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
+              <span className="sheet-btn-label">
+                {isCurrentPageBookmarked ? 'Marcado' : 'Marcar'}
+              </span>
+            </button>
+
+            <button
+              className={`reader-sheet-btn ${mobileSubView === 'bookmarks' ? 'active' : ''}`}
+              onClick={() => setMobileSubView(mobileSubView === 'bookmarks' ? 'none' : 'bookmarks')}
+            >
+              <List size={20} />
+              <span className="sheet-btn-label">Lista ({bookmarks.length})</span>
+            </button>
+
+            <button
+              className="reader-sheet-btn"
+              onClick={() => {
+                setShowSearch(true);
+                setShowMobileMenu(false);
+                setTimeout(() => searchInputRef.current?.focus(), 200);
+              }}
+            >
+              <Search size={20} />
+              <span className="sheet-btn-label">Buscar</span>
+            </button>
+
+            <button className="reader-sheet-btn" onClick={() => { handleFullscreen(); setShowMobileMenu(false); }}>
+              <Maximize size={20} />
+              <span className="sheet-btn-label">Completa</span>
+            </button>
+
+            <button
+              className="reader-sheet-btn"
+              onClick={() => {
+                setShowMobileMenu(false);
+                // Scroll to TTS in toolbar — on mobile, just toggle the panel
+              }}
+            >
+              <Volume2 size={20} />
+              <span className="sheet-btn-label">Narrar</span>
+            </button>
+
+            <button
+              className={`reader-sheet-btn ${showAiPanel ? 'active' : ''}`}
+              onClick={() => { setShowAiPanel(!showAiPanel); setShowMobileMenu(false); }}
+            >
+              <Bot size={20} />
+              <span className="sheet-btn-label">Hermes</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
