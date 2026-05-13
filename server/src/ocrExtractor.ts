@@ -1,8 +1,7 @@
 /**
  * OCR Extractor — Extracts text from scanned PDFs using Tesseract.js and MuPDF
+ * All heavy dependencies are loaded lazily to keep memory low on production.
  */
-import { createWorker } from 'tesseract.js';
-import * as mupdf from 'mupdf';
 import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -12,12 +11,16 @@ import { tmpdir } from 'os';
  * Very useful for AI title identification when the PDF has no text layer.
  */
 export async function extractOcrText(filePath: string, pagesToScan = 2): Promise<string> {
-  let worker: Tesseract.Worker | null = null;
-  let doc: mupdf.Document | null = null;
+  let worker: any = null;
+  let doc: any = null;
   const tempFiles: string[] = [];
   let extractedText = '';
 
   try {
+    // Lazy-load heavy dependencies to avoid memory bloat at startup
+    const { createWorker } = await import('tesseract.js');
+    const mupdf = await import('mupdf');
+
     // 1. Initialize Tesseract
     worker = await createWorker('spa'); // Load Spanish language
     
@@ -30,7 +33,7 @@ export async function extractOcrText(filePath: string, pagesToScan = 2): Promise
     
     // 3. Process each page
     for (let i = 0; i < limit; i++) {
-      console.log(`👁️ OCR scanning page ${i + 1}/${limit}...`);
+      console.log(`OCR scanning page ${i + 1}/${limit}...`);
       
       // Render page to PNG using MuPDF
       const page = doc.loadPage(i);
