@@ -135,7 +135,17 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   return { success: true, user: safeUser, token };
 }
 
-export async function getAuthenticatedUser(token: string): Promise<Omit<UserRow, 'password_hash'> | null> {
+export async function getAuthenticatedUser(tokenOrReq: string | { cookies?: Record<string, string> }): Promise<Omit<UserRow, 'password_hash'> | null> {
+  // Accept either a raw token string or an Express Request object
+  let token: string | undefined;
+  if (typeof tokenOrReq === 'string') {
+    token = tokenOrReq;
+  } else if (tokenOrReq && typeof tokenOrReq === 'object') {
+    token = tokenOrReq.cookies?.[COOKIE_NAME];
+  }
+
+  if (!token) return null;
+
   const payload = verifyJWT(token);
   if (!payload) return null;
 
