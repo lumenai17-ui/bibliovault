@@ -8,6 +8,7 @@ import Statistics from './components/Dashboard/Statistics';
 import CategoriesDashboard from './components/Dashboard/CategoriesDashboard';
 import AuthPage, { type AuthUser } from './components/Auth/AuthPage';
 import CommunityExplorer from './components/Community/CommunityExplorer';
+import SettingsPage from './components/Settings/SettingsPage';
 import type { Book, ViewMode, BookFormat } from './types';
 import {
   fetchBooks,
@@ -295,6 +296,7 @@ export default function App() {
         stats={stats}
         categories={categories}
         collections={collections}
+        currentUser={currentUser}
       />
       <main className="app-main">
         <Header
@@ -343,6 +345,16 @@ export default function App() {
             <Statistics />
           ) : activeSection === 'community' ? (
             <CommunityExplorer onNavigateBack={() => setActiveSection('home')} />
+          ) : activeSection === 'settings' && currentUser ? (
+            <SettingsPage
+              currentUser={currentUser}
+              onUserUpdate={(u) => setCurrentUser(u)}
+              onLogout={async () => {
+                const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
+                await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+                setCurrentUser(null);
+              }}
+            />
           ) : (
             <LibraryGrid
               books={books}

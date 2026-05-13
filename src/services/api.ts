@@ -589,3 +589,126 @@ export async function voteApi(targetType: 'thread' | 'reply', targetId: number, 
 
 // Export API base so components can link directly to download endpoints
 export { API_BASE };
+
+// ============================================
+//  Subscription & PayPal (Phase 14)
+// ============================================
+
+export interface SubscriptionStatus {
+  plan: string;
+  subscriptionId: string | null;
+  status: string;
+  startDate: string | null;
+  endDate: string | null;
+  nextBilling: string | null;
+  price: string;
+  currency: string;
+}
+
+export async function createSubscriptionApi(couponCode?: string): Promise<{ subscriptionId: string; approveUrl: string }> {
+  const res = await fetch(`${API_BASE}/subscription/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ couponCode }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Error al crear suscripción');
+  }
+  return res.json();
+}
+
+export async function cancelSubscriptionApi(reason?: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/subscription/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error('Error al cancelar');
+}
+
+export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
+  const res = await fetch(`${API_BASE}/subscription/status`, { credentials: 'include' });
+  return res.json();
+}
+
+// ── Profile ──
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string;
+  plan: string;
+  avatar_url: string;
+  bio: string;
+  preferences: Record<string, any>;
+  subscription_status: string;
+  subscription_start: string | null;
+  subscription_end: string | null;
+  created_at: string;
+  last_login: string | null;
+}
+
+export async function fetchProfile(): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/profile`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function updateProfile(data: { display_name?: string; bio?: string; avatar_url?: string }): Promise<void> {
+  await fetch(`${API_BASE}/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePreferences(preferences: Record<string, any>): Promise<void> {
+  await fetch(`${API_BASE}/profile/preferences`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ preferences }),
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success?: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/profile/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return res.json();
+}
+
+// ── Coupons ──
+
+export async function validateCouponApi(code: string): Promise<{ valid: boolean; discount: number; message: string }> {
+  const res = await fetch(`${API_BASE}/coupons/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ code }),
+  });
+  return res.json();
+}
+
+// ── Payments ──
+
+export interface PaymentRecord {
+  id: number;
+  paypal_payment_id: string;
+  amount: string;
+  currency: string;
+  status: string;
+  coupon_code: string | null;
+  created_at: string;
+}
+
+export async function fetchPayments(): Promise<PaymentRecord[]> {
+  const res = await fetch(`${API_BASE}/payments`, { credentials: 'include' });
+  return res.json();
+}

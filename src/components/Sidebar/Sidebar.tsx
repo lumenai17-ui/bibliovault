@@ -13,8 +13,11 @@ import {
   Trash,
   CloudUpload,
   MessageCircle,
+  User,
+  Settings,
 } from 'lucide-react';
 import type { ApiCategory } from '../../services/api';
+import type { AuthUser } from '../Auth/AuthPage';
 import type { Collection } from '../../types';
 import UploadPanel from '../Upload/UploadPanel';
 import './Sidebar.css';
@@ -31,6 +34,7 @@ interface SidebarProps {
   };
   categories?: ApiCategory[];
   collections?: Collection[];
+  currentUser?: AuthUser | null;
 }
 
 const NAV_ITEMS = [
@@ -42,7 +46,7 @@ const NAV_ITEMS = [
   { id: 'community', label: 'Foro', icon: MessageCircle },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [] }: SidebarProps) {
+export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser }: SidebarProps) {
   const [showCategories, setShowCategories] = useState(false);
   const [showCollections, setShowCollections] = useState(true);
   const [showUploads, setShowUploads] = useState(false);
@@ -199,6 +203,24 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
           </div>
         </div>
       </div>
+
+      {/* User Section */}
+      {currentUser && (
+        <div className="sidebar-user">
+          <div className="sidebar-user-info" onClick={() => onSectionChange('settings')}>
+            <div className="sidebar-user-avatar">
+              {currentUser.avatar_url ? <img src={currentUser.avatar_url} alt="" /> : <User size={16} />}
+            </div>
+            <div className="sidebar-user-details">
+              <div className="sidebar-user-name">{currentUser.display_name || 'Usuario'}</div>
+              <div className={`sidebar-user-plan ${currentUser.plan === 'premium' ? 'premium' : 'free'}`}>
+                {currentUser.plan === 'premium' ? '✨ Premium' : 'Free'}
+              </div>
+            </div>
+            <Settings size={14} style={{ color: 'var(--text-muted)' }} />
+          </div>
+        </div>
+      )}
 
       {showUploads && <UploadPanel onClose={() => setShowUploads(false)} />}
     </aside>

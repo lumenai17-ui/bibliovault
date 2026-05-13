@@ -1333,6 +1333,255 @@ app.get('/api/backup', async (_req, res) => {
 });
 
 // ============================================
+//  Subscription & PayPal (Phase 14)
+// ============================================
+
+import {
+  createSubscription, cancelSubscription, getUserSubscription,
+  getPaymentHistory, handlePayPalWebhook,
+} from './paypal.js';
+import { validateCoupon, applyCoupon, createCoupon, listCoupons } from './coupons.js';
+
+// Create subscription → returns PayPal approval URL
+app.post('/api/subscription/create', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { couponCode } = req.body;
+    let discount = 0;
+
+    if (couponCode) {
+      const validation = await validateCoupon(couponCode);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message });
+      }
+      discount = validation.discount;
+    }
+
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const returnUrl = `${origin}/api/subscription/success`;
+    const cancelUrl = `${origin}/api/subscription/cancelled`;
+
+    const result = await createSubscription(user.id, returnUrl, cancelUrl, discount);
+
+    if (couponCode && discount > 0) {
+      await applyCoupon(couponCode);
+    }
+
+    res.json(result);
+  } catch (err: any) {
+    console.error('Subscription create error:', err);
+    res.status(500).json({ error: err.message || 'Error al crear suscripción' });
+  }
+});
+
+// PayPal return URL after approval
+app.get('/api/subscription/success', (_req, res) => {
+  // Redirect to frontend settings page with success flag
+  const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+  res.redirect(`${frontendUrl}/#subscription=success`);
+});
+
+app.get('/api/subscription/cancelled', (_req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
+  res.redirect(`${frontendUrl}/#subscription=cancelled`);
+});
+
+// Cancel subscription
+app.post('/api/subscription/cancel', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const sub = await getUserSubscription(user.id);
+    if (!sub?.subscriptionId) {
+      return res.status(400).json({ error: 'No hay suscripción activa' });
+    }
+
+    await cancelSubscription(sub.subscriptionId, req.body.reason || 'Cancelado por el usuario');
+
+    const pool = (await import('./pgDatabase.js')).getPgPool();
+    await pool.query(`
+      UPDATE users SET plan = 'free', subscription_status = 'cancelled', subscription_end = NOW()
+      WHERE id = $1
+    `, [user.id]);
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Cancel error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get subscription status
+app.get('/api/subscription/status', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const sub = await getUserSubscription(user.id);
+    res.json(sub || { plan: 'free', status: 'none' });
+  } catch (err) {
+    console.error('Subscription status error:', err);
+    res.status(500).json({ error: 'Failed to get subscription status' });
+  }
+});
+
+// PayPal Webhook (no auth — PayPal calls this)
+app.post('/api/paypal/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    await handlePayPalWebhook(event);
+    res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(200).json({ received: true }); // Always 200 to avoid retries
+  }
+});
+
+// Payment history
+app.get('/api/payments', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const history = await getPaymentHistory(user.id);
+    res.json(history);
+  } catch (err) {
+    console.error('Payment history error:', err);
+    res.status(500).json({ error: 'Failed to load payment history' });
+  }
+});
+
+// Validate coupon
+app.post('/api/coupons/validate', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Código requerido' });
+    const result = await validateCoupon(code);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al validar cupón' });
+  }
+});
+
+// Create coupon (admin — any authenticated user for now)
+app.post('/api/coupons', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const { code, discountPercent, maxUses, validUntil } = req.body;
+    const coupon = await createCoupon(code, discountPercent, maxUses || 100, validUntil || null, user.id);
+    res.json(coupon);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================
+//  User Profile (Phase 14)
+// ============================================
+
+// Get full profile
+app.get('/api/profile', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const pool = (await import('./pgDatabase.js')).getPgPool();
+    const result = await pool.query(`
+      SELECT id, email, display_name, plan, avatar_url, bio, preferences,
+             subscription_status, subscription_start, subscription_end,
+             created_at, last_login
+      FROM users WHERE id = $1
+    `, [user.id]);
+
+    res.json(result.rows[0] || null);
+  } catch (err) {
+    console.error('Profile error:', err);
+    res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
+
+// Update profile
+app.put('/api/profile', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { display_name, bio, avatar_url } = req.body;
+    const pool = (await import('./pgDatabase.js')).getPgPool();
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (display_name !== undefined) { fields.push(`display_name = $${idx++}`); values.push(display_name); }
+    if (bio !== undefined) { fields.push(`bio = $${idx++}`); values.push(bio); }
+    if (avatar_url !== undefined) { fields.push(`avatar_url = $${idx++}`); values.push(avatar_url); }
+
+    if (fields.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+    values.push(user.id);
+    await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${idx}`, values);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Update preferences
+app.put('/api/profile/preferences', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const pool = (await import('./pgDatabase.js')).getPgPool();
+    await pool.query('UPDATE users SET preferences = $1 WHERE id = $2', [
+      JSON.stringify(req.body.preferences || {}),
+      user.id,
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+// Change password
+app.put('/api/profile/password', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const pool = (await import('./pgDatabase.js')).getPgPool();
+    const userRow = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    const hash = userRow.rows[0]?.password_hash;
+
+    if (hash && hash.startsWith('$2')) {
+      const bcrypt = (await import('bcryptjs')).default;
+      const valid = await bcrypt.compare(currentPassword, hash);
+      if (!valid) return res.status(400).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    const bcrypt = (await import('bcryptjs')).default;
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, user.id]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// ============================================
 //  Community & Forums (Phase 15)
 // ============================================
 

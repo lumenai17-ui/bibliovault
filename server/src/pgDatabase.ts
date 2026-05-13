@@ -137,6 +137,12 @@ export async function initPgSchema(): Promise<void> {
       display_name TEXT DEFAULT '',
       plan TEXT DEFAULT 'free',
       avatar_url TEXT DEFAULT '',
+      bio TEXT DEFAULT '',
+      preferences JSONB DEFAULT '{}',
+      paypal_subscription_id TEXT,
+      subscription_status TEXT DEFAULT 'none',
+      subscription_start TIMESTAMPTZ,
+      subscription_end TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
@@ -251,6 +257,31 @@ export async function initPgSchema(): Promise<void> {
       note TEXT DEFAULT '',
       added_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (community_id, book_id)
+    );
+
+    -- Payment & Subscription tables (Phase 14)
+    CREATE TABLE IF NOT EXISTS payment_history (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      paypal_payment_id TEXT,
+      amount DECIMAL(10,2),
+      currency TEXT DEFAULT 'USD',
+      status TEXT DEFAULT 'completed',
+      coupon_code TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS coupons (
+      id SERIAL PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      discount_percent INTEGER NOT NULL,
+      max_uses INTEGER DEFAULT 100,
+      current_uses INTEGER DEFAULT 0,
+      valid_from TIMESTAMPTZ DEFAULT NOW(),
+      valid_until TIMESTAMPTZ,
+      created_by TEXT REFERENCES users(id),
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
 
