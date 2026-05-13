@@ -13,7 +13,7 @@ import {
   updateLastLogin,
   updateUserPassword,
   type UserRow,
-} from './database.js';
+} from './db.js';
 
 // ── Configuration ──
 const JWT_SECRET = process.env.JWT_SECRET || 'bibliovault-dev-secret-change-in-production-2026';
@@ -88,7 +88,7 @@ export async function registerUser(email: string, password: string, displayName:
   }
 
   // Check if email already exists
-  const existing = getUserByEmail(email.toLowerCase().trim());
+  const existing = await getUserByEmail(email.toLowerCase().trim());
   if (existing) {
     return { success: false, error: 'Ya existe una cuenta con ese email.' };
   }
@@ -96,11 +96,11 @@ export async function registerUser(email: string, password: string, displayName:
   // Create user
   const id = uuidv4();
   const passwordHash = await hashPassword(password);
-  createUser(id, email.toLowerCase().trim(), passwordHash, displayName.trim() || 'Usuario');
+  await createUser(id, email.toLowerCase().trim(), passwordHash, displayName.trim() || 'Usuario');
   
-  const user = getUserById(id)!;
+  const user = (await getUserById(id))!;
   const token = generateJWT(user);
-  updateLastLogin(id);
+  await updateLastLogin(id);
 
   const { password_hash: _, ...safeUser } = user;
   return { success: true, user: safeUser, token };
@@ -111,7 +111,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     return { success: false, error: 'Email y contraseña son requeridos.' };
   }
 
-  const user = getUserByEmail(email.toLowerCase().trim());
+  const user = await getUserByEmail(email.toLowerCase().trim());
   if (!user) {
     return { success: false, error: 'Credenciales inválidas.' };
   }
@@ -120,7 +120,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   if (!user.password_hash.startsWith('$2') ) {
     // First real login: set the password
     const hash = await hashPassword(password);
-    updateUserPassword(user.id, hash);
+    await updateUserPassword(user.id, hash);
   } else {
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
@@ -129,19 +129,20 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   }
 
   const token = generateJWT(user);
-  updateLastLogin(user.id);
+  await updateLastLogin(user.id);
 
   const { password_hash: _, ...safeUser } = user;
   return { success: true, user: safeUser, token };
 }
 
-export function getAuthenticatedUser(token: string): Omit<UserRow, 'password_hash'> | null {
+export async function getAuthenticatedUser(token: string): Promise<Omit<UserRow, 'password_hash'> | null> {
   const payload = verifyJWT(token);
   if (!payload) return null;
 
-  const user = getUserById(payload.userId);
+  const user = await getUserById(payload.userId);
   if (!user) return null;
 
   const { password_hash: _, ...safeUser } = user;
   return safeUser;
 }
+

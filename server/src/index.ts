@@ -5,7 +5,8 @@ import { join, dirname } from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import {
-  getDb,
+  initDatabase,
+  isPostgres,
   getAllBooks,
   getBookById,
   updateBook,
@@ -13,7 +14,23 @@ import {
   getStats,
   getUnenrichedBooks,
   getBooksWithoutCovers,
-} from './database.js';
+  getUserById,
+  updateUser,
+  getCollections,
+  createCollection,
+  updateCollection as updateCollectionDb,
+  deleteCollection as deleteCollectionDb,
+  addBookToCollection,
+  removeBookFromCollection,
+  getBookCollections,
+  getAffiliateLinks,
+  upsertAffiliateLink,
+  trackAffiliateClick,
+  getUserUploads,
+  countUserUploads,
+  insertUserUpload,
+  deleteUserUpload,
+} from './db.js';
 import { scanLibrary, type ScanProgress } from './scanner.js';
 import { streamChat, checkHermesHealth, llmComplete, streamOrganizerChat } from './hermes.js';
 import { extractPdfText, extractBookExcerpt, isPdfTextBased } from './textExtractor.js';
@@ -42,7 +59,6 @@ import {
   getSessionCookieOptions,
 } from './auth.js';
 import { requireAuth, optionalAuth } from './middleware/requireAuth.js';
-import { getUserById, updateUser } from './database.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -57,13 +73,16 @@ app.use(cookieParser());
 // Serve static covers
 app.use('/covers', express.static(COVERS_DIR));
 
-// Initialize database on startup
-getDb();
-initFtsSchema();
+// Initialize database on startup (async for PostgreSQL support)
+await initDatabase();
+if (!isPostgres()) {
+  initFtsSchema();
+}
 console.log('📦 Database initialized');
 
-// Sync cover paths on startup — update DB to prefer API covers over SVG
-(function syncCoverPaths() {
+// Sync cover paths on startup — only for local SQLite mode
+if (!isPostgres()) {
+  const { getDb } = await import('./database.js');
   const db = getDb();
   const books = db.prepare('SELECT id, cover_path, cover_source FROM books').all() as Array<{
     id: number; cover_path: string; cover_source: string;
@@ -76,18 +95,18 @@ console.log('📦 Database initialized');
     const pdfJpgPath = join(COVERS_DIR, `${book.id}_pdf.jpg`);
 
     if (existsSync(jpgPath) && book.cover_path !== jpgPath) {
-      updateBook(book.id, { cover_path: jpgPath, cover_source: 'api' } as any);
+      await updateBook(book.id, { cover_path: jpgPath, cover_source: 'api' } as any);
       updated++;
     } else if (existsSync(pngPath) && book.cover_path !== pngPath) {
-      updateBook(book.id, { cover_path: pngPath, cover_source: 'api' } as any);
+      await updateBook(book.id, { cover_path: pngPath, cover_source: 'api' } as any);
       updated++;
-    } else if (existsSync(pdfJpgPath) && book.cover_path !== pdfJpgPath && book.cover_source !== 'api') {
-      updateBook(book.id, { cover_path: pdfJpgPath, cover_source: 'pdf' } as any);
+    } else if (existsSync(pdfJpgPath) && book.cover_path !== pdfJpgPath) {
+      await updateBook(book.id, { cover_path: pdfJpgPath, cover_source: 'pdf' } as any);
       updated++;
     }
   }
   if (updated > 0) console.log(`🖼️  Cover sync: updated ${updated} book cover paths`);
-})();
+}
 
 // ── Scan state ──
 let currentScan: ScanProgress | null = null;
@@ -420,15 +439,7 @@ app.get('/api/categories', (_req, res) => {
 });
 
 // ── Collections ──
-import {
-  getCollections,
-  createCollection,
-  updateCollection,
-  deleteCollection,
-  addBookToCollection,
-  removeBookFromCollection,
-  getBookCollections
-} from './database.js';
+// Collections imported from db.js at top
 
 app.get('/api/collections', optionalAuth, (req, res) => {
   const collections = getCollections();
@@ -623,7 +634,7 @@ app.delete('/api/books/:id/bookmarks/:bookmarkId', optionalAuth, (req, res) => {
 });
 
 // ── Affiliate Links & Monetization ──
-import { getAffiliateLinks, upsertAffiliateLink, trackAffiliateClick } from './database.js';
+// Affiliate imports from db.js at top
 
 // Get affiliate links for a book (public — shows buy options)
 app.get('/api/books/:id/affiliate-links', optionalAuth, (req, res) => {
@@ -701,7 +712,7 @@ app.get('/api/affiliate/stats', requireAuth, (req, res) => {
 
 // ── User Uploads ──
 import { upload, getUploadLimit, deleteUploadFile, UPLOADS_DIR as UPLOAD_PATH } from './uploadStorage.js';
-import { getUserUploads, countUserUploads, insertUserUpload, deleteUserUpload } from './database.js';
+// Upload imports from db.js at top
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(UPLOAD_PATH));
@@ -1158,7 +1169,6 @@ app.get('/api/export/csv', (_req, res) => {
 
 // Download DB Backup
 import { DB_PATH } from './database.js';
-import { existsSync } from 'fs';
 
 app.get('/api/backup', (_req, res) => {
   if (existsSync(DB_PATH)) {
