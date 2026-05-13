@@ -56,7 +56,8 @@
   padding: 48px 40px;
   position: relative;
   z-index: 1;
-  animation: slideInUp var(--duration-normal) var(--ease-out);
+  animation: slideInUp 0.4s var(--ease-out);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3), 0 0 60px rgba(102,126,234,0.08);
 }
 
 .auth-logo {
@@ -192,8 +193,24 @@
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.auth-switch button::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: var(--accent-primary);
+  transition: width 0.2s;
+}
+
+.auth-switch button:hover::after {
+  width: 100%;
 }
 
 .auth-switch button:hover {
