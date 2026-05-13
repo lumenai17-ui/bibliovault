@@ -312,8 +312,12 @@ app.get('/api/books/:id/cover', async (req, res) => {
     return res.send(content);
   };
 
-  // 1. Check existing cover_path (could be API jpg, PDF jpg, or SVG)
+  // 1. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)
   const coverPath = book.cover_path as string;
+  if (coverPath && coverPath.startsWith('http')) {
+    // Supabase Storage URL — redirect to it
+    return res.redirect(coverPath);
+  }
   if (coverPath && existsSync(coverPath)) {
     return serveImage(coverPath);
   }
