@@ -54,14 +54,29 @@ function mapBook(b: ApiBook): Book {
   };
 }
 
-function getSectionTitle(section: string): string {
+function getSectionTitle(
+  section: string,
+  categories: ApiCategory[] = [],
+  collections: Collection[] = [],
+): string {
   const titles: Record<string, string> = {
     all: 'Toda la Biblioteca',
-    favorites: 'Favoritos',
-    reading: 'Leyendo Ahora',
-    recent: 'Agregados Recientemente',
+    favorites: '⭐ Favoritos',
+    reading: '📖 Leyendo Ahora',
+    recent: '🕐 Agregados Recientemente',
   };
-  return titles[section] || 'Biblioteca';
+  if (titles[section]) return titles[section];
+  if (section.startsWith('cat-')) {
+    const catId = parseInt(section.replace('cat-', ''));
+    const cat = categories.find(c => c.id === catId);
+    return cat?.name || 'Categoría';
+  }
+  if (section.startsWith('col-')) {
+    const colId = parseInt(section.replace('col-', ''));
+    const col = collections.find(c => c.id === colId);
+    return `📁 ${col?.name || 'Colección'}`;
+  }
+  return 'Biblioteca';
 }
 
 export default function App() {
@@ -380,11 +395,13 @@ export default function App() {
               books={books}
               viewMode={viewMode}
               isLoading={isLoading}
-              sectionTitle={getSectionTitle(activeSection)}
+              sectionTitle={getSectionTitle(activeSection, categories, collections)}
               onReadBook={handleOpenReader}
               onBookDetail={(book) => setDetailBook(book)}
               onToggleFavorite={handleToggleFavorite}
               onScan={handleScan}
+              showBack={activeSection !== 'all' && activeSection !== 'home'}
+              onBack={() => setActiveSection('home')}
             />
           )}
         </div>

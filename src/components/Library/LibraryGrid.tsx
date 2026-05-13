@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Library, ScanLine, Sparkles } from 'lucide-react';
+import { Library, ScanLine, Sparkles, ArrowLeft, ChevronRight } from 'lucide-react';
 import BookCard from '../BookCard/BookCard';
 import type { Book, ViewMode } from '../../types';
 import './LibraryGrid.css';
@@ -13,6 +13,8 @@ interface LibraryGridProps {
   onBookDetail: (book: Book) => void;
   onToggleFavorite: (book: Book) => void;
   onScan: () => void;
+  showBack?: boolean;
+  onBack?: () => void;
 }
 
 const PAGE_SIZE = 48; // Load 48 books at a time (6 columns × 8 rows)
@@ -26,6 +28,8 @@ export default function LibraryGrid({
   onBookDetail,
   onToggleFavorite,
   onScan,
+  showBack = false,
+  onBack,
 }: LibraryGridProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -58,6 +62,14 @@ export default function LibraryGrid({
   if (isLoading) {
     return (
       <div>
+        {showBack && onBack && (
+          <button className="library-breadcrumb" onClick={onBack}>
+            <ArrowLeft size={16} />
+            <span className="breadcrumb-home">Inicio</span>
+            <ChevronRight size={12} className="breadcrumb-sep" />
+            <span className="breadcrumb-current">{sectionTitle}</span>
+          </button>
+        )}
         <div className="library-section-header">
           <h2>{sectionTitle}</h2>
         </div>
@@ -78,7 +90,7 @@ export default function LibraryGrid({
     );
   }
 
-  if (books.length === 0) {
+  if (books.length === 0 && !showBack) {
     return (
       <div>
         <WelcomeBanner onScan={onScan} />
@@ -86,8 +98,41 @@ export default function LibraryGrid({
     );
   }
 
+  if (books.length === 0 && showBack) {
+    return (
+      <div>
+        {onBack && (
+          <button className="library-breadcrumb" onClick={onBack}>
+            <ArrowLeft size={16} />
+            <span className="breadcrumb-home">Inicio</span>
+            <ChevronRight size={12} className="breadcrumb-sep" />
+            <span className="breadcrumb-current">{sectionTitle}</span>
+          </button>
+        )}
+        <div className="library-section-header">
+          <h2>{sectionTitle}</h2>
+        </div>
+        <div className="library-empty-category">
+          <Library size={48} strokeWidth={1} />
+          <p>No hay libros en esta sección aún.</p>
+          <button className="btn btn-secondary" onClick={onBack}>
+            <ArrowLeft size={14} /> Volver al inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {showBack && onBack && (
+        <button className="library-breadcrumb" onClick={onBack}>
+          <ArrowLeft size={16} />
+          <span className="breadcrumb-home">Inicio</span>
+          <ChevronRight size={12} className="breadcrumb-sep" />
+          <span className="breadcrumb-current">{sectionTitle}</span>
+        </button>
+      )}
       <div className="library-section-header">
         <h2>{sectionTitle}</h2>
         <span>
