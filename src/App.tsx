@@ -82,7 +82,8 @@ export default function App() {
 
   // Check session on startup
   useEffect(() => {
-    fetch('http://localhost:3001/api/auth/me', { credentials: 'include' })
+    const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
+    fetch(`${base}/api/auth/me`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => setCurrentUser(data.user))
       .catch(() => setCurrentUser(null))
