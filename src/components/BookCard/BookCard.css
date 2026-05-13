@@ -1,0 +1,297 @@
+/* ============================================
+   BookCard Component Styles
+   ============================================ */
+
+.book-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  group: book;
+}
+
+.book-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+}
+
+.book-card-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.book-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+.book-card:hover .book-card-cover img {
+  transform: scale(1.05);
+}
+
+.book-card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: var(--gradient-surface);
+  color: var(--text-muted);
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.book-card-cover-placeholder svg {
+  width: 40px;
+  height: 40px;
+  opacity: 0.4;
+}
+
+.book-card-cover-placeholder span {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1.3;
+  opacity: 0.6;
+}
+
+/* Overlay on hover */
+.book-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(6, 9, 24, 0.95) 0%, rgba(6, 9, 24, 0.3) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-md);
+}
+
+.book-card:hover .book-card-overlay {
+  opacity: 1;
+}
+
+.book-card-overlay-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.book-card-overlay-actions button {
+  flex: 1;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.book-card-overlay-read {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.book-card-overlay-read:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+.book-card-overlay-info {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  backdrop-filter: blur(8px);
+}
+
+/* Badge */
+.book-card-badge {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 2;
+}
+
+/* Favorite button */
+.book-card-fav {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  opacity: 0;
+  color: var(--text-secondary);
+}
+
+.book-card:hover .book-card-fav {
+  opacity: 1;
+}
+
+.book-card-fav.is-fav {
+  opacity: 1;
+  color: var(--accent-danger);
+  background: rgba(245, 87, 108, 0.2);
+}
+
+.book-card-fav:hover {
+  transform: scale(1.15);
+}
+
+.book-card-fav svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Progress bar */
+.book-card-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  z-index: 2;
+}
+
+.book-card-progress-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+/* Info section below cover */
+.book-card-info {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.book-card-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.book-card-author {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── List View ── */
+.book-card-list {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  align-items: center;
+}
+
+.book-card-list:hover {
+  border-color: var(--glass-border-hover);
+  background: var(--bg-elevated);
+}
+
+.book-card-list-cover {
+  width: 48px;
+  height: 68px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+}
+
+.book-card-list-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-card-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.book-card-list-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-card-list-author {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.book-card-list-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+/* Category label */
+.book-card-category {
+  font-size: 10px;
+  color: var(--accent-primary);
+  opacity: 0.7;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Make cover placeholder sit behind the img */
+.book-card-cover {
+  position: relative;
+}
+
+.book-card-cover > img {
+  position: relative;
+  z-index: 1;
+}
+
+.book-card-cover > .book-card-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}

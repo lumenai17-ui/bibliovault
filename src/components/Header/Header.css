@@ -1,0 +1,203 @@
+/* ============================================
+   Header Component Styles
+   ============================================ */
+
+.header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: 0 var(--space-xl);
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(6, 9, 24, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 5;
+  flex-shrink: 0;
+}
+
+.header-search {
+  flex: 1;
+  max-width: 560px;
+  position: relative;
+}
+
+.header-search svg.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color var(--duration-normal) var(--ease-out);
+}
+
+.header-search:focus-within svg.search-icon {
+  color: var(--accent-primary);
+}
+
+.header-search input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md) var(--space-sm) 38px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  outline: none;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.header-search input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+  background: var(--bg-surface);
+}
+
+.header-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.header-search .search-shortcut {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  pointer-events: none;
+}
+
+.header-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.header-filter-chip:hover {
+  border-color: var(--glass-border-hover);
+  background: rgba(102, 126, 234, 0.08);
+  color: var(--text-primary);
+}
+
+.header-filter-chip.active {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.header-view-toggle {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+
+.header-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.header-view-btn:hover {
+  color: var(--text-primary);
+}
+
+.header-view-btn.active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.header-scan-btn {
+  position: relative;
+}
+
+.header-scan-btn.scanning {
+  pointer-events: none;
+}
+
+.header-scan-btn.scanning::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  border-top-color: var(--accent-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Enrichment status */
+.header-enrich-status,
+.header-enrich-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(102, 126, 234, 0.12);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  color: var(--accent-primary);
+  white-space: nowrap;
+}
+
+.header-enrich-done {
+  background: rgba(72, 187, 120, 0.12);
+  border-color: rgba(72, 187, 120, 0.25);
+  color: #48bb78;
+}
+
+.header-enrich-btn {
+  position: relative;
+  font-weight: var(--fw-semibold);
+}
+
+.header-enrich-btn.enriching {
+  pointer-events: none;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
