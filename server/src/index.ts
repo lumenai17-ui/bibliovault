@@ -238,11 +238,11 @@ import WordExtractor from 'word-extractor';
 app.get('/api/books/:id/html', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
-  const filePath = book.file_path as string;
+  const origPath = book.file_path as string;
+  const filePath = await resolveFilePath(origPath);
+  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
 
-  if (!existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
-
-  const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+  const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
   
   try {
     if (ext === 'docx') {
@@ -270,6 +270,36 @@ app.get('/api/books/:id/html', async (req, res) => {
 // ── Serve book files for the reader ──
 const TUNNEL_URL = process.env.TUNNEL_URL || ''; // e.g. https://xyz.trycloudflare.com
 const TUNNEL_SECRET = process.env.TUNNEL_SECRET || 'bv-tunnel-2026';
+
+// Helper: resolve a file path — local first, then via tunnel download to temp
+import { tmpdir } from 'os';
+import { createHash } from 'crypto';
+
+async function resolveFilePath(filePath: string): Promise<string | null> {
+  // 1. Local file exists?
+  if (existsSync(filePath)) return filePath;
+  
+  // 2. Try tunnel
+  if (!TUNNEL_URL) return null;
+  
+  try {
+    const tunnelFileUrl = `${TUNNEL_URL}/file?path=${encodeURIComponent(filePath)}&secret=${TUNNEL_SECRET}`;
+    const tunnelRes = await fetch(tunnelFileUrl);
+    if (!tunnelRes.ok) return null;
+    
+    // Download to temp file
+    const hash = createHash('md5').update(filePath).digest('hex').slice(0, 12);
+    const ext = filePath.match(/\.([^.]+)$/)?.[1] || 'bin';
+    const tempPath = join(tmpdir(), `bv_${hash}.${ext}`);
+    
+    const buffer = Buffer.from(await tunnelRes.arrayBuffer());
+    writeFileSync(tempPath, buffer);
+    return tempPath;
+  } catch (err) {
+    console.error('Tunnel download failed:', err);
+    return null;
+  }
+}
 
 app.get('/api/books/:id/file', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
@@ -358,7 +388,7 @@ app.get('/api/books/:id/cover', async (req, res) => {
   }
 
   // 4. Generate SVG fallback
-  const filePath = book.file_path as string;
+  const filePath = await resolveFilePath(book.file_path as string) || book.file_path as string;
   try {
     const newCoverPath = await generateCover(
       bookId, filePath, book.title as string, book.author as string,
@@ -379,8 +409,9 @@ app.get('/api/books/:id/text', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
-  const filePath = book.file_path as string;
-  if (!existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  const origPath = book.file_path as string;
+  const filePath = await resolveFilePath(origPath);
+  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
 
   const startPage = req.query.start ? parseInt(req.query.start as string) : undefined;
   const endPage = req.query.end ? parseInt(req.query.end as string) : undefined;
@@ -401,8 +432,9 @@ app.post('/api/books/:id/summary', async (req, res) => {
     return res.json({ summary: book.ai_summary, cached: true });
   }
 
-  const filePath = book.file_path as string;
-  if (!existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  const origPath = book.file_path as string;
+  const filePath = await resolveFilePath(origPath);
+  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
 
   try {
     let excerpt = '';
@@ -1002,8 +1034,9 @@ app.post('/api/books/:id/identify-title', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
-  const filePath = book.file_path as string;
-  const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
+  const origPath = book.file_path as string;
+  const filePath = await resolveFilePath(origPath) || origPath;
+  const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
 
   try {
     let result = null;
