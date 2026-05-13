@@ -30,7 +30,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--duration-slow) var(--ease-out);
+  transition: transform var(--duration-slow) var(--ease-out), opacity 0.3s ease;
+  opacity: 0;
+}
+
+.book-card-cover img.loaded {
+  opacity: 1;
 }
 
 .book-card:hover .book-card-cover img {

@@ -1,5 +1,65 @@
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
+// ── Resilient fetch with retry + error handling ──
+
+export class ApiConnectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiConnectionError';
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  retries = 2,
+  backoffMs = 1000,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      
+      if (res.ok || res.status < 500) return res; // Don't retry client errors
+      
+      // Server error — retry
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+        continue;
+      }
+      throw new ApiConnectionError(
+        err instanceof Error && err.name === 'AbortError'
+          ? 'El servidor no respondió a tiempo. Verifica tu conexión.'
+          : 'No se pudo conectar al servidor. ¿Está activo el servicio?'
+      );
+    }
+  }
+  throw new ApiConnectionError('No se pudo conectar después de varios intentos.');
+}
+
+/** Check server health */
+export async function checkHealth(): Promise<{
+  status: string;
+  uptime: number;
+  services: Record<string, string>;
+  memory: { used: number; total: number; rss: number };
+}> {
+  const res = await fetch(`${API_BASE}/health`);
+  return res.json();
+}
+
 export interface ApiBook {
   id: number;
   title: string;
@@ -71,12 +131,12 @@ export async function fetchBooks(params: {
   if (params.search) qs.set('search', params.search);
   if (params.collection_id) qs.set('collection_id', String(params.collection_id));
 
-  const res = await fetch(`${API_BASE}/books?${qs}`);
+  const res = await fetchWithRetry(`${API_BASE}/books?${qs}`);
   return res.json();
 }
 
 export async function fetchBook(id: number): Promise<ApiBook> {
-  const res = await fetch(`${API_BASE}/books/${id}`);
+  const res = await fetchWithRetry(`${API_BASE}/books/${id}`);
   return res.json();
 }
 
@@ -89,12 +149,12 @@ export async function updateBook(id: number, updates: Record<string, unknown>): 
 }
 
 export async function fetchCategories(): Promise<ApiCategory[]> {
-  const res = await fetch(`${API_BASE}/categories`);
+  const res = await fetchWithRetry(`${API_BASE}/categories`);
   return res.json();
 }
 
 export async function fetchStats(): Promise<LibraryStats> {
-  const res = await fetch(`${API_BASE}/stats`);
+  const res = await fetchWithRetry(`${API_BASE}/stats`);
   return res.json();
 }
 

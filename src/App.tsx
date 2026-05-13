@@ -17,6 +17,7 @@ import {
   startScan,
   fetchScanStatus,
   updateBook as apiUpdateBook,
+  ApiConnectionError,
   type ApiBook,
   type ApiCategory,
 } from './services/api';
@@ -79,6 +80,7 @@ export default function App() {
   const [activeBook, setActiveBook] = useState<Book | null>(null);
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Check session on startup
   useEffect(() => {
@@ -120,7 +122,11 @@ export default function App() {
 
       setBooks(mapped);
       setTotalBooks(result.total);
+      setConnectionError(null); // Clear error on success
     } catch (err) {
+      if (err instanceof ApiConnectionError) {
+        setConnectionError(err.message);
+      }
       console.error('Failed to load books:', err);
     } finally {
       setIsLoading(false);
@@ -151,6 +157,16 @@ export default function App() {
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
   useEffect(() => { loadMeta(); }, [loadMeta]);
+
+  // Auto-retry on connection error
+  useEffect(() => {
+    if (!connectionError) return;
+    const timer = setInterval(() => {
+      loadBooks();
+      loadMeta();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [connectionError, loadBooks, loadMeta]);
 
   // Search debounce
   useEffect(() => {
@@ -292,6 +308,29 @@ export default function App() {
           onRefresh={loadBooks}
         />
         <div className="app-content">
+          {/* Connection error banner */}
+          {connectionError && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '12px',
+              padding: '14px 20px',
+              margin: '0 0 16px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: '#fca5a5',
+              fontSize: '14px',
+              backdropFilter: 'blur(10px)',
+            }}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <div>
+                <strong style={{ color: '#fecaca' }}>Conexión interrumpida</strong>
+                <span style={{ opacity: 0.8, marginLeft: '8px' }}>{connectionError}</span>
+                <span style={{ opacity: 0.5, marginLeft: '8px' }}>• Reintentando automáticamente...</span>
+              </div>
+            </div>
+          )}
           {activeSection === 'home' ? (
             <CategoriesDashboard 
               categories={categories} 

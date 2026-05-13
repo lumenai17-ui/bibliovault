@@ -33,7 +33,9 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
     return (
       <div className="book-card-list" onClick={() => onDetail(book)}>
         <div className="book-card-list-cover">
-          <img src={coverUrl} alt={book.title} loading="lazy" onError={(e) => {
+          <img src={coverUrl} alt={book.title} loading="lazy" onLoad={(e) => {
+            (e.target as HTMLImageElement).classList.add('loaded');
+          }} onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
             (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
           }} />
@@ -60,7 +62,9 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
   return (
     <div className="book-card" onClick={() => onDetail(book)}>
       <div className="book-card-cover">
-        <img src={coverUrl} alt={book.title} loading="lazy" onError={(e) => {
+        <img src={coverUrl} alt={book.title} loading="lazy" onLoad={(e) => {
+          (e.target as HTMLImageElement).classList.add('loaded');
+        }} onError={(e) => {
           (e.target as HTMLImageElement).style.display = 'none';
         }} />
         <div className="book-card-cover-placeholder">

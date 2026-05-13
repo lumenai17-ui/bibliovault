@@ -120,6 +120,49 @@ let scanRunning = false;
 
 // â”€â”€ Authentication â”€â”€
 
+
+// -- Health Check --
+
+const SERVER_START = Date.now();
+
+app.get('/api/health', async (_req, res) => {
+  const services: Record<string, string> = {};
+  
+  try {
+    const s = await getStats();
+    services.database = 'ok';
+    services.books = String((s as any).total || 0);
+  } catch {
+    services.database = 'error';
+  }
+
+  const tunnelUrl = process.env.TUNNEL_URL;
+  if (tunnelUrl) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch(tunnelUrl + '/health', { signal: ctrl.signal }).catch(() => null);
+      clearTimeout(t);
+      services.tunnel = r?.ok ? 'ok' : 'unreachable';
+    } catch { services.tunnel = 'unreachable'; }
+  } else {
+    services.tunnel = 'not_configured';
+  }
+
+  services.groq = process.env.GROQ_API_KEY ? 'ok' : 'no_key';
+
+  res.json({
+    status: services.database === 'ok' ? 'healthy' : 'degraded',
+    uptime: Math.floor((Date.now() - SERVER_START) / 1000),
+    services,
+    version: '1.0.0',
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    },
+  });
+});
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
@@ -363,7 +406,7 @@ app.get('/api/books/:id/cover', async (req, res) => {
     const contentType = isSvg ? 'image/svg+xml' : isPng ? 'image/png' : 'image/jpeg';
     res.setHeader('Content-Type', contentType);
     // Use no-cache so browser always revalidates (but can use ETag for 304)
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
     return res.send(content);
   };
 
