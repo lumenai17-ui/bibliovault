@@ -4,6 +4,8 @@ import cors from 'cors';
 import { join, dirname } from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { v4 as uuidv4 } from 'uuid';
+import { getPgPool } from './pgDatabase.js';
 import {
   initDatabase,
   isPostgres,
@@ -568,7 +570,6 @@ app.get('/api/collections', optionalAuth, async (req, res) => {
 
 // Get collections for a specific book
 app.get('/api/books/:id/collections', optionalAuth, async (req, res) => {
-  const { getBookCollections } = require('./database.js');
   const collections = await getBookCollections(parseInt(req.params.id));
   res.json(collections);
 });
@@ -579,8 +580,13 @@ app.post('/api/collections', optionalAuth, async (req, res) => {
   const id = createCollection(name, description, color);
   // Associate with user if authenticated
   if (req.userId) {
-    const db = getDb();
-    db.prepare('UPDATE collections SET user_id = @userId WHERE id = @id').run({ userId: req.userId, id });
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query('UPDATE collections SET user_id = $1 WHERE id = $2', [req.userId, id]);
+    } else {
+      const sqlite = (await import('./database.js')).getDb();
+      sqlite.prepare('UPDATE collections SET user_id = @userId WHERE id = @id').run({ userId: req.userId, id });
+    }
   }
   res.json({ id, name, description, color });
 });
@@ -720,36 +726,83 @@ app.post('/api/ai/search', async (req, res) => {
 
 // â”€â”€ Bookmarks â”€â”€
 app.get('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
-  const db = getDb();
-  const bookmarks = db.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY page ASC').all(parseInt(req.params.id));
-  res.json(bookmarks);
+  try {
+    if (isPostgres()) {
+      const pool = getPgPool();
+      // Ensure bookmarks table exists in PG
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS bookmarks (
+          id SERIAL PRIMARY KEY,
+          book_id INTEGER NOT NULL,
+          page INTEGER NOT NULL,
+          label TEXT DEFAULT '',
+          color TEXT DEFAULT '#667eea',
+          user_id TEXT DEFAULT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      const { rows } = await pool.query('SELECT * FROM bookmarks WHERE book_id = $1 ORDER BY page ASC', [parseInt(req.params.id)]);
+      res.json(rows);
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const bookmarks = db.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY page ASC').all(parseInt(req.params.id));
+      res.json(bookmarks);
+    }
+  } catch (err) {
+    console.error('Bookmarks GET error:', err);
+    res.json([]);
+  }
 });
 
 app.post('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
-  const db = getDb();
   const { page, label, color } = req.body as { page: number; label?: string; color?: string };
   if (!page || page < 1) return res.status(400).json({ error: 'Valid page number required' });
 
-  // Check if bookmark already exists for this page
-  const existing = db.prepare('SELECT id FROM bookmarks WHERE book_id = ? AND page = ?').get(parseInt(req.params.id), page);
-  if (existing) {
-    return res.status(409).json({ error: 'Bookmark already exists for this page' });
-  }
+  try {
+    const bookId = parseInt(req.params.id);
+    const bookmarkLabel = label || `Página ${page}`;
+    const bookmarkColor = color || '#667eea';
 
-  const result = db.prepare('INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES (?, ?, ?, ?, ?)').run(
-    parseInt(req.params.id),
-    page,
-    label || `PÃ¡gina ${page}`,
-    color || '#667eea',
-    req.userId || null,
-  );
-  res.json({ id: result.lastInsertRowid, page, label: label || `PÃ¡gina ${page}`, color: color || '#667eea' });
+    if (isPostgres()) {
+      const pool = getPgPool();
+      const { rows: existing } = await pool.query('SELECT id FROM bookmarks WHERE book_id = $1 AND page = $2', [bookId, page]);
+      if (existing.length > 0) return res.status(409).json({ error: 'Bookmark already exists for this page' });
+
+      const { rows } = await pool.query(
+        'INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [bookId, page, bookmarkLabel, bookmarkColor, req.userId || null]
+      );
+      res.json({ id: rows[0].id, page, label: bookmarkLabel, color: bookmarkColor });
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const existing = db.prepare('SELECT id FROM bookmarks WHERE book_id = ? AND page = ?').get(bookId, page);
+      if (existing) return res.status(409).json({ error: 'Bookmark already exists for this page' });
+
+      const result = db.prepare('INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES (?, ?, ?, ?, ?)').run(
+        bookId, page, bookmarkLabel, bookmarkColor, req.userId || null
+      );
+      res.json({ id: result.lastInsertRowid, page, label: bookmarkLabel, color: bookmarkColor });
+    }
+  } catch (err) {
+    console.error('Bookmark POST error:', err);
+    res.status(500).json({ error: 'Error creating bookmark' });
+  }
 });
 
 app.delete('/api/books/:id/bookmarks/:bookmarkId', optionalAuth, async (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM bookmarks WHERE id = ? AND book_id = ?').run(parseInt(req.params.bookmarkId), parseInt(req.params.id));
-  res.json({ success: true });
+  try {
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query('DELETE FROM bookmarks WHERE id = $1 AND book_id = $2', [parseInt(req.params.bookmarkId), parseInt(req.params.id)]);
+    } else {
+      const db = (await import('./database.js')).getDb();
+      db.prepare('DELETE FROM bookmarks WHERE id = ? AND book_id = ?').run(parseInt(req.params.bookmarkId), parseInt(req.params.id));
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Bookmark DELETE error:', err);
+    res.status(500).json({ error: 'Error deleting bookmark' });
+  }
 });
 
 // â”€â”€ Affiliate Links & Monetization â”€â”€
@@ -785,48 +838,84 @@ app.post('/api/affiliate/click/:linkId', optionalAuth, async (req, res) => {
   await trackAffiliateClick(req.userId || null, parseInt(req.params.linkId));
   
   // Get the link URL to redirect
-  const db = getDb();
-  const link = db.prepare('SELECT affiliate_url FROM affiliate_links WHERE id = ?').get(parseInt(req.params.linkId)) as { affiliate_url: string } | undefined;
-  
-  if (link) {
-    res.json({ redirect: link.affiliate_url });
-  } else {
-    res.status(404).json({ error: 'Enlace no encontrado.' });
+  try {
+    if (isPostgres()) {
+      const pool = getPgPool();
+      const { rows } = await pool.query('SELECT affiliate_url FROM affiliate_links WHERE id = $1', [parseInt(req.params.linkId)]);
+      if (rows.length > 0) {
+        res.json({ redirect: rows[0].affiliate_url });
+      } else {
+        res.status(404).json({ error: 'Enlace no encontrado.' });
+      }
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const link = db.prepare('SELECT affiliate_url FROM affiliate_links WHERE id = ?').get(parseInt(req.params.linkId)) as { affiliate_url: string } | undefined;
+      if (link) {
+        res.json({ redirect: link.affiliate_url });
+      } else {
+        res.status(404).json({ error: 'Enlace no encontrado.' });
+      }
+    }
+  } catch (err) {
+    console.error('Affiliate click error:', err);
+    res.status(500).json({ error: 'Error' });
   }
 });
 
 // Get affiliate analytics (admin)
 app.get('/api/affiliate/stats', requireAuth, async (req, res) => {
-  const db = getDb();
-  
-  const totalClicks = (db.prepare('SELECT COUNT(*) as c FROM affiliate_clicks').get() as { c: number }).c;
-  const clicksByPlatform = db.prepare(`
-    SELECT al.platform, COUNT(ac.id) as clicks
-    FROM affiliate_clicks ac
-    JOIN affiliate_links al ON al.id = ac.link_id
-    GROUP BY al.platform
-    ORDER BY clicks DESC
-  `).all();
-  const topBooks = db.prepare(`
-    SELECT b.title, b.author, al.platform, COUNT(ac.id) as clicks
-    FROM affiliate_clicks ac
-    JOIN affiliate_links al ON al.id = ac.link_id
-    JOIN books b ON b.id = al.book_id
-    GROUP BY al.book_id, al.platform
-    ORDER BY clicks DESC
-    LIMIT 10
-  `).all();
-  const recentClicks = db.prepare(`
-    SELECT ac.clicked_at, al.platform, b.title, u.display_name
-    FROM affiliate_clicks ac
-    JOIN affiliate_links al ON al.id = ac.link_id
-    JOIN books b ON b.id = al.book_id
-    LEFT JOIN users u ON u.id = ac.user_id
-    ORDER BY ac.clicked_at DESC
-    LIMIT 20
-  `).all();
-  
-  res.json({ totalClicks, clicksByPlatform, topBooks, recentClicks });
+  try {
+    if (isPostgres()) {
+      const pool = getPgPool();
+      const totalClicks = (await pool.query('SELECT COUNT(*) as c FROM affiliate_clicks')).rows[0]?.c || 0;
+      const clicksByPlatform = (await pool.query(`
+        SELECT al.platform, COUNT(ac.id) as clicks
+        FROM affiliate_clicks ac
+        JOIN affiliate_links al ON al.id = ac.link_id
+        GROUP BY al.platform ORDER BY clicks DESC
+      `)).rows;
+      const topBooks = (await pool.query(`
+        SELECT b.title, b.author, al.platform, COUNT(ac.id) as clicks
+        FROM affiliate_clicks ac
+        JOIN affiliate_links al ON al.id = ac.link_id
+        JOIN books b ON b.id = al.book_id
+        GROUP BY b.title, b.author, al.platform ORDER BY clicks DESC LIMIT 10
+      `)).rows;
+      const recentClicks = (await pool.query(`
+        SELECT ac.clicked_at, al.platform, b.title, u.display_name
+        FROM affiliate_clicks ac
+        JOIN affiliate_links al ON al.id = ac.link_id
+        JOIN books b ON b.id = al.book_id
+        LEFT JOIN users u ON u.id = ac.user_id
+        ORDER BY ac.clicked_at DESC LIMIT 20
+      `)).rows;
+      res.json({ totalClicks, clicksByPlatform, topBooks, recentClicks });
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const totalClicks = (db.prepare('SELECT COUNT(*) as c FROM affiliate_clicks').get() as { c: number }).c;
+      const clicksByPlatform = db.prepare(`
+        SELECT al.platform, COUNT(ac.id) as clicks
+        FROM affiliate_clicks ac JOIN affiliate_links al ON al.id = ac.link_id
+        GROUP BY al.platform ORDER BY clicks DESC
+      `).all();
+      const topBooks = db.prepare(`
+        SELECT b.title, b.author, al.platform, COUNT(ac.id) as clicks
+        FROM affiliate_clicks ac JOIN affiliate_links al ON al.id = ac.link_id
+        JOIN books b ON b.id = al.book_id
+        GROUP BY al.book_id, al.platform ORDER BY clicks DESC LIMIT 10
+      `).all();
+      const recentClicks = db.prepare(`
+        SELECT ac.clicked_at, al.platform, b.title, u.display_name
+        FROM affiliate_clicks ac JOIN affiliate_links al ON al.id = ac.link_id
+        JOIN books b ON b.id = al.book_id LEFT JOIN users u ON u.id = ac.user_id
+        ORDER BY ac.clicked_at DESC LIMIT 20
+      `).all();
+      res.json({ totalClicks, clicksByPlatform, topBooks, recentClicks });
+    }
+  } catch (err) {
+    console.error('Affiliate stats error:', err);
+    res.json({ totalClicks: 0, clicksByPlatform: [], topBooks: [], recentClicks: [] });
+  }
 });
 
 // â”€â”€ User Uploads â”€â”€
@@ -865,7 +954,7 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'No se recibiÃ³ ningÃºn archivo.' });
     }
 
-    const uploadId = require('uuid').v4();
+    const uploadId = uuidv4();
     await insertUserUpload(
       uploadId,
       req.userId!,
