@@ -462,3 +462,65 @@ h1, h2, h3, h4, h5, h6 {
   overflow-x: hidden;
   padding: var(--space-lg);
 }
+
+/* ── Mobile Hamburger ── */
+.mobile-hamburger {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 60;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.mobile-hamburger:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-primary);
+}
+
+/* ── Sidebar Overlay ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 9, 24, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 45;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ====================================================
+   RESPONSIVE BREAKPOINTS
+   ==================================================== */
+
+/* ── Tablet & below (≤1024px) ── */
+@media (max-width: 1024px) {
+  .mobile-hamburger {
+    display: flex;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .app-content {
+    padding: var(--space-md);
+  }
+}
+
+/* ── Phone (≤640px) ── */
+@media (max-width: 640px) {
+  .app-content {
+    padding: var(--space-sm);
+  }
+}

@@ -940,3 +940,81 @@
 .reader-sepia .reader-search-input { background: #d8cfb5; border-color: #c9bfa5; color: #4a3f2f; }
 .reader-paper .reader-search-bar { background: #ddd; border-color: #ccc; }
 .reader-paper .reader-search-input { background: #d0d0d0; border-color: #bbb; color: #333; }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .reader-toolbar {
+    padding: 0 var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .reader-toolbar-title {
+    display: none;
+  }
+
+  .reader-toolbar-actions {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+
+  .reader-toolbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* AI panel fullscreen on mobile */
+  .reader-body .ai-chat-panel {
+    position: fixed;
+    inset: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    z-index: 100;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .reader-toolbar {
+    height: auto;
+    min-height: 48px;
+    flex-wrap: nowrap;
+  }
+
+  .reader-toolbar-back {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .reader-toolbar-back span {
+    display: none; /* Hide "Biblioteca" text, keep arrow */
+  }
+
+  .reader-toolbar-group .btn-icon,
+  .reader-toolbar-actions .btn-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .reader-toolbar-group .btn-icon svg,
+  .reader-toolbar-actions .btn-icon svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .reader-ai-toggle {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  /* Nav bar touch targets */
+  .reader-nav {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .reader-nav .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+}

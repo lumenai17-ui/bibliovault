@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar/Sidebar';
 import Header from './components/Header/Header';
 import LibraryGrid from './components/Library/LibraryGrid';
@@ -83,6 +84,7 @@ export default function App() {
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check session on startup
   useEffect(() => {
@@ -289,14 +291,32 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      {/* Mobile hamburger */}
+      <button
+        className="mobile-hamburger"
+        onClick={() => setSidebarOpen(true)}
+        aria-label="Abrir menú"
+      >
+        <Menu size={22} />
+      </button>
+
+      {/* Sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={(s) => { setActiveSection(s); setSidebarOpen(false); }}
         onUpdateCollections={loadMeta}
         stats={stats}
         categories={categories}
         collections={collections}
         currentUser={currentUser}
+        isOpen={sidebarOpen}
       />
       <main className="app-main">
         <Header

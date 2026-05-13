@@ -201,3 +201,64 @@
 .spin {
   animation: spin 1s linear infinite;
 }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .header {
+    padding: 0 var(--space-md);
+    gap: var(--space-md);
+  }
+
+  /* Make room for hamburger */
+  .header-search {
+    margin-left: 44px;
+  }
+
+  .search-shortcut {
+    display: none;
+  }
+
+  /* Hide batch action buttons */
+  .header-cover-btn,
+  .header-enrich-btn,
+  .header-scan-btn,
+  .header-enrich-status,
+  .header-enrich-done {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    height: auto;
+    min-height: var(--header-height);
+    flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
+  }
+
+  .header-search {
+    flex: 1 1 100%;
+    max-width: none;
+    order: 1;
+    margin-left: 44px;
+  }
+
+  .header-filters {
+    order: 3;
+    flex: 1;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .header-actions {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .header-filter-chip {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+}

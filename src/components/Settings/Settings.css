@@ -607,3 +607,51 @@
   background-position: right 10px center;
   padding-right: 30px;
 }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .settings-tabs button {
+    padding: 8px 6px;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .settings-tabs button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Show text for active tab only */
+  .settings-tabs button.active {
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .settings-header h2 {
+    font-size: 18px;
+  }
+
+  .settings-section h3 {
+    font-size: 16px;
+  }
+
+  .profile-avatar-section {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .subscribe-section {
+    padding: var(--space-md);
+  }
+
+  .btn-subscribe {
+    font-size: 14px;
+    padding: 12px;
+  }
+
+  .payment-history th,
+  .payment-history td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+}

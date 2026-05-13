@@ -35,6 +35,7 @@ interface SidebarProps {
   categories?: ApiCategory[];
   collections?: Collection[];
   currentUser?: AuthUser | null;
+  isOpen?: boolean;
 }
 
 const NAV_ITEMS = [
@@ -46,7 +47,7 @@ const NAV_ITEMS = [
   { id: 'community', label: 'Foro', icon: MessageCircle },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser }: SidebarProps) {
+export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser, isOpen }: SidebarProps) {
   const [showCategories, setShowCategories] = useState(false);
   const [showCollections, setShowCollections] = useState(true);
   const [showUploads, setShowUploads] = useState(false);
@@ -55,7 +56,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
   const activeCategories = categories.filter((c) => c.book_count > 0);
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <Library />

@@ -128,3 +128,50 @@
   justify-content: center;
   padding: var(--space-xl) 0;
 }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .library-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-md);
+  }
+
+  .welcome-banner {
+    padding: var(--space-lg);
+  }
+}
+
+@media (max-width: 640px) {
+  .library-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+  }
+
+  .welcome-banner {
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  .welcome-banner h2 {
+    font-size: var(--fs-lg);
+  }
+
+  .welcome-banner p {
+    font-size: var(--fs-sm);
+  }
+
+  .welcome-banner-actions {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .library-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+
+  .library-section-header h2 {
+    font-size: var(--fs-lg);
+  }
+}

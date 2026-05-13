@@ -1081,3 +1081,56 @@
   border-bottom: 1px solid var(--glass-border);
   margin-bottom: 4px;
 }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .community-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-explorer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  .community-explorer-header h2 {
+    font-size: 18px;
+  }
+
+  .community-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .community-tabs button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .discussion-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .thread-card {
+    padding: 10px;
+  }
+
+  .thread-composer {
+    padding: 12px;
+  }
+
+  .community-banner {
+    padding: 14px;
+  }
+
+  .community-banner-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
