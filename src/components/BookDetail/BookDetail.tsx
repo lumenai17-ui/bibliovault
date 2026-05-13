@@ -266,7 +266,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 <div className="book-detail-title-row">
                   <div className="book-detail-title">{displayTitle}</div>
                   <button
-                    className="btn btn-ghost btn-icon btn-sm"
+                    className="btn-edit-title"
                     onClick={() => setEditing(true)}
                     title="Editar título y autor"
                   >
@@ -308,22 +308,21 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
             </div>
 
             <div className="book-detail-actions" style={{ position: 'relative', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={() => onRead(book)}>
-                <BookOpen size={14} /> Leer
+              <button className="btn-read" onClick={() => onRead(book)}>
+                <BookOpen size={16} /> Leer
               </button>
               <button
-                className={`btn ${book.favorite ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn-fav ${book.favorite ? 'is-favorite' : ''}`}
                 onClick={() => onToggleFavorite(book)}
               >
                 <Heart size={14} fill={book.favorite ? 'currentColor' : 'none'} />
-                Favorito
+                {book.favorite ? 'Favorito' : 'Favorito'}
               </button>
 
               <div style={{ position: 'relative' }}>
                 <button 
-                  className={`btn ${activeCollectionIds.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn-collections ${activeCollectionIds.length > 0 ? 'has-collections' : ''}`}
                   onClick={() => setShowCollectionsMenu(!showCollectionsMenu)}
-                  style={{ background: activeCollectionIds.length > 0 ? 'var(--gradient-accent)' : undefined }}
                 >
                   <FolderPlus size={14} />
                   Colecciones {activeCollectionIds.length > 0 && `(${activeCollectionIds.length})`}
@@ -333,7 +332,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   <div className="collections-popover animate-fade-in">
                     <div className="collections-popover-header">
                       <h4>Mis Colecciones</h4>
-                      <button className="btn-ghost btn-icon btn-sm" onClick={() => setShowCollectionsMenu(false)}>
+                      <button className="btn-close-detail" style={{ width: 24, height: 24 }} onClick={() => setShowCollectionsMenu(false)}>
                         <X size={12} />
                       </button>
                     </div>
@@ -371,7 +370,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 )}
               </div>
 
-              <button className="btn btn-ghost" onClick={onClose} style={{ marginLeft: 'auto' }}>
+              <button className="btn-close-detail" onClick={onClose}>
                 <X size={14} />
               </button>
             </div>
@@ -385,14 +384,9 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
             <h4><Search size={12} /> Buscar Información</h4>
             <div className="book-detail-enrich-actions">
               <button
-                className="btn btn-sm"
+                className={`btn-enrich enrich-api ${enrichResult?.found ? 'found' : ''}`}
                 onClick={handleEnrich}
                 disabled={enriching}
-                style={{
-                  background: enriching ? 'var(--bg-tertiary)' : 'var(--gradient-accent)',
-                  color: 'white',
-                  border: 'none',
-                }}
               >
                 {enriching ? (
                   <><Loader2 size={12} className="spin" /> Buscando en APIs...</>
@@ -405,7 +399,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
 
               {(book.format === 'pdf' || book.format === 'epub') && (
                 <button
-                  className="btn btn-sm btn-secondary"
+                  className="btn-enrich enrich-cover"
                   onClick={handleExtractCover}
                   disabled={extractingCover}
                 >
@@ -418,7 +412,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
               )}
 
               <button
-                className="btn btn-sm"
+                className={`btn-enrich enrich-ai ${identifyResult?.title ? 'identified' : ''}`}
                 onClick={async () => {
                   setIdentifying(true);
                   try {
@@ -427,21 +421,15 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                     if (result.success && result.title) {
                       setEditTitle(result.title);
                       if (result.author) setEditAuthor(result.author);
-                      setEditing(true); // Abrir modo edición para confirmación
+                      setEditing(true);
                     }
                   } catch {
                     setIdentifyResult({ confidence: 'low' });
                   } finally {
                     setIdentifying(false);
-                    // Eliminamos onUpdate() aquí para que el usuario sea quien guarde
                   }
                 }}
                 disabled={identifying}
-                style={{
-                  background: identifying ? 'var(--bg-tertiary)' : 'rgba(237, 137, 54, 0.15)',
-                  color: '#ed8936',
-                  border: '1px solid rgba(237, 137, 54, 0.3)',
-                }}
               >
                 {identifying ? (
                   <><Loader2 size={12} className="spin" /> AI leyendo...</>
