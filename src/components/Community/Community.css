@@ -899,3 +899,181 @@
 .modal-actions .btn-submit:disabled {
   opacity: 0.5;
 }
+
+/* ============================================
+   Forum Hub — 4-Tab Layout
+   ============================================ */
+
+.forum-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.forum-tabs button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.forum-tabs button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.forum-tabs button:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+/* ── Activity Feed ── */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.activity-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-elevated);
+}
+
+.activity-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.activity-source-icon {
+  font-size: 14px;
+}
+
+.activity-source-name {
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+/* ── Book Forum Card ── */
+.book-forum-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.book-forum-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.book-forum-cover {
+  width: 48px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.book-forum-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-forum-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* ── Official Forum Card ── */
+.official-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.official-forum-card {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.05));
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.official-forum-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.official-forum-icon {
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.official-forum-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Grid Section Title ── */
+.grid-section-title {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 4px;
+}

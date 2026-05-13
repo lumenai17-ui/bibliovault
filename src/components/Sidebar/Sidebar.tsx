@@ -12,7 +12,7 @@ import {
   Home,
   Trash,
   CloudUpload,
-  Users,
+  MessageCircle,
 } from 'lucide-react';
 import type { ApiCategory } from '../../services/api';
 import type { Collection } from '../../types';
@@ -39,7 +39,7 @@ const NAV_ITEMS = [
   { id: 'favorites', label: 'Favoritos', icon: Heart },
   { id: 'reading', label: 'Leyendo', icon: BookOpen },
   { id: 'recent', label: 'Recientes', icon: Clock },
-  { id: 'community', label: 'Comunidades', icon: Users },
+  { id: 'community', label: 'Foro', icon: MessageCircle },
 ];
 
 export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [] }: SidebarProps) {

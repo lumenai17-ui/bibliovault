@@ -1,4 +1,4 @@
-﻿import 'dotenv/config';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
@@ -66,6 +66,7 @@ import {
   getReplies, createReply, deleteReply,
   vote, getUserVotes,
   seedOfficialForums,
+  getBookCommunities, getOfficialCommunities, getRecentThreadsGlobal,
 } from './community.js';
 import { requireAuth, optionalAuth } from './middleware/requireAuth.js';
 
@@ -1358,6 +1359,42 @@ app.get('/api/communities/mine', async (req, res) => {
   } catch (err) {
     console.error('My communities error:', err);
     res.status(500).json({ error: 'Failed to load communities' });
+  }
+});
+
+// Book forums (communities linked to books)
+app.get('/api/communities/books', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const communities = await getBookCommunities(limit, offset);
+    res.json(communities);
+  } catch (err) {
+    console.error('Book communities error:', err);
+    res.status(500).json({ error: 'Failed to load book forums' });
+  }
+});
+
+// Official forums only
+app.get('/api/communities/official', async (_req, res) => {
+  try {
+    const communities = await getOfficialCommunities();
+    res.json(communities);
+  } catch (err) {
+    console.error('Official communities error:', err);
+    res.status(500).json({ error: 'Failed to load official forums' });
+  }
+});
+
+// Global activity feed — recent threads from all communities
+app.get('/api/threads/recent', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 30;
+    const threads = await getRecentThreadsGlobal(limit);
+    res.json(threads);
+  } catch (err) {
+    console.error('Recent threads error:', err);
+    res.status(500).json({ error: 'Failed to load recent threads' });
   }
 });
 

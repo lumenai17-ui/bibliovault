@@ -518,6 +518,29 @@ export async function fetchBookCommunity(bookId: number): Promise<Community> {
   return res.json();
 }
 
+// Forum Hub
+export async function fetchBookCommunities(limit = 50): Promise<Community[]> {
+  const res = await fetchWithRetry(`${API_BASE}/communities/books?limit=${limit}`);
+  return res.json();
+}
+
+export async function fetchOfficialCommunities(): Promise<Community[]> {
+  const res = await fetchWithRetry(`${API_BASE}/communities/official`);
+  return res.json();
+}
+
+export interface GlobalThread extends Thread {
+  community_name: string;
+  community_slug: string;
+  book_id: number | null;
+  community_type: string;
+}
+
+export async function fetchRecentThreads(limit = 30): Promise<GlobalThread[]> {
+  const res = await fetchWithRetry(`${API_BASE}/threads/recent?limit=${limit}`);
+  return res.json();
+}
+
 // Threads
 export async function fetchThreads(communityId: number, sort = 'recent'): Promise<{ threads: Thread[]; userVotes: Record<number, number> }> {
   const res = await fetch(`${API_BASE}/communities/${communityId}/threads?sort=${sort}`, { credentials: 'include' });

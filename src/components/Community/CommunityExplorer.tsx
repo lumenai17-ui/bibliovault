@@ -1,21 +1,29 @@
 import { useState, useEffect } from 'react';
 import {
   Users, Plus, MessageCircle, Clock, TrendingUp, ChevronUp, ChevronDown,
-  Pin, AlertTriangle, Send, ArrowLeft, Settings, UserPlus, UserMinus, Crown, Shield,
+  Pin, AlertTriangle, Send, ArrowLeft, UserPlus, UserMinus, Crown, Shield,
+  BookOpen, Landmark, Activity,
 } from 'lucide-react';
 import {
   fetchCommunities, fetchMyCommunities, fetchCommunity,
+  fetchBookCommunities, fetchOfficialCommunities, fetchRecentThreads,
   fetchThreads, fetchThread, createThreadApi, createReplyApi, voteApi,
   joinCommunityApi, leaveCommunityApi, createCommunityApi,
-  type Community, type Thread, type Reply,
+  getBookCoverUrl,
+  type Community, type Thread, type Reply, type GlobalThread,
 } from '../../services/api';
 import './Community.css';
 
-// ── Community Explorer (main page) ──
+// ── Forum Hub (main page with 4 tabs) ──
+
+type ForumTab = 'activity' | 'books' | 'communities' | 'official';
 
 export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?: () => void }) {
-  const [tab, setTab] = useState<'explore' | 'mine'>('explore');
+  const [tab, setTab] = useState<ForumTab>('activity');
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [bookForums, setBookForums] = useState<Community[]>([]);
+  const [officialForums, setOfficialForums] = useState<Community[]>([]);
+  const [recentThreads, setRecentThreads] = useState<GlobalThread[]>([]);
   const [myCommunities, setMyCommunities] = useState<Community[]>([]);
   const [activeCommunity, setActiveCommunity] = useState<Community | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -26,14 +34,20 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [all, mine] = await Promise.all([
+      const [all, mine, books, official, recent] = await Promise.all([
         fetchCommunities(50),
-        fetchMyCommunities(),
+        fetchMyCommunities().catch(() => []),
+        fetchBookCommunities(50).catch(() => []),
+        fetchOfficialCommunities().catch(() => []),
+        fetchRecentThreads(30).catch(() => []),
       ]);
-      setCommunities(all || []);
+      setCommunities((all || []).filter((c: Community) => c.type !== 'official' && !c.book_id));
       setMyCommunities(mine || []);
+      setBookForums(books || []);
+      setOfficialForums(official || []);
+      setRecentThreads(recent || []);
     } catch (err) {
-      console.error('Failed to load communities:', err);
+      console.error('Failed to load forum data:', err);
     } finally {
       setLoading(false);
     }
@@ -61,18 +75,25 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
   return (
     <div className="community-explorer">
       <div className="community-explorer-header">
-        <h2><Users size={22} /> Comunidades</h2>
+        <h2><MessageCircle size={22} /> Foro</h2>
         <button className="btn-new-community" onClick={() => setShowCreate(true)}>
           <Plus size={14} /> Crear Comunidad
         </button>
       </div>
 
-      <div className="community-tabs">
-        <button className={tab === 'explore' ? 'active' : ''} onClick={() => setTab('explore')}>
-          Explorar
+      {/* 4-tab navigation */}
+      <div className="forum-tabs">
+        <button className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}>
+          <Activity size={14} /> Actividad
         </button>
-        <button className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>
-          Mis Comunidades ({myCommunities.length})
+        <button className={tab === 'books' ? 'active' : ''} onClick={() => setTab('books')}>
+          <BookOpen size={14} /> Libros ({bookForums.length})
+        </button>
+        <button className={tab === 'communities' ? 'active' : ''} onClick={() => setTab('communities')}>
+          <Users size={14} /> Comunidades ({communities.length})
+        </button>
+        <button className={tab === 'official' ? 'active' : ''} onClick={() => setTab('official')}>
+          <Landmark size={14} /> Oficiales
         </button>
       </div>
 
@@ -84,23 +105,155 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
       )}
 
       {loading ? (
-        <div className="community-loading">Cargando comunidades...</div>
+        <div className="community-loading">Cargando foro...</div>
       ) : (
-        <div className="community-grid">
-          {(tab === 'explore' ? communities : myCommunities).map(c => (
-            <CommunityCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
-          ))}
-          {(tab === 'explore' ? communities : myCommunities).length === 0 && (
-            <div className="no-communities">
-              <Users size={40} />
-              <p>{tab === 'explore' ? 'No hay comunidades aún.' : 'No perteneces a ninguna comunidad.'}</p>
-              <button onClick={() => setShowCreate(true)}>
-                <Plus size={14} /> Crear la primera
-              </button>
+        <>
+          {/* Tab: Activity — Global Feed */}
+          {tab === 'activity' && (
+            <div className="activity-feed">
+              {recentThreads.length === 0 ? (
+                <div className="no-threads">
+                  <Activity size={40} />
+                  <p>No hay actividad aún. ¡Sé el primero en publicar!</p>
+                </div>
+              ) : (
+                recentThreads.map(t => (
+                  <div key={t.id} className="activity-card" onClick={() => openCommunity(t.community_slug)}>
+                    <div className="activity-source">
+                      <span className="activity-source-icon">
+                        {t.book_id ? '📚' : t.community_type === 'official' ? '🏛️' : '👥'}
+                      </span>
+                      <span className="activity-source-name">{t.community_name}</span>
+                    </div>
+                    <div className="thread-card" style={{ border: 'none', background: 'transparent', padding: '8px 0' }}>
+                      <div className="thread-votes" style={{ minWidth: 28 }}>
+                        <span style={{ fontSize: 12 }}>{t.upvotes > 0 ? `+${t.upvotes}` : t.upvotes}</span>
+                      </div>
+                      <div className="thread-content">
+                        <div className="thread-title">
+                          {t.pinned && <Pin size={12} className="pin-icon" />}
+                          {t.has_spoilers && <AlertTriangle size={12} className="spoiler-icon" />}
+                          {t.title}
+                        </div>
+                        <div className="thread-meta">
+                          <span>{t.author_name}</span>
+                          <span>·</span>
+                          <span>{timeAgo(t.created_at)}</span>
+                          <span>·</span>
+                          <span><MessageCircle size={11} /> {t.reply_count}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
-        </div>
+
+          {/* Tab: Books — Book Forums */}
+          {tab === 'books' && (
+            <div className="community-grid">
+              {bookForums.length === 0 ? (
+                <div className="no-communities">
+                  <BookOpen size={40} />
+                  <p>No hay foros de libros aún. Abre un libro y comienza una discusión.</p>
+                </div>
+              ) : bookForums.map(c => (
+                <BookForumCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
+              ))}
+            </div>
+          )}
+
+          {/* Tab: Communities — User-created */}
+          {tab === 'communities' && (
+            <div className="community-grid">
+              {/* My communities first */}
+              {myCommunities.length > 0 && (
+                <>
+                  <div className="grid-section-title">Mis Comunidades</div>
+                  {myCommunities.filter(c => c.type !== 'official' && !c.book_id).map(c => (
+                    <CommunityCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
+                  ))}
+                  <div className="grid-section-title">Explorar</div>
+                </>
+              )}
+              {communities.length === 0 ? (
+                <div className="no-communities">
+                  <Users size={40} />
+                  <p>No hay comunidades aún.</p>
+                  <button onClick={() => setShowCreate(true)}>
+                    <Plus size={14} /> Crear la primera
+                  </button>
+                </div>
+              ) : communities.map(c => (
+                <CommunityCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
+              ))}
+            </div>
+          )}
+
+          {/* Tab: Official */}
+          {tab === 'official' && (
+            <div className="community-grid official-grid">
+              {officialForums.map(c => (
+                <OfficialForumCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+// ── Book Forum Card (with cover thumbnail) ──
+
+function BookForumCard({ community, onClick }: { community: Community; onClick: () => void }) {
+  const coverUrl = community.book_id ? getBookCoverUrl(community.book_id) : null;
+
+  return (
+    <div className="book-forum-card" onClick={onClick}>
+      <div className="book-forum-cover">
+        {coverUrl ? (
+          <img src={coverUrl} alt={community.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        ) : (
+          <BookOpen size={24} />
+        )}
+      </div>
+      <div className="book-forum-info">
+        <div className="community-card-name">{community.name}</div>
+        <div className="community-card-desc">
+          {(community as any).book_author && <span style={{ color: 'var(--accent-primary)', fontSize: 11 }}>{(community as any).book_author}</span>}
+        </div>
+        <div className="community-card-stats">
+          <span><MessageCircle size={11} /> {community.thread_count || 0} temas</span>
+          <span><Users size={11} /> {community.member_count}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Official Forum Card ──
+
+function OfficialForumCard({ community, onClick }: { community: Community; onClick: () => void }) {
+  const iconMap: Record<string, string> = {
+    'novedades': '📢',
+    'recomendaciones': '💡',
+    'lecturas-del-mes': '📖',
+    'feedback': '🐛',
+    'general': '💬',
+  };
+
+  return (
+    <div className="official-forum-card" onClick={onClick}>
+      <div className="official-forum-icon">{iconMap[community.slug] || '🏛️'}</div>
+      <div className="official-forum-info">
+        <div className="community-card-name">{community.name}</div>
+        <div className="community-card-desc">{community.description}</div>
+        <div className="community-card-stats">
+          <span><MessageCircle size={11} /> {community.thread_count || 0} temas</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -108,29 +261,23 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
 // ── Community Card ──
 
 function CommunityCard({ community, onClick }: { community: Community; onClick: () => void }) {
-  const isBook = !!community.book_id;
-  const isOfficial = community.type === 'official';
-
   return (
     <div className="community-card" onClick={onClick}>
-      <div className="community-card-icon">
-        {isBook ? '📚' : isOfficial ? '🏛️' : '👥'}
-      </div>
+      <div className="community-card-icon">👥</div>
       <div className="community-card-info">
         <div className="community-card-name">
           {community.name}
-          {isOfficial && <Crown size={12} className="official-badge" />}
-        </div>
-        <div className="community-card-desc">{community.description}</div>
-        <div className="community-card-stats">
-          <span><Users size={11} /> {community.member_count}</span>
-          <span><MessageCircle size={11} /> {community.thread_count || 0}</span>
           {community.user_role && (
             <span className="role-badge">
               {community.user_role === 'creator' ? <Crown size={10} /> : <Shield size={10} />}
               {community.user_role}
             </span>
           )}
+        </div>
+        <div className="community-card-desc">{community.description}</div>
+        <div className="community-card-stats">
+          <span><Users size={11} /> {community.member_count}</span>
+          <span><MessageCircle size={11} /> {community.thread_count || 0}</span>
         </div>
       </div>
     </div>
@@ -221,7 +368,7 @@ function CommunityPage({
       {/* Banner */}
       <div className="community-banner">
         <button className="btn-back-community" onClick={onBack}>
-          <ArrowLeft size={16} /> Comunidades
+          <ArrowLeft size={16} /> Foro
         </button>
         <div className="community-banner-content">
           <div className="community-banner-icon">
@@ -254,14 +401,12 @@ function CommunityPage({
         </div>
       </div>
 
-      {/* Rules */}
       {community.rules && (
         <div className="community-rules">
           <strong>📋 Reglas:</strong> {community.rules}
         </div>
       )}
 
-      {/* Thread toolbar */}
       <div className="community-toolbar">
         <div className="sort-tabs">
           <button className={sort === 'recent' ? 'active' : ''} onClick={() => setSort('recent')}>
@@ -284,7 +429,6 @@ function CommunityPage({
         />
       )}
 
-      {/* Thread list */}
       <div className="thread-list">
         {threads.length === 0 ? (
           <div className="no-threads">
@@ -326,7 +470,7 @@ function CommunityPage({
   );
 }
 
-// ── Full Thread View (for CommunityPage) ──
+// ── Thread View ──
 
 function CommunityThreadView({
   thread, replies, userVotes, onBack, onVote,
@@ -432,7 +576,7 @@ function CommunityThreadView({
   );
 }
 
-// ── Thread Composer (inline for CommunityPage) ──
+// ── Thread Composer ──
 
 function ThreadComposerInline({
   communityId, onCreated, onCancel,

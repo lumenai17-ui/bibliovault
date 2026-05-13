@@ -376,6 +376,55 @@ Responde SOLO con JSON: {"blocked": false, "reason": ""} o {"blocked": true, "re
   }
 }
 
+// ── Forum Hub Queries ──
+
+/** List all book forums (communities with book_id) that have at least 1 thread or were explicitly created */
+export async function getBookCommunities(limit = 50, offset = 0) {
+  const pool = getPgPool();
+  const res = await pool.query(`
+    SELECT c.*, u.display_name as creator_name,
+           b.title as book_title, b.author as book_author,
+           (SELECT COUNT(*) FROM threads t WHERE t.community_id = c.id) as thread_count
+    FROM communities c
+    LEFT JOIN users u ON u.id = c.created_by
+    LEFT JOIN books b ON b.id = c.book_id
+    WHERE c.book_id IS NOT NULL
+    ORDER BY (SELECT COUNT(*) FROM threads t WHERE t.community_id = c.id) DESC, c.created_at DESC
+    LIMIT $1 OFFSET $2
+  `, [limit, offset]);
+  return res.rows;
+}
+
+/** List official forums only */
+export async function getOfficialCommunities() {
+  const pool = getPgPool();
+  const res = await pool.query(`
+    SELECT c.*, u.display_name as creator_name,
+           (SELECT COUNT(*) FROM threads t WHERE t.community_id = c.id) as thread_count
+    FROM communities c
+    LEFT JOIN users u ON u.id = c.created_by
+    WHERE c.type = 'official'
+    ORDER BY c.created_at ASC
+  `);
+  return res.rows;
+}
+
+/** Global activity feed — recent threads from ALL communities */
+export async function getRecentThreadsGlobal(limit = 30) {
+  const pool = getPgPool();
+  const res = await pool.query(`
+    SELECT t.*, u.display_name as author_name, u.avatar_url as author_avatar,
+           c.name as community_name, c.slug as community_slug, c.book_id,
+           c.type as community_type
+    FROM threads t
+    JOIN users u ON u.id = t.user_id
+    JOIN communities c ON c.id = t.community_id
+    ORDER BY t.last_activity DESC
+    LIMIT $1
+  `, [limit]);
+  return res.rows;
+}
+
 // ── Seed Official Forums ──
 
 export async function seedOfficialForums() {
