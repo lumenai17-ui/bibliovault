@@ -279,24 +279,35 @@ async function resolveFilePath(filePath: string): Promise<string | null> {
   // 1. Local file exists?
   if (existsSync(filePath)) return filePath;
   
-  // 2. Try tunnel
+  // 2. Check temp cache (avoid re-downloading)
+  const hash = createHash('md5').update(filePath).digest('hex').slice(0, 12);
+  const ext = filePath.match(/\.([^.]+)$/)?.[1] || 'bin';
+  const tempPath = join(tmpdir(), `bv_${hash}.${ext}`);
+  if (existsSync(tempPath)) return tempPath;
+  
+  // 3. Try tunnel
   if (!TUNNEL_URL) return null;
   
   try {
+    console.log(`📡 Tunnel download: ${filePath.slice(-60)}`);
     const tunnelFileUrl = `${TUNNEL_URL}/file?path=${encodeURIComponent(filePath)}&secret=${TUNNEL_SECRET}`;
-    const tunnelRes = await fetch(tunnelFileUrl);
-    if (!tunnelRes.ok) return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
     
-    // Download to temp file
-    const hash = createHash('md5').update(filePath).digest('hex').slice(0, 12);
-    const ext = filePath.match(/\.([^.]+)$/)?.[1] || 'bin';
-    const tempPath = join(tmpdir(), `bv_${hash}.${ext}`);
+    const tunnelRes = await fetch(tunnelFileUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    
+    if (!tunnelRes.ok) {
+      console.error(`📡 Tunnel error ${tunnelRes.status} for: ${filePath.slice(-60)}`);
+      return null;
+    }
     
     const buffer = Buffer.from(await tunnelRes.arrayBuffer());
     writeFileSync(tempPath, buffer);
+    console.log(`📡 Tunnel OK: ${Math.round(buffer.length/1024)}KB → ${tempPath}`);
     return tempPath;
-  } catch (err) {
-    console.error('Tunnel download failed:', err);
+  } catch (err: any) {
+    console.error(`📡 Tunnel failed for ${filePath.slice(-60)}:`, err.message);
     return null;
   }
 }
