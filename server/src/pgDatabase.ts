@@ -185,6 +185,73 @@ export async function initPgSchema(): Promise<void> {
       link_id INTEGER REFERENCES affiliate_links(id) ON DELETE CASCADE,
       clicked_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS communities (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      description TEXT DEFAULT '',
+      rules TEXT DEFAULT '',
+      avatar_url TEXT DEFAULT '',
+      banner_url TEXT DEFAULT '',
+      type TEXT DEFAULT 'public',
+      book_id INTEGER REFERENCES books(id),
+      created_by TEXT REFERENCES users(id),
+      member_count INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS community_members (
+      community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT DEFAULT 'member',
+      joined_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (community_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS threads (
+      id SERIAL PRIMARY KEY,
+      community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id),
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      pinned BOOLEAN DEFAULT false,
+      locked BOOLEAN DEFAULT false,
+      has_spoilers BOOLEAN DEFAULT false,
+      upvotes INTEGER DEFAULT 0,
+      reply_count INTEGER DEFAULT 0,
+      last_activity TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS replies (
+      id SERIAL PRIMARY KEY,
+      thread_id INTEGER REFERENCES threads(id) ON DELETE CASCADE,
+      parent_reply_id INTEGER REFERENCES replies(id),
+      user_id TEXT REFERENCES users(id),
+      content TEXT NOT NULL,
+      upvotes INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      edited_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS votes (
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      target_type TEXT NOT NULL,
+      target_id INTEGER NOT NULL,
+      value INTEGER NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, target_type, target_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS community_books (
+      community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
+      book_id INTEGER REFERENCES books(id) ON DELETE CASCADE,
+      recommended_by TEXT REFERENCES users(id),
+      note TEXT DEFAULT '',
+      added_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (community_id, book_id)
+    );
   `);
 
   // Create indexes
@@ -199,6 +266,12 @@ export async function initPgSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_user_progress_user ON user_reading_progress(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_uploads_user ON user_uploads(user_id);
     CREATE INDEX IF NOT EXISTS idx_affiliate_links_book ON affiliate_links(book_id);
+    CREATE INDEX IF NOT EXISTS idx_communities_book ON communities(book_id);
+    CREATE INDEX IF NOT EXISTS idx_communities_slug ON communities(slug);
+    CREATE INDEX IF NOT EXISTS idx_threads_community ON threads(community_id);
+    CREATE INDEX IF NOT EXISTS idx_threads_activity ON threads(last_activity DESC);
+    CREATE INDEX IF NOT EXISTS idx_replies_thread ON replies(thread_id);
+    CREATE INDEX IF NOT EXISTS idx_community_members_user ON community_members(user_id);
   `);
 
   // Seed default admin user

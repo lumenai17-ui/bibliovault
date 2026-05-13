@@ -428,5 +428,141 @@ export async function fetchExtendedStats(): Promise<ExtendedStats> {
   return res.json();
 }
 
+// ── Community & Forums ──
+
+export interface Community {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  rules: string;
+  avatar_url: string;
+  banner_url: string;
+  type: string;
+  book_id: number | null;
+  created_by: string;
+  creator_name: string;
+  member_count: number;
+  thread_count: number;
+  created_at: string;
+  user_role?: string | null;
+}
+
+export interface Thread {
+  id: number;
+  community_id: number;
+  user_id: string;
+  title: string;
+  content: string;
+  pinned: boolean;
+  locked: boolean;
+  has_spoilers: boolean;
+  upvotes: number;
+  reply_count: number;
+  last_activity: string;
+  created_at: string;
+  author_name: string;
+  author_avatar: string;
+  community_name?: string;
+  community_slug?: string;
+}
+
+export interface Reply {
+  id: number;
+  thread_id: number;
+  parent_reply_id: number | null;
+  user_id: string;
+  content: string;
+  upvotes: number;
+  created_at: string;
+  edited_at: string | null;
+  author_name: string;
+  author_avatar: string;
+}
+
+// Communities
+export async function fetchCommunities(limit = 50): Promise<Community[]> {
+  const res = await fetchWithRetry(`${API_BASE}/communities?limit=${limit}`);
+  return res.json();
+}
+
+export async function fetchMyCommunities(): Promise<Community[]> {
+  const res = await fetch(`${API_BASE}/communities/mine`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function fetchCommunity(slug: string): Promise<Community> {
+  const res = await fetch(`${API_BASE}/communities/${slug}`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function createCommunityApi(name: string, description: string, rules = '', type = 'public'): Promise<Community> {
+  const res = await fetch(`${API_BASE}/communities`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, rules, type }),
+  });
+  return res.json();
+}
+
+export async function joinCommunityApi(id: number): Promise<void> {
+  await fetch(`${API_BASE}/communities/${id}/join`, { method: 'POST', credentials: 'include' });
+}
+
+export async function leaveCommunityApi(id: number): Promise<void> {
+  await fetch(`${API_BASE}/communities/${id}/leave`, { method: 'POST', credentials: 'include' });
+}
+
+export async function fetchBookCommunity(bookId: number): Promise<Community> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/community`, { credentials: 'include' });
+  return res.json();
+}
+
+// Threads
+export async function fetchThreads(communityId: number, sort = 'recent'): Promise<{ threads: Thread[]; userVotes: Record<number, number> }> {
+  const res = await fetch(`${API_BASE}/communities/${communityId}/threads?sort=${sort}`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function fetchThread(id: number): Promise<{ thread: Thread; replies: Reply[]; userVotes: Record<number, number> }> {
+  const res = await fetch(`${API_BASE}/threads/${id}`, { credentials: 'include' });
+  return res.json();
+}
+
+export async function createThreadApi(communityId: number, title: string, content: string, hasSpoilers = false): Promise<Thread> {
+  const res = await fetch(`${API_BASE}/communities/${communityId}/threads`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, content, hasSpoilers }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Error creating thread');
+  }
+  return res.json();
+}
+
+export async function createReplyApi(threadId: number, content: string, parentReplyId?: number): Promise<Reply> {
+  const res = await fetch(`${API_BASE}/threads/${threadId}/replies`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, parentReplyId }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Error creating reply');
+  }
+  return res.json();
+}
+
+export async function voteApi(targetType: 'thread' | 'reply', targetId: number, value: 1 | -1): Promise<{ action: string; newValue: number }> {
+  const res = await fetch(`${API_BASE}/votes`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetType, targetId, value }),
+  });
+  return res.json();
+}
+
 // Export API base so components can link directly to download endpoints
 export { API_BASE };

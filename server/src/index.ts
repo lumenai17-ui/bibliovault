@@ -58,6 +58,15 @@ import {
   COOKIE_NAME,
   getSessionCookieOptions,
 } from './auth.js';
+import {
+  getCommunities, getCommunityBySlug, getCommunityById, getOrCreateBookCommunity,
+  createCommunity, updateCommunity, joinCommunity, leaveCommunity,
+  getCommunityMembers, isMember, getMemberRole, getUserCommunities,
+  getThreads, getThread, createThread, updateThread, deleteThread,
+  getReplies, createReply, deleteReply,
+  vote, getUserVotes,
+  seedOfficialForums,
+} from './community.js';
 import { requireAuth, optionalAuth } from './middleware/requireAuth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -80,6 +89,7 @@ app.use('/covers', express.static(COVERS_DIR));
 // Initialize database on startup (async for PostgreSQL support)
 await initDatabase();
 await initFtsSchema();
+await seedOfficialForums();
 console.log('ðŸ“¦ Database initialized');
 
 // Sync cover paths on startup â€” only for local SQLite mode
@@ -1318,5 +1328,303 @@ app.get('/api/backup', async (_req, res) => {
     });
   } else {
     res.status(404).send('Database not found');
+  }
+});
+
+// ============================================
+//  Community & Forums (Phase 15)
+// ============================================
+
+// List all public communities
+app.get('/api/communities', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const communities = await getCommunities(limit, offset);
+    res.json(communities);
+  } catch (err) {
+    console.error('Communities list error:', err);
+    res.status(500).json({ error: 'Failed to load communities' });
+  }
+});
+
+// Get user's communities
+app.get('/api/communities/mine', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const communities = await getUserCommunities(user.id);
+    res.json(communities);
+  } catch (err) {
+    console.error('My communities error:', err);
+    res.status(500).json({ error: 'Failed to load communities' });
+  }
+});
+
+// Get community by slug
+app.get('/api/communities/:slug', async (req, res) => {
+  try {
+    const community = await getCommunityBySlug(req.params.slug);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
+    const user = await getAuthenticatedUser(req);
+    const membership = user ? await getMemberRole(community.id, user.id) : null;
+
+    res.json({ ...community, user_role: membership });
+  } catch (err) {
+    console.error('Community detail error:', err);
+    res.status(500).json({ error: 'Failed to load community' });
+  }
+});
+
+// Create community
+app.post('/api/communities', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { name, description, rules, type } = req.body;
+    if (!name || name.length < 3) return res.status(400).json({ error: 'Name too short' });
+
+    const community = await createCommunity(name, description || '', rules || '', type || 'public', user.id);
+    res.json(community);
+  } catch (err) {
+    console.error('Create community error:', err);
+    res.status(500).json({ error: 'Failed to create community' });
+  }
+});
+
+// Update community
+app.put('/api/communities/:id', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const communityId = parseInt(req.params.id);
+    const role = await getMemberRole(communityId, user.id);
+    if (!role || (role !== 'creator' && role !== 'moderator')) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await updateCommunity(communityId, req.body);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update community error:', err);
+    res.status(500).json({ error: 'Failed to update community' });
+  }
+});
+
+// Join community
+app.post('/api/communities/:id/join', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    await joinCommunity(parseInt(req.params.id), user.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Join error:', err);
+    res.status(500).json({ error: 'Failed to join' });
+  }
+});
+
+// Leave community
+app.post('/api/communities/:id/leave', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const left = await leaveCommunity(parseInt(req.params.id), user.id);
+    res.json({ success: left });
+  } catch (err) {
+    console.error('Leave error:', err);
+    res.status(500).json({ error: 'Failed to leave' });
+  }
+});
+
+// Get community members
+app.get('/api/communities/:id/members', async (req, res) => {
+  try {
+    const members = await getCommunityMembers(parseInt(req.params.id));
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load members' });
+  }
+});
+
+// Get/create book community (auto-create)
+app.get('/api/books/:id/community', async (req, res) => {
+  try {
+    const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+    if (!book) return res.status(404).json({ error: 'Book not found' });
+
+    const community = await getOrCreateBookCommunity(book.id as number, book.title as string);
+    const user = await getAuthenticatedUser(req);
+    const membership = user ? await getMemberRole(community.id, user.id) : null;
+
+    res.json({ ...community, user_role: membership });
+  } catch (err) {
+    console.error('Book community error:', err);
+    res.status(500).json({ error: 'Failed to load book community' });
+  }
+});
+
+// ── Threads ──
+
+// List threads in a community
+app.get('/api/communities/:id/threads', async (req, res) => {
+  try {
+    const sort = (req.query.sort as string) || 'recent';
+    const limit = parseInt(req.query.limit as string) || 30;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const threads = await getThreads(parseInt(req.params.id), sort, limit, offset);
+
+    // Include user votes if authenticated
+    const user = await getAuthenticatedUser(req);
+    let userVotes: Record<number, number> = {};
+    if (user && threads.length > 0) {
+      userVotes = await getUserVotes(user.id, 'thread', threads.map((t: any) => t.id));
+    }
+
+    res.json({ threads, userVotes });
+  } catch (err) {
+    console.error('Threads list error:', err);
+    res.status(500).json({ error: 'Failed to load threads' });
+  }
+});
+
+// Get single thread with replies
+app.get('/api/threads/:id', async (req, res) => {
+  try {
+    const thread = await getThread(parseInt(req.params.id));
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    const replies = await getReplies(thread.id);
+    const user = await getAuthenticatedUser(req);
+
+    let userVotes: Record<number, number> = {};
+    if (user && replies.length > 0) {
+      userVotes = await getUserVotes(user.id, 'reply', replies.map((r: any) => r.id));
+    }
+
+    res.json({ thread, replies, userVotes });
+  } catch (err) {
+    console.error('Thread detail error:', err);
+    res.status(500).json({ error: 'Failed to load thread' });
+  }
+});
+
+// Create thread
+app.post('/api/communities/:id/threads', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { title, content, hasSpoilers } = req.body;
+    if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+
+    const thread = await createThread(parseInt(req.params.id), user.id, title, content, hasSpoilers);
+    res.json(thread);
+  } catch (err: any) {
+    if (err.message?.startsWith('Contenido bloqueado')) {
+      return res.status(403).json({ error: err.message });
+    }
+    console.error('Create thread error:', err);
+    res.status(500).json({ error: 'Failed to create thread' });
+  }
+});
+
+// Update/pin/lock thread
+app.put('/api/threads/:id', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const thread = await getThread(parseInt(req.params.id));
+    if (!thread) return res.status(404).json({ error: 'Not found' });
+
+    // Only author or moderator can edit
+    const role = await getMemberRole(thread.community_id, user.id);
+    if (thread.user_id !== user.id && (!role || !['creator', 'moderator'].includes(role))) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await updateThread(thread.id, req.body);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update thread error:', err);
+    res.status(500).json({ error: 'Failed to update thread' });
+  }
+});
+
+// Delete thread
+app.delete('/api/threads/:id', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const thread = await getThread(parseInt(req.params.id));
+    if (!thread) return res.status(404).json({ error: 'Not found' });
+
+    const role = await getMemberRole(thread.community_id, user.id);
+    if (thread.user_id !== user.id && (!role || !['creator', 'moderator'].includes(role))) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await deleteThread(thread.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete thread' });
+  }
+});
+
+// ── Replies ──
+
+app.post('/api/threads/:id/replies', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { content, parentReplyId } = req.body;
+    if (!content) return res.status(400).json({ error: 'Content required' });
+
+    const reply = await createReply(parseInt(req.params.id), user.id, content, parentReplyId);
+    res.json(reply);
+  } catch (err: any) {
+    if (err.message?.startsWith('Contenido bloqueado')) {
+      return res.status(403).json({ error: err.message });
+    }
+    console.error('Create reply error:', err);
+    res.status(500).json({ error: 'Failed to create reply' });
+  }
+});
+
+app.delete('/api/replies/:id', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    // For simplicity, only moderators or reply owner can delete
+    await deleteReply(parseInt(req.params.id), parseInt(req.query.threadId as string));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete reply' });
+  }
+});
+
+// ── Votes ──
+
+app.post('/api/votes', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { targetType, targetId, value } = req.body;
+    if (!targetType || !targetId || ![1, -1].includes(value)) {
+      return res.status(400).json({ error: 'Invalid vote' });
+    }
+
+    const result = await vote(user.id, targetType, targetId, value);
+    res.json(result);
+  } catch (err) {
+    console.error('Vote error:', err);
+    res.status(500).json({ error: 'Failed to vote' });
   }
 });

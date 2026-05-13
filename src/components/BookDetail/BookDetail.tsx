@@ -20,8 +20,10 @@ import {
   Plus,
   ShoppingCart,
   ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import type { Book, Collection } from '../../types';
+import { BookDiscussion } from '../Community/BookDiscussion';
 import {
   getBookCoverUrl,
   generateSummary,
@@ -558,6 +560,12 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 <ExternalLink size={14} style={{ color: 'var(--text-muted)' }} />
               </a>
             )}
+          </div>
+
+          {/* Community Discussion */}
+          <div className="book-detail-section">
+            <h4><MessageCircle size={16} /> Discusión de la Comunidad</h4>
+            <BookDiscussion bookId={book.id} />
           </div>
 
           {/* File Path */}
