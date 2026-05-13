@@ -257,7 +257,8 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
   const themeConfig = THEME_CONFIG[theme];
 
   const renderViewer = () => {
-    if (book.format === 'image') {
+    const imageFormats = ['image', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg'];
+    if (imageFormats.includes(book.format) || /\.(jpe?g|png|gif|webp|bmp|tiff?|svg)$/i.test(fileUrl)) {
       return <ImageViewer fileUrl={fileUrl} nightMode={nightMode} />;
     }
 

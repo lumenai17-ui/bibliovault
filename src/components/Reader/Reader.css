@@ -65,7 +65,39 @@
 .reader-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 6px;
+}
+
+/* Enhanced toolbar buttons */
+.reader-toolbar-actions .btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+}
+
+.reader-toolbar-actions .btn-icon:hover {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.reader-toolbar-actions .btn-icon.active {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.reader-toolbar-actions .btn-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .reader-toolbar-divider {

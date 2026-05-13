@@ -38,14 +38,29 @@ const getCoverUrl = (bookId: number) => `${import.meta.env.DEV ? 'http://localho
 
 export default function CategoriesDashboard({ categories, collections, books, onSelectSection }: CategoriesDashboardProps) {
   
-  // Pre-calculate sample books for background covers
-  const categoryCovers = useMemo(() => {
-    const map = new Map<number, number>(); // cat_id -> book_id
+  // Pre-calculate 3 sample books with REAL covers per category (skip SVG placeholders)
+  const categoryFanCovers = useMemo(() => {
+    const map = new Map<number, number[]>(); // cat_id -> [book_id, book_id, book_id]
     for (const cat of categories) {
-      const book = books.find(b => 
-        (b.category === cat.name || b.category === cat.name) && b.coverPath
+      const catBooks = books.filter(b => 
+        (b.category === cat.name) && 
+        b.coverPath && 
+        !b.coverPath.endsWith('.svg') &&
+        (b.coverPath.includes('supabase') || b.coverPath.includes('.jpg') || b.coverPath.includes('.png'))
       );
-      if (book) map.set(cat.id, book.id);
+      // Take up to 3 books with real covers
+      const selected = catBooks.slice(0, 3).map(b => b.id);
+      // If we don't have 3 real covers, fill with any book that has a coverPath
+      if (selected.length < 3) {
+        const fallbacks = books.filter(b => 
+          b.category === cat.name && b.coverPath && !selected.includes(b.id)
+        );
+        for (const fb of fallbacks) {
+          if (selected.length >= 3) break;
+          selected.push(fb.id);
+        }
+      }
+      if (selected.length > 0) map.set(cat.id, selected);
     }
     return map;
   }, [categories, books]);
@@ -62,7 +77,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
           </div>
           <div className="dashboard-grid">
             {collections.map((col, index) => {
-              const color = getCategoryColor(index + 5); // Offset colors for collections
+              const color = getCategoryColor(index + 5);
               return (
                 <div 
                   key={`col-${col.id}`} 
@@ -100,7 +115,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
         <div className="dashboard-grid">
           {categories.map((cat, index) => {
             const color = getCategoryColor(index);
-            const coverBookId = categoryCovers.get(cat.id);
+            const fanBookIds = categoryFanCovers.get(cat.id) || [];
             return (
               <div 
                 key={`cat-${cat.id}`} 
@@ -110,19 +125,25 @@ export default function CategoriesDashboard({ categories, collections, books, on
                   '--card-color': color,
                 } as React.CSSProperties}
               >
-                {coverBookId && (
-                  <div 
-                    className="card-bg-image" 
-                    style={{ backgroundImage: `url(${getCoverUrl(coverBookId)})` }}
-                  />
+                {/* Fan cover spread */}
+                {fanBookIds.length > 0 && (
+                  <div className="card-fan-covers">
+                    {fanBookIds.slice(0, 3).map((bookId, i) => (
+                      <img
+                        key={bookId}
+                        src={getCoverUrl(bookId)}
+                        alt=""
+                        className={`card-fan-book card-fan-book--${i + 1}`}
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ))}
+                  </div>
                 )}
                 <div className="card-bg-icon">
                   {getCategoryIcon(index)}
                 </div>
-                <div className="card-icon-wrapper">
-                  {getCategoryIcon(index)}
-                </div>
-                <div className="card-info">
+                <div className="card-info" style={{ zIndex: 2 }}>
                   <h3>{cat.name}</h3>
                   <span className="card-meta">
                     {cat.book_count} {cat.book_count === 1 ? 'libro' : 'libros'}
