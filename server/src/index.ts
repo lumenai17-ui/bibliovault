@@ -413,14 +413,12 @@ app.get('/api/books/:id/cover', async (req, res) => {
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const serveImage = (path: string) => {
-    const content = readFileSync(path);
     const isSvg = path.endsWith('.svg');
     const isPng = path.endsWith('.png');
     const contentType = isSvg ? 'image/svg+xml' : isPng ? 'image/png' : 'image/jpeg';
     res.setHeader('Content-Type', contentType);
-    // Use no-cache so browser always revalidates (but can use ETag for 304)
     res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
-    return res.send(content);
+    return res.sendFile(path, (err: any) => { if (err && !res.headersSent) res.status(404).json({ error: 'Cover not found' }); });
   };
 
   // 1. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)

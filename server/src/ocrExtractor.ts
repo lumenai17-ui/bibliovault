@@ -11,6 +11,12 @@ import { tmpdir } from 'os';
  * Very useful for AI title identification when the PDF has no text layer.
  */
 export async function extractOcrText(filePath: string, pagesToScan = 2): Promise<string> {
+  // Kill switch for memory-constrained environments (Render 512MB)
+  if (process.env.DISABLE_OCR === 'true') {
+    console.log('⚠️ OCR disabled via DISABLE_OCR env var');
+    return '';
+  }
+
   let worker: any = null;
   let doc: any = null;
   const tempFiles: string[] = [];

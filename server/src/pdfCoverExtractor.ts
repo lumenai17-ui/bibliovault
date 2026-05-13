@@ -8,7 +8,7 @@
  * 
  * Dependencies: mupdf (WASM, zero native deps), sharp
  */
-import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -29,6 +29,11 @@ async function renderPdfFirstPage(pdfPath: string, targetWidth = 400): Promise<B
     const mupdf = await import('mupdf');
 
     const fileBuffer = readFileSync(pdfPath);
+    // Skip huge PDFs to avoid OOM on 512MB servers
+    if (fileBuffer.length > 50_000_000) {
+      console.log(`⚠️ PDF too large for cover render: ${Math.round(fileBuffer.length / 1048576)}MB — skipping MuPDF`);
+      return null;
+    }
     const doc = mupdf.Document.openDocument(fileBuffer, 'application/pdf');
 
     if (doc.countPages() === 0) return null;
@@ -71,7 +76,7 @@ async function renderPdfFirstPage(pdfPath: string, targetWidth = 400): Promise<B
  * Works for scanned PDFs that contain raw JPEG streams.
  */
 function extractJpegFromPdf(pdfBuffer: Buffer): Buffer | null {
-  const scanLimit = Math.min(pdfBuffer.length, 10_000_000);
+  const scanLimit = Math.min(pdfBuffer.length, 5_000_000); // Reduced from 10MB to 5MB for memory safety
 
   let bestJpeg: Buffer | null = null;
   let bestSize = 0;
@@ -163,12 +168,18 @@ export async function extractPdfCover(
     }
 
     // Strategy 2: Extract embedded JPEG (fallback for edge cases)
-    const pdfBuffer = readFileSync(pdfPath);
-    const jpegBuffer = extractJpegFromPdf(pdfBuffer);
-    if (jpegBuffer) {
-      await writeFile(outputPath, jpegBuffer);
-      console.log(`✅ PDF cover extracted (JPEG stream): book ${bookId} (${Math.round(jpegBuffer.length / 1024)}KB)`);
-      return outputPath;
+    // Only attempt if file < 30MB to avoid OOM
+    const fileStats = statSync(pdfPath);
+    if (fileStats.size < 30_000_000) {
+      const pdfBuffer = readFileSync(pdfPath);
+      const jpegBuffer = extractJpegFromPdf(pdfBuffer);
+      if (jpegBuffer) {
+        await writeFile(outputPath, jpegBuffer);
+        console.log(`✅ PDF cover extracted (JPEG stream): book ${bookId} (${Math.round(jpegBuffer.length / 1024)}KB)`);
+        return outputPath;
+      }
+    } else {
+      console.log(`⚠️ Skipping JPEG scan for book ${bookId}: file too large (${Math.round(fileStats.size / 1048576)}MB)`);
     }
 
     console.log(`⚠️ Could not extract cover for book ${bookId}`);
@@ -289,8 +300,16 @@ export async function runBatchCoverExtraction(
 
     batchCoverState.processed++;
 
-    // Small delay to not overwhelm the system (WASM is CPU-intensive)
-    await new Promise((r) => setTimeout(r, 50));
+    // Delay between books to let GC reclaim memory (production safety)
+    const memUsage = process.memoryUsage();
+    const heapMB = Math.round(memUsage.heapUsed / 1048576);
+    if (heapMB > 300) {
+      console.log(`⚠️ High memory (${heapMB}MB) — pausing batch for 3s`);
+      await new Promise((r) => setTimeout(r, 3000));
+      if (global.gc) global.gc();
+    } else {
+      await new Promise((r) => setTimeout(r, 500));
+    }
   }
 
   batchCoverState.status = 'done';

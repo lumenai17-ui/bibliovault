@@ -2,7 +2,7 @@
  * Text Extractor — Extracts readable text from PDFs for AI context injection.
  * Supports both text-based PDFs and provides page-level extraction.
  */
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 
 interface PageText {
   page: number;
@@ -16,6 +16,13 @@ export async function extractPdfText(
   endPage?: number,
 ): Promise<{ pages: PageText[]; totalPages: number; fullText: string }> {
   try {
+    // Guard: skip huge PDFs to avoid OOM
+    const fileSize = statSync(filePath).size;
+    if (fileSize > 50_000_000) {
+      console.log(`⚠️ PDF too large for text extraction: ${Math.round(fileSize / 1048576)}MB — skipping`);
+      return { pages: [], totalPages: 0, fullText: '' };
+    }
+
     const { default: pdfParse } = await import('pdf-parse');
     const buffer = readFileSync(filePath);
 
