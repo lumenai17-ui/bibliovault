@@ -32,11 +32,15 @@ const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444'];
 export default function Statistics() {
   const [stats, setStats] = useState<ExtendedStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExtendedStats()
       .then(setStats)
-      .catch((err) => console.error('Failed to load stats:', err))
+      .catch((err) => {
+        console.error('Failed to load stats:', err);
+        setError(err.message || 'Error al cargar estadísticas');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -49,7 +53,19 @@ export default function Statistics() {
     );
   }
 
-  if (!stats) return <div className="dashboard-error">Error al cargar estadísticas</div>;
+  if (error || !stats) {
+    return (
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h1>Dashboard & Estadísticas</h1>
+        </div>
+        <div className="dashboard-error" style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <p style={{ fontSize: '18px', marginBottom: '8px' }}>⚠️ No se pudieron cargar las estadísticas</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{error || 'Intenta recargar la página'}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">

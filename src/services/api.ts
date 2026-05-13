@@ -424,8 +424,18 @@ export interface ExtendedStats {
 }
 
 export async function fetchExtendedStats(): Promise<ExtendedStats> {
-  const res = await fetch(`${API_BASE}/stats/extended`);
-  return res.json();
+  const res = await fetch(`${API_BASE}/stats/extended`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`Stats API error: ${res.status}`);
+  const data = await res.json();
+  // Guard against malformed responses
+  return {
+    totalBooks: data.totalBooks ?? 0,
+    totalPages: data.totalPages ?? 0,
+    completedBooks: data.completedBooks ?? 0,
+    totalPagesRead: data.totalPagesRead ?? 0,
+    formatStats: Array.isArray(data.formatStats) ? data.formatStats : [],
+    categoryStats: Array.isArray(data.categoryStats) ? data.categoryStats : [],
+  };
 }
 
 // ── Community & Forums ──
