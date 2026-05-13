@@ -79,9 +79,7 @@ app.use('/covers', express.static(COVERS_DIR));
 
 // Initialize database on startup (async for PostgreSQL support)
 await initDatabase();
-if (!isPostgres()) {
-  initFtsSchema();
-}
+await initFtsSchema();
 console.log('ðŸ“¦ Database initialized');
 
 // Sync cover paths on startup â€” only for local SQLite mode
@@ -1126,7 +1124,7 @@ app.get('/api/search/fulltext', async (req, res) => {
   const q = req.query.q as string;
   if (!q || q.length < 2) return res.json({ results: [] });
   const limit = parseInt(req.query.limit as string) || 50;
-  const results = searchFullText(q, limit);
+  const results = await searchFullText(q, limit);
   res.json({ results, query: q });
 });
 
@@ -1135,7 +1133,7 @@ app.get('/api/books/:id/search', async (req, res) => {
   const bookId = parseInt(req.params.id);
   const q = req.query.q as string;
   if (!q || q.length < 2) return res.json({ results: [] });
-  const results = searchInBook(bookId, q);
+  const results = await searchInBook(bookId, q);
   res.json({ results, query: q });
 });
 
@@ -1172,7 +1170,7 @@ app.post('/api/search/index/cancel', async (_req, res) => {
 
 // Index stats
 app.get('/api/search/index/stats', async (_req, res) => {
-  res.json(getIndexStats());
+  res.json(await getIndexStats());
 });
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
