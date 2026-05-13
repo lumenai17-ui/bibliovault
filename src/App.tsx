@@ -7,6 +7,7 @@ import BookDetail from './components/BookDetail/BookDetail';
 import Statistics from './components/Dashboard/Statistics';
 import CategoriesDashboard from './components/Dashboard/CategoriesDashboard';
 import AuthPage, { type AuthUser } from './components/Auth/AuthPage';
+import CommunityExplorer from './components/Community/CommunityExplorer';
 import type { Book, ViewMode, BookFormat } from './types';
 import {
   fetchBooks,
@@ -340,6 +341,8 @@ export default function App() {
             />
           ) : activeSection === 'stats' ? (
             <Statistics />
+          ) : activeSection === 'community' ? (
+            <CommunityExplorer onNavigateBack={() => setActiveSection('home')} />
           ) : (
             <LibraryGrid
               books={books}
