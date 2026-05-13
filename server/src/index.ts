@@ -78,9 +78,9 @@ await initDatabase();
 if (!isPostgres()) {
   initFtsSchema();
 }
-console.log('📦 Database initialized');
+console.log('ðŸ“¦ Database initialized');
 
-// Sync cover paths on startup — only for local SQLite mode
+// Sync cover paths on startup â€” only for local SQLite mode
 if (!isPostgres()) {
   const { getDb } = await import('./database.js');
   const db = getDb();
@@ -105,18 +105,18 @@ if (!isPostgres()) {
       updated++;
     }
   }
-  if (updated > 0) console.log(`🖼️  Cover sync: updated ${updated} book cover paths`);
+  if (updated > 0) console.log(`ðŸ–¼ï¸  Cover sync: updated ${updated} book cover paths`);
 }
 
-// ── Scan state ──
+// â”€â”€ Scan state â”€â”€
 let currentScan: ScanProgress | null = null;
 let scanRunning = false;
 
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  API Routes
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// ── Authentication ──
+// â”€â”€ Authentication â”€â”€
 
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -148,39 +148,39 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ user: result.user });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Error al iniciar sesión.' });
+    res.status(500).json({ error: 'Error al iniciar sesiÃ³n.' });
   }
 });
 
-app.post('/api/auth/logout', (_req, res) => {
+app.post('/api/auth/logout', async (_req, res) => {
   res.clearCookie(COOKIE_NAME, { path: '/' });
   res.json({ success: true });
 });
 
-app.get('/api/auth/me', (req, res) => {
+app.get('/api/auth/me', async (req, res) => {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) {
     return res.status(401).json({ error: 'No autenticado.' });
   }
   
-  const user = getAuthenticatedUser(token);
+  const user = await getAuthenticatedUser(token);
   if (!user) {
     res.clearCookie(COOKIE_NAME, { path: '/' });
-    return res.status(401).json({ error: 'Sesión inválida.' });
+    return res.status(401).json({ error: 'SesiÃ³n invÃ¡lida.' });
   }
 
   res.json({ user });
 });
 
-app.put('/api/auth/me', requireAuth, (req, res) => {
+app.put('/api/auth/me', requireAuth, async (req, res) => {
   try {
     const { displayName, avatar_url } = req.body;
     const updates: Record<string, string> = {};
     if (displayName !== undefined) updates.display_name = displayName;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
     
-    updateUser(req.userId!, updates as any);
-    const user = getUserById(req.userId!);
+    await updateUser(req.userId!, updates as any);
+    const user = await getUserById(req.userId!);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
     const { password_hash: _, ...safeUser } = user;
@@ -191,8 +191,8 @@ app.put('/api/auth/me', requireAuth, (req, res) => {
   }
 });
 
-// ── Books ──
-app.get('/api/books', (req, res) => {
+// â”€â”€ Books â”€â”€
+app.get('/api/books', async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 200;
   const offset = parseInt(req.query.offset as string) || 0;
   const format = req.query.format as string | undefined;
@@ -201,17 +201,17 @@ app.get('/api/books', (req, res) => {
   const search = req.query.search as string | undefined;
   const collection_id = req.query.collection_id ? parseInt(req.query.collection_id as string) : undefined;
 
-  const result = getAllBooks(limit, offset, { format, category_id, favorite, search, collection_id });
+  const result = await getAllBooks(limit, offset, { format, category_id, favorite, search, collection_id });
   res.json(result);
 });
 
-app.get('/api/books/:id', (req, res) => {
-  const book = getBookById(parseInt(req.params.id));
+app.get('/api/books/:id', async (req, res) => {
+  const book = await getBookById(parseInt(req.params.id));
   if (!book) return res.status(404).json({ error: 'Book not found' });
   res.json(book);
 });
 
-app.patch('/api/books/:id', (req, res) => {
+app.patch('/api/books/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const allowed = [
     'favorite', 'reading_progress', 'last_read', 'category_id',
@@ -223,16 +223,16 @@ app.patch('/api/books/:id', (req, res) => {
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
   }
-  updateBook(id, updates);
+  await updateBook(id, updates);
   res.json({ ok: true });
 });
 
-// ── Extract HTML from DOC/DOCX for Web Reader ──
+// â”€â”€ Extract HTML from DOC/DOCX for Web Reader â”€â”€
 import mammoth from 'mammoth';
 import WordExtractor from 'word-extractor';
 
 app.get('/api/books/:id/html', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const filePath = book.file_path as string;
 
@@ -263,9 +263,9 @@ app.get('/api/books/:id/html', async (req, res) => {
   }
 });
 
-// ── Serve book files for the reader ──
-app.get('/api/books/:id/file', (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+// â”€â”€ Serve book files for the reader â”€â”€
+app.get('/api/books/:id/file', async (req, res) => {
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const filePath = book.file_path as string;
 
@@ -291,10 +291,10 @@ app.get('/api/books/:id/file', (req, res) => {
   res.sendFile(filePath);
 });
 
-// ── Cover serving (supports JPG from API/PDF and SVG fallback) ──
+// â”€â”€ Cover serving (supports JPG from API/PDF and SVG fallback) â”€â”€
 app.get('/api/books/:id/cover', async (req, res) => {
   const bookId = parseInt(req.params.id);
-  const book = getBookById(bookId) as Record<string, unknown> | undefined;
+  const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const serveImage = (path: string) => {
@@ -318,18 +318,18 @@ app.get('/api/books/:id/cover', async (req, res) => {
   const jpgPath = join(COVERS_DIR, `${bookId}.jpg`);
   const pngPath = join(COVERS_DIR, `${bookId}.png`);
   if (existsSync(jpgPath)) {
-    updateBook(bookId, { cover_path: jpgPath, cover_source: 'api' } as any);
+    await updateBook(bookId, { cover_path: jpgPath, cover_source: 'api' } as any);
     return serveImage(jpgPath);
   }
   if (existsSync(pngPath)) {
-    updateBook(bookId, { cover_path: pngPath, cover_source: 'api' } as any);
+    await updateBook(bookId, { cover_path: pngPath, cover_source: 'api' } as any);
     return serveImage(pngPath);
   }
 
   // 3. Check if a PDF-extracted cover exists
   const pdfCoverPath = join(COVERS_DIR, `${bookId}_pdf.jpg`);
   if (existsSync(pdfCoverPath)) {
-    updateBook(bookId, { cover_path: pdfCoverPath, cover_source: 'pdf' } as any);
+    await updateBook(bookId, { cover_path: pdfCoverPath, cover_source: 'pdf' } as any);
     return serveImage(pdfCoverPath);
   }
 
@@ -340,7 +340,7 @@ app.get('/api/books/:id/cover', async (req, res) => {
       bookId, filePath, book.title as string, book.author as string,
     );
     if (newCoverPath && existsSync(newCoverPath)) {
-      updateBook(bookId, { cover_path: newCoverPath, cover_source: 'svg' } as any);
+      await updateBook(bookId, { cover_path: newCoverPath, cover_source: 'svg' } as any);
       return serveImage(newCoverPath);
     }
   } catch (err) {
@@ -350,9 +350,9 @@ app.get('/api/books/:id/cover', async (req, res) => {
   res.status(204).end();
 });
 
-// ── Text Extraction ──
+// â”€â”€ Text Extraction â”€â”€
 app.get('/api/books/:id/text', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const filePath = book.file_path as string;
@@ -365,9 +365,9 @@ app.get('/api/books/:id/text', async (req, res) => {
   res.json(result);
 });
 
-// ── AI Summary Generation ──
+// â”€â”€ AI Summary Generation â”€â”€
 app.post('/api/books/:id/summary', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const forceOcr = req.query.ocr === 'true';
@@ -384,7 +384,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
     let excerpt = '';
 
     if (forceOcr) {
-      console.log(`👁️ Forcing OCR extraction for summary of "${book.title}"`);
+      console.log(`ðŸ‘ï¸ Forcing OCR extraction for summary of "${book.title}"`);
       const { extractOcrText } = await import('./ocrExtractor.js');
       excerpt = await extractOcrText(filePath, 4);
     } else {
@@ -393,7 +393,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
       
       // Fallback to OCR if empty
       if (!excerpt || excerpt.length < 50) {
-        console.log(`⚠️ Book "${book.title}" seems to be scanned. Running OCR for summary...`);
+        console.log(`âš ï¸ Book "${book.title}" seems to be scanned. Running OCR for summary...`);
         try {
           const { extractOcrText } = await import('./ocrExtractor.js');
           excerpt = await extractOcrText(filePath, 4);
@@ -404,17 +404,17 @@ app.post('/api/books/:id/summary', async (req, res) => {
     }
     
     if (!excerpt || excerpt.length < 50) {
-      return res.json({ summary: 'Este libro parece ser un escaneo de imágenes. No se pudo leer el texto ni siquiera con OCR.', cached: false });
+      return res.json({ summary: 'Este libro parece ser un escaneo de imÃ¡genes. No se pudo leer el texto ni siquiera con OCR.', cached: false });
     }
 
     // Ask LLM (Groq or Hermes) for a summary
     const llmOnline = await checkHermesHealth();
     if (!llmOnline) {
-      return res.status(503).json({ error: 'AI no está disponible (ni Groq ni Hermes)' });
+      return res.status(503).json({ error: 'AI no estÃ¡ disponible (ni Groq ni Hermes)' });
     }
 
     const summary = await llmComplete(
-      'Eres un bibliotecario experto. Genera resúmenes concisos y útiles de libros. Responde en español. El resumen debe tener 2-3 párrafos máximo.',
+      'Eres un bibliotecario experto. Genera resÃºmenes concisos y Ãºtiles de libros. Responde en espaÃ±ol. El resumen debe tener 2-3 pÃ¡rrafos mÃ¡ximo.',
       `Genera un resumen del siguiente libro titulado "${book.title}":\n\n${excerpt}`,
       { temperature: 0.5, max_tokens: 500 },
     );
@@ -424,7 +424,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
     }
 
     // Save to DB
-    updateBook(parseInt(req.params.id), { ai_summary: summary } as any);
+    await updateBook(parseInt(req.params.id), { ai_summary: summary } as any);
 
     res.json({ summary, cached: false });
   } catch (err) {
@@ -433,28 +433,28 @@ app.post('/api/books/:id/summary', async (req, res) => {
   }
 });
 
-// ── Categories ──
-app.get('/api/categories', (_req, res) => {
+// â”€â”€ Categories â”€â”€
+app.get('/api/categories', async (_req, res) => {
   res.json(getCategories());
 });
 
-// ── Collections ──
+// â”€â”€ Collections â”€â”€
 // Collections imported from db.js at top
 
-app.get('/api/collections', optionalAuth, (req, res) => {
-  const collections = getCollections();
+app.get('/api/collections', optionalAuth, async (req, res) => {
+  const collections = await getCollections();
   // Future: filter by req.userId when multi-user is fully active
   res.json(collections);
 });
 
 // Get collections for a specific book
-app.get('/api/books/:id/collections', optionalAuth, (req, res) => {
+app.get('/api/books/:id/collections', optionalAuth, async (req, res) => {
   const { getBookCollections } = require('./database.js');
-  const collections = getBookCollections(parseInt(req.params.id));
+  const collections = await getBookCollections(parseInt(req.params.id));
   res.json(collections);
 });
 
-app.post('/api/collections', optionalAuth, (req, res) => {
+app.post('/api/collections', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
   const id = createCollection(name, description, color);
@@ -466,35 +466,35 @@ app.post('/api/collections', optionalAuth, (req, res) => {
   res.json({ id, name, description, color });
 });
 
-app.put('/api/collections/:id', optionalAuth, (req, res) => {
+app.put('/api/collections/:id', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
   updateCollection(parseInt(req.params.id), name, description, color);
   res.json({ success: true });
 });
 
-app.delete('/api/collections/:id', optionalAuth, (req, res) => {
+app.delete('/api/collections/:id', optionalAuth, async (req, res) => {
   deleteCollection(parseInt(req.params.id));
   res.json({ success: true });
 });
 
-app.post('/api/collections/:id/books', optionalAuth, (req, res) => {
+app.post('/api/collections/:id/books', optionalAuth, async (req, res) => {
   const { bookId } = req.body;
   if (!bookId) return res.status(400).json({ error: 'bookId required' });
-  addBookToCollection(parseInt(bookId), parseInt(req.params.id));
+  await addBookToCollection(parseInt(bookId), parseInt(req.params.id));
   res.json({ success: true });
 });
 
-app.delete('/api/collections/:id/books/:bookId', optionalAuth, (req, res) => {
-  removeBookFromCollection(parseInt(req.params.bookId), parseInt(req.params.id));
+app.delete('/api/collections/:id/books/:bookId', optionalAuth, async (req, res) => {
+  await removeBookFromCollection(parseInt(req.params.bookId), parseInt(req.params.id));
   res.json({ success: true });
 });
 
-// ── Stats ──
-app.get('/api/stats', (_req, res) => {
+// â”€â”€ Stats â”€â”€
+app.get('/api/stats', async (_req, res) => {
   res.json(getStats());
 });
 
-// ── Scan ──
+// â”€â”€ Scan â”€â”€
 app.post('/api/scan', async (_req, res) => {
   if (scanRunning) {
     return res.json({ status: 'already_running', progress: currentScan });
@@ -518,27 +518,27 @@ app.post('/api/scan', async (_req, res) => {
   }
 });
 
-app.get('/api/scan/status', (_req, res) => {
+app.get('/api/scan/status', async (_req, res) => {
   if (!currentScan) {
     return res.json({ status: 'idle', total: 0, processed: 0, newBooks: 0, skipped: 0 });
   }
   res.json(currentScan);
 });
 
-// ── Health ──
+// â”€â”€ Health â”€â”€
 app.get('/api/health', async (_req, res) => {
   const aiOnline = await checkHermesHealth();
   const isGroq = !!process.env.GROQ_API_KEY;
   res.json({ status: 'ok', library: LIBRARY_PATH, ai: aiOnline, backend: isGroq ? 'groq' : 'hermes' });
 });
 
-// ── AI Chat (Groq / Hermes proxy) ──
+// â”€â”€ AI Chat (Groq / Hermes proxy) â”€â”€
 
-app.post('/api/ai/chat', optionalAuth, (req, res) => {
+app.post('/api/ai/chat', optionalAuth, async (req, res) => {
   streamChat(req, res);
 });
 
-app.post('/api/organizer/chat', optionalAuth, (req, res) => {
+app.post('/api/organizer/chat', optionalAuth, async (req, res) => {
   const { messages } = req.body as { messages: { role: string; content: string }[] };
   
   // RAG Intermediary: Extract last user message to find relevant books
@@ -555,20 +555,20 @@ app.post('/api/organizer/chat', optionalAuth, (req, res) => {
   // Query local database for relevance
   let libraryContext = '';
   if (keywords) {
-    const searchResult = getAllBooks(20, 0, { search: keywords });
+    const searchResult = await getAllBooks(20, 0, { search: keywords });
     if (searchResult.books.length > 0) {
       libraryContext = searchResult.books.map((b: any) => 
-        `- ID [BOOK_ID:${b.id}] | Título: "${b.title}" | Autor: ${b.author || 'Desconocido'} | Categoría: ${b.category_name || 'Sin categoría'}\n  Sinopsis: ${b.ai_summary ? b.ai_summary.substring(0, 150) + '...' : 'Sin sinopsis'}`
+        `- ID [BOOK_ID:${b.id}] | TÃ­tulo: "${b.title}" | Autor: ${b.author || 'Desconocido'} | CategorÃ­a: ${b.category_name || 'Sin categorÃ­a'}\n  Sinopsis: ${b.ai_summary ? b.ai_summary.substring(0, 150) + '...' : 'Sin sinopsis'}`
       ).join('\n\n');
     }
   }
 
   // If no direct keyword match, provide a random sample of uncategorized books
   if (!libraryContext) {
-    const uncategorized = getAllBooks(10, 0, { category_id: 46 }); // 46 is usually 'Sin categoría'
+    const uncategorized = await getAllBooks(10, 0, { category_id: 46 }); // 46 is usually 'Sin categorÃ­a'
     if (uncategorized.books.length > 0) {
-      libraryContext = 'Libros recientes "Sin categoría" para organizar:\n' + uncategorized.books.map((b: any) => 
-        `- ID [BOOK_ID:${b.id}] | Título: "${b.title}"`
+      libraryContext = 'Libros recientes "Sin categorÃ­a" para organizar:\n' + uncategorized.books.map((b: any) => 
+        `- ID [BOOK_ID:${b.id}] | TÃ­tulo: "${b.title}"`
       ).join('\n');
     }
   }
@@ -584,7 +584,7 @@ app.get('/api/ai/health', async (_req, res) => {
   res.json({ online });
 });
 
-// ── Web Search (for AI context enrichment) ──
+// â”€â”€ Web Search (for AI context enrichment) â”€â”€
 app.post('/api/ai/search', async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query?.trim()) return res.status(400).json({ error: 'query required' });
@@ -599,14 +599,14 @@ app.post('/api/ai/search', async (req, res) => {
   }
 });
 
-// ── Bookmarks ──
-app.get('/api/books/:id/bookmarks', optionalAuth, (req, res) => {
+// â”€â”€ Bookmarks â”€â”€
+app.get('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
   const db = getDb();
   const bookmarks = db.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY page ASC').all(parseInt(req.params.id));
   res.json(bookmarks);
 });
 
-app.post('/api/books/:id/bookmarks', optionalAuth, (req, res) => {
+app.post('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
   const db = getDb();
   const { page, label, color } = req.body as { page: number; label?: string; color?: string };
   if (!page || page < 1) return res.status(400).json({ error: 'Valid page number required' });
@@ -620,36 +620,36 @@ app.post('/api/books/:id/bookmarks', optionalAuth, (req, res) => {
   const result = db.prepare('INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES (?, ?, ?, ?, ?)').run(
     parseInt(req.params.id),
     page,
-    label || `Página ${page}`,
+    label || `PÃ¡gina ${page}`,
     color || '#667eea',
     req.userId || null,
   );
-  res.json({ id: result.lastInsertRowid, page, label: label || `Página ${page}`, color: color || '#667eea' });
+  res.json({ id: result.lastInsertRowid, page, label: label || `PÃ¡gina ${page}`, color: color || '#667eea' });
 });
 
-app.delete('/api/books/:id/bookmarks/:bookmarkId', optionalAuth, (req, res) => {
+app.delete('/api/books/:id/bookmarks/:bookmarkId', optionalAuth, async (req, res) => {
   const db = getDb();
   db.prepare('DELETE FROM bookmarks WHERE id = ? AND book_id = ?').run(parseInt(req.params.bookmarkId), parseInt(req.params.id));
   res.json({ success: true });
 });
 
-// ── Affiliate Links & Monetization ──
+// â”€â”€ Affiliate Links & Monetization â”€â”€
 // Affiliate imports from db.js at top
 
-// Get affiliate links for a book (public — shows buy options)
-app.get('/api/books/:id/affiliate-links', optionalAuth, (req, res) => {
-  const links = getAffiliateLinks(parseInt(req.params.id));
+// Get affiliate links for a book (public â€” shows buy options)
+app.get('/api/books/:id/affiliate-links', optionalAuth, async (req, res) => {
+  const links = await getAffiliateLinks(parseInt(req.params.id));
   res.json(links);
 });
 
 // Add/update affiliate link for a book (admin only)
-app.post('/api/books/:id/affiliate-links', requireAuth, (req, res) => {
+app.post('/api/books/:id/affiliate-links', requireAuth, async (req, res) => {
   const { platform, affiliate_url, price_estimate, currency } = req.body;
   if (!platform || !affiliate_url) {
     return res.status(400).json({ error: 'platform y affiliate_url son requeridos.' });
   }
   
-  upsertAffiliateLink(
+  await upsertAffiliateLink(
     parseInt(req.params.id),
     platform,
     affiliate_url,
@@ -657,13 +657,13 @@ app.post('/api/books/:id/affiliate-links', requireAuth, (req, res) => {
     currency || 'USD'
   );
   
-  const links = getAffiliateLinks(parseInt(req.params.id));
+  const links = await getAffiliateLinks(parseInt(req.params.id));
   res.json(links);
 });
 
 // Track a click on an affiliate link
-app.post('/api/affiliate/click/:linkId', optionalAuth, (req, res) => {
-  trackAffiliateClick(req.userId || null, parseInt(req.params.linkId));
+app.post('/api/affiliate/click/:linkId', optionalAuth, async (req, res) => {
+  await trackAffiliateClick(req.userId || null, parseInt(req.params.linkId));
   
   // Get the link URL to redirect
   const db = getDb();
@@ -677,7 +677,7 @@ app.post('/api/affiliate/click/:linkId', optionalAuth, (req, res) => {
 });
 
 // Get affiliate analytics (admin)
-app.get('/api/affiliate/stats', requireAuth, (req, res) => {
+app.get('/api/affiliate/stats', requireAuth, async (req, res) => {
   const db = getDb();
   
   const totalClicks = (db.prepare('SELECT COUNT(*) as c FROM affiliate_clicks').get() as { c: number }).c;
@@ -710,7 +710,7 @@ app.get('/api/affiliate/stats', requireAuth, (req, res) => {
   res.json({ totalClicks, clicksByPlatform, topBooks, recentClicks });
 });
 
-// ── User Uploads ──
+// â”€â”€ User Uploads â”€â”€
 import { upload, getUploadLimit, deleteUploadFile, UPLOADS_DIR as UPLOAD_PATH } from './uploadStorage.js';
 // Upload imports from db.js at top
 
@@ -718,39 +718,39 @@ import { upload, getUploadLimit, deleteUploadFile, UPLOADS_DIR as UPLOAD_PATH } 
 app.use('/uploads', express.static(UPLOAD_PATH));
 
 // List user's uploads
-app.get('/api/uploads', requireAuth, (req, res) => {
-  const uploads = getUserUploads(req.userId!);
+app.get('/api/uploads', requireAuth, async (req, res) => {
+  const uploads = await getUserUploads(req.userId!);
   res.json(uploads);
 });
 
 // Upload a file
-app.post('/api/uploads', requireAuth, (req, res) => {
+app.post('/api/uploads', requireAuth, async (req, res) => {
   const limit = getUploadLimit(req.userPlan || 'free');
-  const currentCount = countUserUploads(req.userId!);
+  const currentCount = await countUserUploads(req.userId!);
   
   if (currentCount >= limit) {
     return res.status(403).json({ 
-      error: `Límite de archivos alcanzado (${limit}). Elimina archivos existentes o mejora tu plan.` 
+      error: `LÃ­mite de archivos alcanzado (${limit}). Elimina archivos existentes o mejora tu plan.` 
     });
   }
 
-  upload.single('file')(req, res, (err: any) => {
+  upload.single('file')(req, res, async (err: any) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'El archivo excede el límite de 100 MB.' });
+        return res.status(413).json({ error: 'El archivo excede el lÃ­mite de 100 MB.' });
       }
       return res.status(400).json({ error: err.message || 'Error al subir archivo.' });
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'No se recibió ningún archivo.' });
+      return res.status(400).json({ error: 'No se recibiÃ³ ningÃºn archivo.' });
     }
 
     const uploadId = require('uuid').v4();
-    insertUserUpload(
+    await insertUserUpload(
       uploadId,
       req.userId!,
-      null, // book_id — can be linked later
+      null, // book_id â€” can be linked later
       req.file.originalname,
       req.file.filename, // storage path (just the filename inside uploads dir)
       req.file.size
@@ -767,8 +767,8 @@ app.post('/api/uploads', requireAuth, (req, res) => {
 });
 
 // Delete an upload
-app.delete('/api/uploads/:id', requireAuth, (req, res) => {
-  const uploads = getUserUploads(req.userId!);
+app.delete('/api/uploads/:id', requireAuth, async (req, res) => {
+  const uploads = await getUserUploads(req.userId!);
   const target = uploads.find((u: any) => u.id === req.params.id);
   
   if (!target) {
@@ -778,14 +778,14 @@ app.delete('/api/uploads/:id', requireAuth, (req, res) => {
   // Delete physical file
   deleteUploadFile((target as any).storage_path);
   // Delete DB record
-  deleteUserUpload(req.params.id, req.userId!);
+  await deleteUserUpload(req.params.id, req.userId!);
   
   res.json({ success: true });
 });
 
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Production: Serve Frontend Static Files
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const DIST_DIR = join(__dirname, '..', '..', 'dist');
 if (existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
@@ -796,28 +796,28 @@ if (existsSync(DIST_DIR)) {
     }
     res.sendFile(join(DIST_DIR, 'index.html'));
   });
-  console.log('🌐 Serving production frontend from', DIST_DIR);
+  console.log('ðŸŒ Serving production frontend from', DIST_DIR);
 }
 
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Start Server
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 app.listen(PORT, async () => {
   const aiOnline = await checkHermesHealth();
   const isGroq = !!process.env.GROQ_API_KEY;
-  console.log(`\n🏛️  BiblioVault API running on http://localhost:${PORT}`);
-  console.log(`📚 Library path: ${LIBRARY_PATH}`);
-  console.log(`🤖 AI Backend: ${isGroq ? 'Groq Cloud' : 'Local Hermes'} — ${aiOnline ? '✅ Online' : '⚠️ Offline'}`);
-  console.log(`📊 Endpoints ready\n`);
+  console.log(`\nðŸ›ï¸  BiblioVault API running on http://localhost:${PORT}`);
+  console.log(`ðŸ“š Library path: ${LIBRARY_PATH}`);
+  console.log(`ðŸ¤– AI Backend: ${isGroq ? 'Groq Cloud' : 'Local Hermes'} â€” ${aiOnline ? 'âœ… Online' : 'âš ï¸ Offline'}`);
+  console.log(`ðŸ“Š Endpoints ready\n`);
 });
 
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Enrichment Endpoints
-// ══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Enrich a single book
 app.post('/api/books/:id/enrich', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   try {
@@ -848,10 +848,10 @@ app.post('/api/books/:id/enrich', async (req, res) => {
         updates.cover_source = 'api';
       }
 
-      updateBook(parseInt(req.params.id), updates as any);
+      await updateBook(parseInt(req.params.id), updates as any);
     } else {
       // Mark as enriched (attempted) even if not found
-      updateBook(parseInt(req.params.id), { enriched: 1 } as any);
+      await updateBook(parseInt(req.params.id), { enriched: 1 } as any);
     }
 
     res.json(result);
@@ -872,14 +872,14 @@ app.post('/api/enrich/batch', async (_req, res) => {
   const books = getUnenrichedBooks();
 
   // Start in background
-  runBatchEnrichment(books, (bookId, result) => {
+  runBatchEnrichment(books, async (bookId, result) => {
     const updates: Record<string, unknown> = {
       enriched: 1,
       enrichment_source: result.source,
     };
 
     if (result.title) {
-      const book = getBookById(bookId) as Record<string, unknown>;
+      const book = await getBookById(bookId) as Record<string, unknown>;
       updates.original_title = book?.title || '';
       updates.title = result.title;
     }
@@ -892,26 +892,26 @@ app.post('/api/enrich/batch', async (_req, res) => {
       updates.cover_source = 'api';
     }
 
-    updateBook(bookId, updates as any);
+    await updateBook(bookId, updates as any);
   });
 
   res.json({ message: 'Batch enrichment started', total: books.length });
 });
 
 // Get enrichment status
-app.get('/api/enrich/status', (_req, res) => {
+app.get('/api/enrich/status', async (_req, res) => {
   res.json(getBatchState());
 });
 
 // Cancel batch enrichment
-app.post('/api/enrich/cancel', (_req, res) => {
+app.post('/api/enrich/cancel', async (_req, res) => {
   cancelBatchEnrichment();
   res.json({ message: 'Cancelled' });
 });
 
 // Extract PDF first page as cover image
 app.post('/api/books/:id/extract-cover', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   if (book.format !== 'pdf') {
@@ -925,7 +925,7 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
     );
 
     if (coverPath) {
-      updateBook(parseInt(req.params.id), {
+      await updateBook(parseInt(req.params.id), {
         cover_path: coverPath,
         cover_source: 'pdf',
       } as any);
@@ -939,7 +939,7 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
   }
 });
 
-// ── Batch Cover Extraction ──
+// â”€â”€ Batch Cover Extraction â”€â”€
 
 // Start batch cover extraction for all books with SVG placeholders
 app.post('/api/covers/batch', async (_req, res) => {
@@ -952,8 +952,8 @@ app.post('/api/covers/batch', async (_req, res) => {
   const books = getBooksWithoutCovers();
 
   // Start in background
-  runBatchCoverExtraction(books, (bookId, coverPath, source) => {
-    updateBook(bookId, {
+  runBatchCoverExtraction(books, async (bookId, coverPath, source) => {
+    await updateBook(bookId, {
       cover_path: coverPath,
       cover_source: source,
     } as any);
@@ -963,19 +963,19 @@ app.post('/api/covers/batch', async (_req, res) => {
 });
 
 // Get batch cover extraction status
-app.get('/api/covers/batch/status', (_req, res) => {
+app.get('/api/covers/batch/status', async (_req, res) => {
   res.json(getCoverBatchState());
 });
 
 // Cancel batch cover extraction
-app.post('/api/covers/batch/cancel', (_req, res) => {
+app.post('/api/covers/batch/cancel', async (_req, res) => {
   cancelCoverBatchJob();
   res.json({ message: 'Cancelled' });
 });
 
-// AI Title Identification — read PDF text and ask LLM to find real title
+// AI Title Identification â€” read PDF text and ask LLM to find real title
 app.post('/api/books/:id/identify-title', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const filePath = book.file_path as string;
@@ -994,7 +994,7 @@ app.post('/api/books/:id/identify-title', async (req, res) => {
       const fileName = book.file_name as string || '';
 
       // Call Hermes with filename context only
-      const fakeText = `Nombre del archivo: "${fileName}"\nCategoría/carpeta: "${folderCategory}"\n\nEste es un archivo .${ext} cuyo texto no puede extraerse directamente.`;
+      const fakeText = `Nombre del archivo: "${fileName}"\nCategorÃ­a/carpeta: "${folderCategory}"\n\nEste es un archivo .${ext} cuyo texto no puede extraerse directamente.`;
 
       // Use the identifier with the filename as context
       result = await identifyTitleFromPdf(filePath, book.title as string).catch(() => null);
@@ -1025,12 +1025,12 @@ app.post('/api/books/:id/identify-title', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Full-Text Search (Phase 8)
-// ═══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Global full-text search across all books
-app.get('/api/search/fulltext', (req, res) => {
+app.get('/api/search/fulltext', async (req, res) => {
   const q = req.query.q as string;
   if (!q || q.length < 2) return res.json({ results: [] });
   const limit = parseInt(req.query.limit as string) || 50;
@@ -1039,7 +1039,7 @@ app.get('/api/search/fulltext', (req, res) => {
 });
 
 // Search within a specific book
-app.get('/api/books/:id/search', (req, res) => {
+app.get('/api/books/:id/search', async (req, res) => {
   const bookId = parseInt(req.params.id);
   const q = req.query.q as string;
   if (!q || q.length < 2) return res.json({ results: [] });
@@ -1049,7 +1049,7 @@ app.get('/api/books/:id/search', (req, res) => {
 
 // Index a single book
 app.post('/api/books/:id/index', async (req, res) => {
-  const book = getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   if (book.format !== 'pdf') return res.json({ indexed: 0, message: 'Only PDFs can be indexed' });
   const pages = await indexBookText(parseInt(req.params.id), book.file_path as string);
@@ -1068,27 +1068,27 @@ app.post('/api/search/index/batch', async (_req, res) => {
 });
 
 // Batch index status
-app.get('/api/search/index/status', (_req, res) => {
+app.get('/api/search/index/status', async (_req, res) => {
   res.json(getIndexBatchState());
 });
 
 // Cancel batch indexing
-app.post('/api/search/index/cancel', (_req, res) => {
+app.post('/api/search/index/cancel', async (_req, res) => {
   cancelIndexBatch();
   res.json({ message: 'Cancelled' });
 });
 
 // Index stats
-app.get('/api/search/index/stats', (_req, res) => {
+app.get('/api/search/index/stats', async (_req, res) => {
   res.json(getIndexStats());
 });
 
-// ═══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Fase 9: Statistics, Export & Backup
-// ═══════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Extended statistics for the Dashboard
-app.get('/api/stats/extended', (_req, res) => {
+app.get('/api/stats/extended', async (_req, res) => {
   const db = getDb();
   try {
     const totalBooks = (db.prepare('SELECT COUNT(*) as c FROM books').get() as { c: number }).c;
@@ -1133,7 +1133,7 @@ app.get('/api/stats/extended', (_req, res) => {
 });
 
 // Export library as CSV
-app.get('/api/export/csv', (_req, res) => {
+app.get('/api/export/csv', async (_req, res) => {
   const db = getDb();
   try {
     const books = db.prepare(`
@@ -1170,7 +1170,7 @@ app.get('/api/export/csv', (_req, res) => {
 // Download DB Backup
 import { DB_PATH } from './database.js';
 
-app.get('/api/backup', (_req, res) => {
+app.get('/api/backup', async (_req, res) => {
   if (existsSync(DB_PATH)) {
     // res.download needs absolute path, which DB_PATH is.
     res.download(DB_PATH, 'bibliovault.db', (err) => {
