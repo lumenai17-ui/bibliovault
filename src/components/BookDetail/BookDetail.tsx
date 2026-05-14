@@ -143,6 +143,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
     }
   };
 
+  // Manual refresh — ONLY called by user clicking refresh buttons
   const handleGenerateSummary = async (forceOcr = false) => {
     setSummaryLoading(true);
     try {
@@ -155,10 +156,14 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
     }
   };
 
-  // Auto-generate summary if not available
+  // Auto-load summary — uses DB cache, only generates if no cached version exists
   useEffect(() => {
     if (!summary && book.format === 'pdf') {
-      handleGenerateSummary(false);
+      setSummaryLoading(true);
+      generateSummary(book.id, { refresh: false })
+        .then(result => setSummary(result.summary))
+        .catch(() => setSummary(''))
+        .finally(() => setSummaryLoading(false));
     }
   }, [book.id, book.format, summary]);
 
