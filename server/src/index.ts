@@ -460,6 +460,94 @@ app.post('/api/subscription/cancel', requireAuth, async (req, res) => {
   }
 });
 
+// Activate subscription from inline PayPal JS SDK (no redirect)
+app.post('/api/subscription/activate-inline', requireAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId!) as any;
+    const { subscriptionId } = req.body;
+
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'Missing subscriptionId' });
+    }
+
+    // Verify with PayPal
+    const details = await getSubscriptionDetails(subscriptionId);
+    if (!details || (details.status !== 'ACTIVE' && details.status !== 'APPROVAL_PENDING')) {
+      return res.status(400).json({ error: 'Suscripción no aprobada en PayPal' });
+    }
+
+    const now = new Date();
+    await updateUser(user.id, {
+      plan: 'premium',
+      subscription_id: subscriptionId,
+      subscription_status: 'active',
+      subscription_start: now.toISOString(),
+      subscription_end: getSubscriptionEndDate(37), // 7 trial + 30 days
+    } as any);
+
+    console.log(`💳 Inline subscription activated for ${user.email} (${subscriptionId})`);
+
+    res.json({
+      success: true,
+      plan: 'premium',
+      subscription_end: getSubscriptionEndDate(37),
+    });
+  } catch (err) {
+    console.error('Inline subscription activate error:', err);
+    res.status(500).json({ error: 'Error al activar suscripción' });
+  }
+});
+
+// Redeem coupon code
+app.post('/api/subscription/redeem-coupon', requireAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId!) as any;
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Código requerido' });
+    }
+
+    // Configurable coupons via env var: CODE1:DAYS,CODE2:DAYS,...
+    // Example: COUPON_CODES=BETA30:30,AMIGO7:7,PRUEBA14:14
+    const couponConfig = process.env.COUPON_CODES || 'BETA30:30,PRUEBA7:7';
+    const coupons = new Map<string, number>();
+    couponConfig.split(',').forEach(c => {
+      const [k, v] = c.split(':');
+      if (k && v) coupons.set(k.trim().toUpperCase(), parseInt(v, 10));
+    });
+
+    const daysToGrant = coupons.get(code.toUpperCase());
+
+    if (!daysToGrant) {
+      return res.status(400).json({ error: 'Cupón inválido o expirado' });
+    }
+
+    // Grant access
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + daysToGrant);
+
+    await updateUser(user.id, {
+      plan: 'premium',
+      subscription_status: 'active',
+      subscription_start: new Date().toISOString(),
+      subscription_end: endDate.toISOString(),
+    } as any);
+
+    console.log(`🎟️ Coupon ${code} redeemed by ${user.email} — ${daysToGrant} days granted`);
+
+    res.json({
+      success: true,
+      message: `¡Cupón activado! Tienes ${daysToGrant} días de acceso premium.`,
+      days: daysToGrant,
+      subscription_end: endDate.toISOString(),
+    });
+  } catch (err) {
+    console.error('Coupon redeem error:', err);
+    res.status(500).json({ error: 'Error al canjear cupón' });
+  }
+});
+
 // PayPal Webhook (receives renewal, cancellation, failure notifications)
 app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }), async (req, res) => {
   try {

@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Crown, Check, Loader2, ShieldCheck, BookOpen, Sparkles, Headphones, MessageSquare } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Crown, Check, Loader2, ShieldCheck, BookOpen, Sparkles, Headphones, MessageSquare, Gift } from 'lucide-react';
 import './SubscriptionPage.css';
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+const PLAN_ID = 'P-7G896789MV201470PNIC2VZY';
+
+declare global {
+  interface Window {
+    paypal?: any;
+  }
+}
 
 interface SubscriptionPageProps {
   userEmail: string;
@@ -19,20 +26,26 @@ interface SubStatus {
 }
 
 export default function SubscriptionPage({ userEmail, userName, onSubscribed }: SubscriptionPageProps) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<SubStatus | null>(null);
   const [error, setError] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponSuccess, setCouponSuccess] = useState('');
+  const paypalRef = useRef<HTMLDivElement>(null);
+  const buttonsRendered = useRef(false);
 
-  // Check if returning from PayPal
+  // Check current subscription status
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('subscription') === 'success') {
-      activateSubscription();
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
     fetchStatus();
   }, []);
+
+  // Render PayPal buttons once SDK is loaded and status is checked
+  useEffect(() => {
+    if (!loading && !status?.has_access && !buttonsRendered.current) {
+      renderPayPalButtons();
+    }
+  }, [loading, status]);
 
   const fetchStatus = async () => {
     try {
@@ -43,55 +56,94 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
         if (data.has_access) onSubscribed();
       }
     } catch { /* ignore */ }
+    setLoading(false);
   };
 
-  const activateSubscription = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/subscription/activate`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        onSubscribed();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Error activating subscription');
-      }
-    } catch {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
+  const renderPayPalButtons = () => {
+    if (!window.paypal || !paypalRef.current || buttonsRendered.current) return;
+
+    buttonsRendered.current = true;
+
+    window.paypal.Buttons({
+      style: {
+        shape: 'pill',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'subscribe',
+      },
+      createSubscription: (_data: any, actions: any) => {
+        return actions.subscription.create({
+          plan_id: PLAN_ID,
+          application_context: {
+            shipping_preference: 'NO_SHIPPING',
+          },
+        });
+      },
+      onApprove: async (data: any) => {
+        // Subscription approved — activate on our backend
+        try {
+          const res = await fetch(`${API_BASE}/subscription/activate-inline`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscriptionId: data.subscriptionID,
+              orderID: data.orderID,
+            }),
+          });
+
+          if (res.ok) {
+            onSubscribed();
+          } else {
+            const err = await res.json();
+            setError(err.error || 'Error al activar suscripción');
+          }
+        } catch {
+          setError('Error de conexión al activar suscripción');
+        }
+      },
+      onError: (err: any) => {
+        console.error('PayPal error:', err);
+        setError('Error en el proceso de pago. Intenta de nuevo.');
+      },
+    }).render(paypalRef.current);
   };
 
-  const handleSubscribe = async () => {
-    setLoading(true);
+  const handleCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
     setError('');
+    setCouponSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/subscription/create`, {
+      const res = await fetch(`${API_BASE}/subscription/redeem-coupon`, {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode.trim().toUpperCase() }),
       });
       const data = await res.json();
-
-      if (data.status === 'already_active') {
-        onSubscribed();
-        return;
-      }
-
-      if (data.approvalUrl) {
-        // Redirect to PayPal
-        window.location.href = data.approvalUrl;
+      if (res.ok && data.success) {
+        setCouponSuccess(data.message || '¡Cupón activado!');
+        setTimeout(() => onSubscribed(), 1500);
       } else {
-        setError('No se pudo iniciar el pago');
+        setError(data.error || 'Cupón inválido');
       }
     } catch {
       setError('Error de conexión');
     } finally {
-      setLoading(false);
+      setCouponLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="sub-page">
+        <div className="sub-container">
+          <Loader2 size={32} className="spin" style={{ color: 'var(--accent-primary)' }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sub-page">
@@ -124,18 +176,33 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
           </ul>
 
           {error && <div className="sub-error">{error}</div>}
+          {couponSuccess && <div className="sub-success">{couponSuccess}</div>}
 
-          <button
-            className="sub-button"
-            onClick={handleSubscribe}
-            disabled={loading}
-          >
-            {loading ? (
-              <><Loader2 size={18} className="spin" /> Procesando...</>
-            ) : (
-              <>Comenzar 7 Días Gratis</>
-            )}
-          </button>
+          {/* PayPal Inline Buttons — tarjeta + PayPal */}
+          <div className="sub-paypal-container">
+            <div ref={paypalRef} id="paypal-button-container" />
+          </div>
+
+          {/* Coupon Section */}
+          <div className="sub-coupon-section">
+            <div className="sub-coupon-divider">
+              <span>o</span>
+            </div>
+            <div className="sub-coupon-form">
+              <Gift size={16} />
+              <input
+                type="text"
+                placeholder="Código de cupón"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handleCoupon()}
+                maxLength={20}
+              />
+              <button onClick={handleCoupon} disabled={couponLoading || !couponCode.trim()}>
+                {couponLoading ? <Loader2 size={14} className="spin" /> : 'Aplicar'}
+              </button>
+            </div>
+          </div>
 
           <p className="sub-disclaimer">
             Después del período de prueba se cobra $12.99 USD/mes.

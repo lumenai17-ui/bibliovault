@@ -140,30 +140,102 @@
   text-align: center;
 }
 
-.sub-button {
+.sub-success {
+  background: rgba(80, 200, 80, 0.15);
+  border: 1px solid rgba(80, 200, 80, 0.3);
+  color: #80e080;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sub-paypal-container {
+  margin-bottom: 16px;
+  min-height: 50px;
+}
+
+.sub-paypal-container #paypal-button-container {
   width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #f0c040, #e8a020);
-  color: #1a1034;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
+}
+
+/* Coupon Section */
+.sub-coupon-section {
+  margin-top: 4px;
+}
+
+.sub-coupon-divider {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: #666;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sub-coupon-divider::before,
+.sub-coupon-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sub-coupon-form {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  transition: transform 0.15s, box-shadow 0.15s;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 4px 4px 4px 12px;
 }
 
-.sub-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(240, 192, 64, 0.3);
+.sub-coupon-form svg {
+  color: #8888aa;
+  flex-shrink: 0;
 }
 
-.sub-button:disabled {
-  opacity: 0.6;
+.sub-coupon-form input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #e0e0f0;
+  font-size: 14px;
+  font-family: monospace;
+  letter-spacing: 1px;
+  padding: 8px 0;
+  outline: none;
+}
+
+.sub-coupon-form input::placeholder {
+  color: #555;
+  font-family: inherit;
+  letter-spacing: 0;
+}
+
+.sub-coupon-form button {
+  background: rgba(240, 192, 64, 0.15);
+  border: 1px solid rgba(240, 192, 64, 0.3);
+  color: #f0c040;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.sub-coupon-form button:hover:not(:disabled) {
+  background: rgba(240, 192, 64, 0.25);
+}
+
+.sub-coupon-form button:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
