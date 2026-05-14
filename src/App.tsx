@@ -22,6 +22,7 @@ import {
   updateBook as apiUpdateBook,
   fetchUserFavoriteIds,
   toggleBookFavorite,
+  fetchUserReadingMap,
   ApiConnectionError,
   type ApiBook,
   type ApiCategory,
@@ -130,16 +131,22 @@ export default function App() {
         params.collection_id = parseInt(activeSection.replace('col-', ''));
       }
 
-      // Fetch books + user's favorite IDs in parallel
-      const [result, favIds] = await Promise.all([
+      // Fetch books + user's favorites + reading progress in parallel
+      const [result, favIds, readingMap] = await Promise.all([
         fetchBooks(params),
         fetchUserFavoriteIds(),
+        fetchUserReadingMap(),
       ]);
 
-      let mapped = result.books.map((b: ApiBook) => ({
-        ...mapBook(b),
-        favorite: favIds.has(b.id), // Override with per-user favorite
-      }));
+      let mapped = result.books.map((b: ApiBook) => {
+        const userProgress = readingMap[b.id];
+        return {
+          ...mapBook(b),
+          favorite: favIds.has(b.id),
+          readingProgress: userProgress?.progress ?? 0,
+          lastRead: userProgress?.last_read ?? b.last_read,
+        };
+      });
 
       // Client-side section filtering
       if (activeSection === 'favorites') {

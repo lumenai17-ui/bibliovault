@@ -185,6 +185,21 @@ export async function toggleBookFavorite(bookId: number, isFavorite: boolean): P
   });
 }
 
+// ── Per-User Reading Progress Map ──
+
+export type ReadingProgressMap = Record<number, { progress: number; current_page: number; last_read: string }>;
+
+export async function fetchUserReadingMap(): Promise<ReadingProgressMap> {
+  try {
+    const res = await fetch(`${API_BASE}/user/reading-map`, { credentials: 'include' });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data.map || {};
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
   const res = await fetchWithRetry(`${API_BASE}/categories`);
   return res.json();

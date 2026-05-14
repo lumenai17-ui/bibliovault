@@ -354,6 +354,42 @@ app.delete('/api/books/:id/favorite', async (req, res) => {
   }
 });
 
+// ── Per-User Reading Progress Map ──
+app.get('/api/user/reading-map', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.json({ map: {} });
+
+    // Use direct query to get all progress rows for this user
+    if (isPostgres()) {
+      const p = getPgPool();
+      const result = await p.query(
+        'SELECT book_id, progress, current_page, last_read FROM user_reading_progress WHERE user_id = $1 AND progress > 0',
+        [user.id]
+      );
+      const map: Record<number, { progress: number; current_page: number; last_read: string }> = {};
+      for (const row of result.rows) {
+        map[row.book_id] = { progress: row.progress, current_page: row.current_page, last_read: row.last_read };
+      }
+      return res.json({ map });
+    } else {
+      // SQLite
+      const { getDb: getSqliteDb } = await import('./database.js');
+      const db = getSqliteDb();
+      const rows = db.prepare(
+        'SELECT book_id, progress, current_page, last_read FROM user_reading_progress WHERE user_id = ? AND progress > 0'
+      ).all(user.id) as { book_id: number; progress: number; current_page: number; last_read: string }[];
+      const map: Record<number, { progress: number; current_page: number; last_read: string }> = {};
+      for (const row of rows) {
+        map[row.book_id] = { progress: row.progress, current_page: row.current_page, last_read: row.last_read };
+      }
+      return res.json({ map });
+    }
+  } catch {
+    res.json({ map: {} });
+  }
+});
+
 // â”€â”€ Extract HTML from DOC/DOCX for Web Reader â”€â”€
 import mammoth from 'mammoth';
 import WordExtractor from 'word-extractor';
