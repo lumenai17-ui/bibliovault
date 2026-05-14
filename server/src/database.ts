@@ -208,6 +208,20 @@ function initSchema() {
     db.exec("ALTER TABLE ai_conversations ADD COLUMN user_id TEXT DEFAULT NULL");
   }
 
+  // Migration: Collections UNIQUE(name) → UNIQUE(name, user_id)
+  // So each user can have their own "Favorites" collection
+  try {
+    const hasOldUnique = db.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='collections'"
+    ).get() as { sql: string } | undefined;
+    if (hasOldUnique?.sql?.includes('name TEXT NOT NULL UNIQUE') && !hasOldUnique.sql.includes('user_id')) {
+      // Table still has the old schema — the user_id column was added via ALTER
+      // Create a unique index that allows per-user duplicate names
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_name_user ON collections(name, user_id)');
+      console.log('📋 Added per-user unique constraint on collections(name, user_id)');
+    }
+  } catch { /* index may already exist */ }
+
   // Migration: Fix .doc/.docx books that were incorrectly stored as format='pdf'
   const docFixed = db.prepare(`
     UPDATE books SET format = 'doc' 
@@ -444,41 +458,63 @@ export function getUnenrichedBooks(limit = 2000) {
   }>;
 }
 
-// ── Collections CRUD ──
+// ── Collections CRUD (Per-User) ──
 
 export interface CollectionRow {
   id: number;
   name: string;
   description: string;
   color: string;
+  user_id?: string | null;
   book_count?: number;
 }
 
-export function getCollections() {
+export function getCollections(userId?: string | null) {
   const db = getDb();
+  if (userId) {
+    // Show user's own collections + legacy global ones (user_id IS NULL)
+    return db.prepare(`
+      SELECT c.*, COUNT(bc.book_id) as book_count
+      FROM collections c
+      LEFT JOIN book_collections bc ON bc.collection_id = c.id
+      WHERE c.user_id = @userId OR c.user_id IS NULL
+      GROUP BY c.id
+      ORDER BY c.name ASC
+    `).all({ userId }) as CollectionRow[];
+  }
+  // No user → only show legacy global collections
   return db.prepare(`
     SELECT c.*, COUNT(bc.book_id) as book_count
     FROM collections c
     LEFT JOIN book_collections bc ON bc.collection_id = c.id
+    WHERE c.user_id IS NULL
     GROUP BY c.id
     ORDER BY c.name ASC
   `).all() as CollectionRow[];
 }
 
-export function createCollection(name: string, description = '', color = '#667eea') {
+export function createCollection(name: string, description = '', color = '#667eea', userId?: string | null) {
   const db = getDb();
-  const info = db.prepare('INSERT INTO collections (name, description, color) VALUES (@name, @description, @color)').run({ name, description, color });
+  const info = db.prepare(
+    'INSERT INTO collections (name, description, color, user_id) VALUES (@name, @description, @color, @userId)'
+  ).run({ name, description, color, userId: userId || null });
   return info.lastInsertRowid;
 }
 
-export function updateCollection(id: number, name: string, description: string, color: string) {
+export function updateCollection(id: number, name: string, description: string, color: string, userId?: string | null) {
   const db = getDb();
-  return db.prepare('UPDATE collections SET name = @name, description = @description, color = @color WHERE id = @id').run({ id, name, description, color });
+  // Only update if owned by user or legacy (NULL)
+  return db.prepare(
+    'UPDATE collections SET name = @name, description = @description, color = @color WHERE id = @id AND (user_id = @userId OR user_id IS NULL)'
+  ).run({ id, name, description, color, userId: userId || null });
 }
 
-export function deleteCollection(id: number) {
+export function deleteCollection(id: number, userId?: string | null) {
   const db = getDb();
-  return db.prepare('DELETE FROM collections WHERE id = @id').run({ id });
+  // Only delete if owned by user or legacy (NULL)
+  return db.prepare(
+    'DELETE FROM collections WHERE id = @id AND (user_id = @userId OR user_id IS NULL)'
+  ).run({ id, userId: userId || null });
 }
 
 export function addBookToCollection(bookId: number, collectionId: number) {
@@ -491,13 +527,21 @@ export function removeBookFromCollection(bookId: number, collectionId: number) {
   return db.prepare('DELETE FROM book_collections WHERE book_id = @bookId AND collection_id = @collectionId').run({ bookId, collectionId });
 }
 
-export function getBookCollections(bookId: number) {
+export function getBookCollections(bookId: number, userId?: string | null) {
   const db = getDb();
+  if (userId) {
+    return db.prepare(`
+      SELECT c.* 
+      FROM collections c
+      JOIN book_collections bc ON bc.collection_id = c.id
+      WHERE bc.book_id = @bookId AND (c.user_id = @userId OR c.user_id IS NULL)
+    `).all({ bookId, userId }) as CollectionRow[];
+  }
   return db.prepare(`
     SELECT c.* 
     FROM collections c
     JOIN book_collections bc ON bc.collection_id = c.id
-    WHERE bc.book_id = @bookId
+    WHERE bc.book_id = @bookId AND c.user_id IS NULL
   `).all({ bookId }) as CollectionRow[];
 }
 

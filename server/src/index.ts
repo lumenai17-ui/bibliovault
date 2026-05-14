@@ -666,42 +666,34 @@ app.get('/api/categories', async (_req, res) => {
 // Collections imported from db.js at top
 
 app.get('/api/collections', optionalAuth, async (req, res) => {
-  const collections = await getCollections();
-  // Future: filter by req.userId when multi-user is fully active
+  const collections = await getCollections(req.userId || null);
   res.json(collections);
 });
 
 // Get collections for a specific book
 app.get('/api/books/:id/collections', optionalAuth, async (req, res) => {
-  const collections = await getBookCollections(parseInt(req.params.id));
+  const collections = await getBookCollections(parseInt(req.params.id), req.userId || null);
   res.json(collections);
 });
 
 app.post('/api/collections', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
-  const id = createCollection(name, description, color);
-  // Associate with user if authenticated
-  if (req.userId) {
-    if (isPostgres()) {
-      const pool = getPgPool();
-      await pool.query('UPDATE collections SET user_id = $1 WHERE id = $2', [req.userId, id]);
-    } else {
-      const sqlite = (await import('./database.js')).getDb();
-      sqlite.prepare('UPDATE collections SET user_id = @userId WHERE id = @id').run({ userId: req.userId, id });
-    }
-  }
+  // Create with user_id directly — no second UPDATE needed
+  const id = createCollection(name, description, color, req.userId || null);
   res.json({ id, name, description, color });
 });
 
 app.put('/api/collections/:id', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
-  updateCollection(parseInt(req.params.id), name, description, color);
+  // Only updates if owned by this user or legacy (NULL)
+  updateCollection(parseInt(req.params.id), name, description, color, req.userId || null);
   res.json({ success: true });
 });
 
 app.delete('/api/collections/:id', optionalAuth, async (req, res) => {
-  deleteCollection(parseInt(req.params.id));
+  // Only deletes if owned by this user or legacy (NULL)
+  deleteCollection(parseInt(req.params.id), req.userId || null);
   res.json({ success: true });
 });
 
@@ -812,7 +804,7 @@ app.get('/api/ai/health', async (_req, res) => {
   res.json({ online });
 });
 
-// â”€â”€ Web Search (for AI context enrichment) â”€â”€
+// ── Web Search (for AI context enrichment) ──
 app.post('/api/ai/search', async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query?.trim()) return res.status(400).json({ error: 'query required' });
@@ -827,12 +819,14 @@ app.post('/api/ai/search', async (req, res) => {
   }
 });
 
-// â”€â”€ Bookmarks â”€â”€
+// ── Bookmarks (Per-User) ──
 app.get('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
   try {
+    const bookId = parseInt(req.params.id);
+    const userId = req.userId || null;
+
     if (isPostgres()) {
       const pool = getPgPool();
-      // Ensure bookmarks table exists in PG
       await pool.query(`
         CREATE TABLE IF NOT EXISTS bookmarks (
           id SERIAL PRIMARY KEY,
@@ -844,11 +838,16 @@ app.get('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
           created_at TIMESTAMPTZ DEFAULT NOW()
         )
       `);
-      const { rows } = await pool.query('SELECT * FROM bookmarks WHERE book_id = $1 ORDER BY page ASC', [parseInt(req.params.id)]);
+      const { rows } = await pool.query(
+        'SELECT * FROM bookmarks WHERE book_id = $1 AND (user_id = $2 OR user_id IS NULL) ORDER BY page ASC',
+        [bookId, userId]
+      );
       res.json(rows);
     } else {
       const db = (await import('./database.js')).getDb();
-      const bookmarks = db.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY page ASC').all(parseInt(req.params.id));
+      const bookmarks = db.prepare(
+        'SELECT * FROM bookmarks WHERE book_id = ? AND (user_id = ? OR user_id IS NULL) ORDER BY page ASC'
+      ).all(bookId, userId);
       res.json(bookmarks);
     }
   } catch (err) {
@@ -863,26 +862,32 @@ app.post('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
 
   try {
     const bookId = parseInt(req.params.id);
+    const userId = req.userId || null;
     const bookmarkLabel = label || `Página ${page}`;
     const bookmarkColor = color || '#667eea';
 
     if (isPostgres()) {
       const pool = getPgPool();
-      const { rows: existing } = await pool.query('SELECT id FROM bookmarks WHERE book_id = $1 AND page = $2', [bookId, page]);
+      const { rows: existing } = await pool.query(
+        'SELECT id FROM bookmarks WHERE book_id = $1 AND page = $2 AND (user_id = $3 OR ($3 IS NULL AND user_id IS NULL))',
+        [bookId, page, userId]
+      );
       if (existing.length > 0) return res.status(409).json({ error: 'Bookmark already exists for this page' });
 
       const { rows } = await pool.query(
         'INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [bookId, page, bookmarkLabel, bookmarkColor, req.userId || null]
+        [bookId, page, bookmarkLabel, bookmarkColor, userId]
       );
       res.json({ id: rows[0].id, page, label: bookmarkLabel, color: bookmarkColor });
     } else {
       const db = (await import('./database.js')).getDb();
-      const existing = db.prepare('SELECT id FROM bookmarks WHERE book_id = ? AND page = ?').get(bookId, page);
+      const existing = userId
+        ? db.prepare('SELECT id FROM bookmarks WHERE book_id = ? AND page = ? AND user_id = ?').get(bookId, page, userId)
+        : db.prepare('SELECT id FROM bookmarks WHERE book_id = ? AND page = ? AND user_id IS NULL').get(bookId, page);
       if (existing) return res.status(409).json({ error: 'Bookmark already exists for this page' });
 
       const result = db.prepare('INSERT INTO bookmarks (book_id, page, label, color, user_id) VALUES (?, ?, ?, ?, ?)').run(
-        bookId, page, bookmarkLabel, bookmarkColor, req.userId || null
+        bookId, page, bookmarkLabel, bookmarkColor, userId
       );
       res.json({ id: result.lastInsertRowid, page, label: bookmarkLabel, color: bookmarkColor });
     }
@@ -894,12 +899,21 @@ app.post('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
 
 app.delete('/api/books/:id/bookmarks/:bookmarkId', optionalAuth, async (req, res) => {
   try {
+    const bookmarkId = parseInt(req.params.bookmarkId);
+    const bookId = parseInt(req.params.id);
+    const userId = req.userId || null;
+
     if (isPostgres()) {
       const pool = getPgPool();
-      await pool.query('DELETE FROM bookmarks WHERE id = $1 AND book_id = $2', [parseInt(req.params.bookmarkId), parseInt(req.params.id)]);
+      await pool.query(
+        'DELETE FROM bookmarks WHERE id = $1 AND book_id = $2 AND (user_id = $3 OR user_id IS NULL)',
+        [bookmarkId, bookId, userId]
+      );
     } else {
       const db = (await import('./database.js')).getDb();
-      db.prepare('DELETE FROM bookmarks WHERE id = ? AND book_id = ?').run(parseInt(req.params.bookmarkId), parseInt(req.params.id));
+      db.prepare(
+        'DELETE FROM bookmarks WHERE id = ? AND book_id = ? AND (user_id = ? OR user_id IS NULL)'
+      ).run(bookmarkId, bookId, userId);
     }
     res.json({ success: true });
   } catch (err) {
