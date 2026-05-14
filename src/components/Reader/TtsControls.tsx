@@ -241,7 +241,7 @@ export default function TtsControls({
   const activeVoice = voices.find((v) => v.name === settings.voiceName);
 
   return (
-    <>
+    <div className="tts-wrapper" style={{ position: 'relative' }}>
       {/* Floating TTS Bar */}
       <div className={`tts-bar ${isPlaying || isPaused ? 'tts-bar-active' : ''}`}>
         {/* Play/Pause button */}
@@ -422,6 +422,6 @@ export default function TtsControls({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
