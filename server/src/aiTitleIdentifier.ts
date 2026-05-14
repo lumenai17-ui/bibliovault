@@ -13,11 +13,11 @@
 
 import { extractPdfText } from './textExtractor.js';
 import { llmComplete } from './hermes.js';
+import { LLM_API_KEY, LLM_API_URL } from './hermes.js';
 import { readFileSync, existsSync } from 'fs';
 
-// Vision model config
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+// Vision model config — uses same provider as text LLM
+const VISION_MODEL = process.env.LLM_VISION_MODEL || process.env.LLM_MODEL || 'gemma4';
 
 export interface TitleIdentification {
   title: string;
@@ -65,8 +65,8 @@ async function identifyTitleFromImage(
   imagePath: string,
   currentTitle: string,
 ): Promise<TitleIdentification | null> {
-  if (!GROQ_API_KEY) {
-    console.log('⚠️ No GROQ_API_KEY — cannot use vision model');
+  if (!LLM_API_KEY) {
+    console.log('⚠️ No LLM_API_KEY — cannot use vision model');
     return null;
   }
 
@@ -89,11 +89,11 @@ async function identifyTitleFromImage(
 
     console.log(`👁️ Using Vision AI to read cover of "${currentTitle}"...`);
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch(`${LLM_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${LLM_API_KEY}`,
       },
       body: JSON.stringify({
         model: VISION_MODEL,

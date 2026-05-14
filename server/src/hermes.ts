@@ -1,10 +1,11 @@
 /**
  * Hermes AI Client — Backend proxy for AI chat completions
- * Supports dual mode:
- *   - Groq Cloud (when GROQ_API_KEY is set) — Llama 3.1 70B
+ * Supports multiple backends via OpenAI-compatible API:
+ *   - Ollama Cloud (when LLM_API_KEY is set) — Gemma 4, etc.
+ *   - Groq Cloud (legacy, when GROQ_API_KEY is set) — Llama 3.1 70B
  *   - Local Hermes (fallback) — localhost:8642
  * 
- * Both use OpenAI-compatible API format.
+ * All use OpenAI-compatible /v1/chat/completions format.
  * 
  * Features:
  * - Book-aware contextual system prompt
@@ -15,21 +16,25 @@
 
 import type { Request, Response } from 'express';
 
-// ── LLM Configuration (auto-detect Groq vs Local Hermes) ──
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const LLM_API_URL = process.env.LLM_API_URL || 'http://127.0.0.1:8642/v1';
+// ── LLM Configuration (auto-detect Cloud vs Local Hermes) ──
+// Priority: LLM_API_KEY (generic) > GROQ_API_KEY (legacy) > Local Hermes
+const LLM_API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY || '';
+const LLM_API_URL = process.env.LLM_API_URL || (process.env.GROQ_API_KEY ? 'https://api.groq.com/openai/v1' : 'http://127.0.0.1:8642/v1');
 const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
-const isGroq = !!GROQ_API_KEY;
-const CHAT_URL = isGroq
+const isCloud = !!LLM_API_KEY;
+const CHAT_URL = isCloud
   ? `${LLM_API_URL}/chat/completions`
   : 'http://127.0.0.1:8642/v1/chat/completions';
-const HEALTH_URL = isGroq
+const HEALTH_URL = isCloud
   ? `${LLM_API_URL}/models`
   : 'http://127.0.0.1:8642/v1/models';
 
 // Log which LLM backend is active
-console.log(`🤖 LLM Backend: ${isGroq ? `Groq Cloud (${LLM_MODEL})` : 'Local Hermes (localhost:8642)'}`);
+console.log(`🤖 LLM Backend: ${isCloud ? `Cloud (${LLM_API_URL} / ${LLM_MODEL})` : 'Local Hermes (localhost:8642)'}`);
+
+// Export for use by other modules (e.g. aiTitleIdentifier)
+export { LLM_API_KEY, LLM_API_URL, LLM_MODEL, isCloud };
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -41,8 +46,8 @@ function buildHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (isGroq) {
-    headers['Authorization'] = `Bearer ${GROQ_API_KEY}`;
+  if (isCloud) {
+    headers['Authorization'] = `Bearer ${LLM_API_KEY}`;
   }
   return headers;
 }
@@ -166,7 +171,7 @@ export async function streamChat(req: Request, res: Response) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      const backendName = isGroq ? 'Groq' : 'Hermes';
+      const backendName = isCloud ? 'Cloud LLM' : 'Hermes';
       res.write(`data: ${JSON.stringify({ error: `${backendName} error: ${response.status} - ${errorText}` })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
@@ -195,8 +200,8 @@ export async function streamChat(req: Request, res: Response) {
     res.end();
   } catch (err) {
     console.error('LLM connection error:', err);
-    const hint = isGroq
-      ? 'No se pudo conectar con Groq Cloud. Verifica tu API key y conexión a internet.'
+    const hint = isCloud
+      ? 'No se pudo conectar con el LLM Cloud. Verifica tu API key y conexión a internet.'
       : 'No se pudo conectar con Hermes AI. Verifica que esté ejecutándose en localhost:8642';
     res.write(`data: ${JSON.stringify({ error: hint })}\n\n`);
     res.write('data: [DONE]\n\n');
