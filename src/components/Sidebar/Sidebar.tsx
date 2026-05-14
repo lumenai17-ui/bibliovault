@@ -15,6 +15,7 @@ import {
   MessageCircle,
   User,
   Settings,
+  LogOut,
 } from 'lucide-react';
 import type { ApiCategory } from '../../services/api';
 import type { AuthUser } from '../Auth/AuthPage';
@@ -36,6 +37,7 @@ interface SidebarProps {
   collections?: Collection[];
   currentUser?: AuthUser | null;
   isOpen?: boolean;
+  onLogout?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -47,7 +49,7 @@ const NAV_ITEMS = [
   { id: 'community', label: 'Foro', icon: MessageCircle },
 ];
 
-export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser, isOpen }: SidebarProps) {
+export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser, isOpen, onLogout }: SidebarProps) {
   const [showCategories, setShowCategories] = useState(false);
   const [showCollections, setShowCollections] = useState(true);
   const [showUploads, setShowUploads] = useState(false);
@@ -220,6 +222,13 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
             </div>
             <Settings size={14} style={{ color: 'var(--text-muted)' }} />
           </div>
+          <button
+            className="sidebar-logout-btn"
+            title="Cerrar sesión"
+            onClick={(e) => { e.stopPropagation(); onLogout?.(); }}
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       )}
 

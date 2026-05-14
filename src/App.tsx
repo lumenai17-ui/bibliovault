@@ -371,6 +371,11 @@ export default function App() {
         collections={collections}
         currentUser={currentUser}
         isOpen={sidebarOpen}
+        onLogout={async () => {
+          const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
+          await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+          setCurrentUser(null);
+        }}
       />
       <main className="app-main">
         <Header

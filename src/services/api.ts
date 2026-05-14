@@ -21,6 +21,7 @@ async function fetchWithRetry(
       const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
       
       const res = await fetch(url, {
+        credentials: 'include',
         ...options,
         signal: controller.signal,
       });
@@ -564,6 +565,10 @@ export async function createCommunityApi(name: string, description: string, rule
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, description, rules, type }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error al crear comunidad' }));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
   return res.json();
 }
 

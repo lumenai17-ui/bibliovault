@@ -1364,7 +1364,9 @@ app.get('/api/uploads', requireAuth, async (req, res) => {
 
 // Upload a file
 app.post('/api/uploads', requireAuth, async (req, res) => {
-  const limit = getUploadLimit(req.userPlan || 'free');
+  const user = await getUserById(req.userId!) as any;
+  const plan = user?.plan || 'free';
+  const limit = plan === 'enterprise' ? 200 : plan === 'premium' ? 50 : 5;
   const currentCount = await countUserUploads(req.userId!);
   
   if (currentCount >= limit) {
