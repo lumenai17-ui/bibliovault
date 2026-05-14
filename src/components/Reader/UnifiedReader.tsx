@@ -31,7 +31,7 @@ import TtsControls from './TtsControls';
 import type { Book } from '../../types';
 import type { AiAction } from '../../services/ai';
 import type { Bookmark as BookmarkType } from '../../services/api';
-import { getBookFileUrl, updateBook, fetchBookText, fetchBookmarks, addBookmark, removeBookmark, searchInBook as apiSearchInBook } from '../../services/api';
+import { getBookFileUrl, updateBook, fetchBookText, fetchBookmarks, addBookmark, removeBookmark, searchInBook as apiSearchInBook, saveReadingProgress, getReadingProgress } from '../../services/api';
 import './Reader.css';
 
 type ReaderTheme = 'default' | 'night' | 'sepia' | 'paper';
@@ -108,6 +108,19 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
     return () => clearTimeout(timer);
   }, [book.id, book.format, currentPage, pageLayout]);
 
+  // Load per-user reading progress on mount
+  useEffect(() => {
+    getReadingProgress(book.id).then((data) => {
+      if (data.progress > 0 && book.pages > 0 && !hasRestoredRef.current) {
+        const page = Math.max(1, Math.round(data.progress * book.pages));
+        savedProgressRef.current = data.progress;
+        setCurrentPage(page);
+        setPageInput(String(page));
+        currentPageRef.current = page;
+      }
+    }).catch(() => {});
+  }, [book.id, book.pages]);
+
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { totalPagesRef.current = totalPages; }, [totalPages]);
 
@@ -115,11 +128,8 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
     if (total <= 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const progress = page / total;
-      updateBook(book.id, {
-        reading_progress: Math.min(1, Math.max(0, progress)),
-        last_read: new Date().toISOString(),
-      });
+      const progress = Math.min(1, Math.max(0, page / total));
+      saveReadingProgress(book.id, progress, page);
     }, 1500);
   }, [book.id]);
 
@@ -133,10 +143,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
       const cp = currentPageRef.current;
       const tp = totalPagesRef.current;
       if (tp > 0) {
-        updateBook(book.id, {
-          reading_progress: Math.min(1, Math.max(0, cp / tp)),
-          last_read: new Date().toISOString(),
-        });
+        saveReadingProgress(book.id, Math.min(1, Math.max(0, cp / tp)), cp);
       }
     };
   }, [book.id]);
@@ -183,10 +190,9 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
     // Save before closing
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (totalPagesRef.current > 0) {
-      updateBook(book.id, {
-        reading_progress: Math.min(1, Math.max(0, currentPageRef.current / totalPagesRef.current)),
-        last_read: new Date().toISOString(),
-      });
+      const cp = currentPageRef.current;
+      const tp = totalPagesRef.current;
+      saveReadingProgress(book.id, Math.min(1, Math.max(0, cp / tp)), cp);
     }
     // Animate out, then close
     setTimeout(onClose, 250);

@@ -32,6 +32,8 @@ import {
   countUserUploads,
   insertUserUpload,
   deleteUserUpload,
+  getUserReadingProgress,
+  setUserReadingProgress,
 } from './db.js';
 import { scanLibrary, type ScanProgress } from './scanner.js';
 import { streamChat, checkHermesHealth, llmComplete, streamOrganizerChat } from './hermes.js';
@@ -272,7 +274,7 @@ app.get('/api/books/:id', async (req, res) => {
 app.patch('/api/books/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const allowed = [
-    'favorite', 'reading_progress', 'last_read', 'category_id',
+    'favorite', 'category_id',
     'tags', 'subcategory', 'ai_summary', 'cover_path', 'cover_source',
     'title', 'author', 'description', 'isbn', 'pages',
     'enriched', 'original_title', 'enrichment_source',
@@ -283,6 +285,32 @@ app.patch('/api/books/:id', async (req, res) => {
   }
   await updateBook(id, updates);
   res.json({ ok: true });
+});
+
+// ── Per-User Reading Progress ──
+app.get('/api/books/:id/progress', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.json({ progress: 0, current_page: 0 });
+    const bookId = parseInt(req.params.id);
+    const row = await getUserReadingProgress(user.id, bookId);
+    res.json(row || { progress: 0, current_page: 0 });
+  } catch {
+    res.json({ progress: 0, current_page: 0 });
+  }
+});
+
+app.put('/api/books/:id/progress', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const bookId = parseInt(req.params.id);
+    const { progress, current_page } = req.body;
+    await setUserReadingProgress(user.id, bookId, progress ?? 0, current_page ?? 0);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // â”€â”€ Extract HTML from DOC/DOCX for Web Reader â”€â”€

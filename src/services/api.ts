@@ -148,6 +148,23 @@ export async function updateBook(id: number, updates: Record<string, unknown>): 
   });
 }
 
+// ── Per-User Reading Progress ──
+
+export async function saveReadingProgress(bookId: number, progress: number, currentPage: number): Promise<void> {
+  await fetch(`${API_BASE}/books/${bookId}/progress`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ progress, current_page: currentPage }),
+  });
+}
+
+export async function getReadingProgress(bookId: number): Promise<{ progress: number; current_page: number }> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/progress`, { credentials: 'include' });
+  if (!res.ok) return { progress: 0, current_page: 0 };
+  return res.json();
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
   const res = await fetchWithRetry(`${API_BASE}/categories`);
   return res.json();
