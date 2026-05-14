@@ -77,6 +77,13 @@ import {
   getBookCommunities, getOfficialCommunities, getRecentThreadsGlobal,
 } from './community.js';
 import { requireAuth, optionalAuth } from './middleware/requireAuth.js';
+import {
+  ensureSubscriptionPlan,
+  createSubscription,
+  getSubscriptionDetails,
+  cancelSubscription,
+  PAYPAL_CLIENT_ID,
+} from './paypal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -255,7 +262,270 @@ app.put('/api/auth/me', requireAuth, async (req, res) => {
   }
 });
 
-// â”€â”€ Books â”€â”€
+// ── Subscription System ──
+
+// Initialize PayPal plan on startup
+let paypalPlanId: string | null = null;
+(async () => {
+  try {
+    if (PAYPAL_CLIENT_ID) {
+      paypalPlanId = await ensureSubscriptionPlan();
+    }
+  } catch (err) {
+    console.error('PayPal plan init error:', err);
+  }
+})();
+
+// Helper: calculate subscription end date
+function getSubscriptionEndDate(daysFromNow = 37): string {
+  // 7 days trial + 30 days = 37 days for first subscription
+  const end = new Date();
+  end.setDate(end.getDate() + daysFromNow);
+  return end.toISOString();
+}
+
+// Middleware: Check active subscription
+async function requireSubscription(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!req.userId) {
+    return res.status(401).json({ error: 'auth_required' });
+  }
+
+  const user = await getUserById(req.userId) as any;
+  if (!user) return res.status(401).json({ error: 'user_not_found' });
+
+  // Admin always has access
+  if (user.email === 'admin@bibliovault.local') return next();
+
+  // Check subscription
+  const status = user.subscription_status;
+  const endDate = user.subscription_end ? new Date(user.subscription_end) : null;
+
+  if (status === 'active' && endDate && endDate > new Date()) {
+    return next(); // Active and not expired
+  }
+
+  if (status === 'cancelled' && endDate && endDate > new Date()) {
+    return next(); // Cancelled but still within paid period
+  }
+
+  // Expired or no subscription — update status if needed
+  if (status === 'active' && endDate && endDate <= new Date()) {
+    await updateUser(user.id, { subscription_status: 'expired', plan: 'free' } as any);
+  }
+
+  return res.status(403).json({
+    error: 'subscription_required',
+    message: 'Tu suscripción ha expirado. Renueva para continuar.',
+    subscription_status: status || 'none',
+  });
+}
+
+// Create subscription → redirect to PayPal
+app.post('/api/subscription/create', requireAuth, async (req, res) => {
+  try {
+    if (!paypalPlanId) {
+      return res.status(503).json({ error: 'PayPal no configurado' });
+    }
+
+    const user = await getUserById(req.userId!) as any;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Already active?
+    if (user.subscription_status === 'active' && user.subscription_end) {
+      const end = new Date(user.subscription_end);
+      if (end > new Date()) {
+        return res.json({
+          status: 'already_active',
+          subscription_end: user.subscription_end,
+        });
+      }
+    }
+
+    // Determine return URLs
+    const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || 'https://bibliovault.onrender.com';
+    const returnUrl = `${origin}?subscription=success`;
+    const cancelUrl = `${origin}?subscription=cancelled`;
+
+    const result = await createSubscription(paypalPlanId, returnUrl, cancelUrl, user.email);
+
+    // Store pending subscription ID
+    await updateUser(user.id, {
+      subscription_id: result.subscriptionId,
+      subscription_status: 'pending',
+    } as any);
+
+    res.json({
+      approvalUrl: result.approvalUrl,
+      subscriptionId: result.subscriptionId,
+    });
+  } catch (err) {
+    console.error('Subscription create error:', err);
+    res.status(500).json({ error: 'Error al crear suscripción' });
+  }
+});
+
+// Activate subscription (called after PayPal redirect)
+app.post('/api/subscription/activate', requireAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId!) as any;
+    if (!user?.subscription_id) {
+      return res.status(400).json({ error: 'No pending subscription' });
+    }
+
+    // Verify with PayPal
+    const details = await getSubscriptionDetails(user.subscription_id);
+    if (!details || (details.status !== 'ACTIVE' && details.status !== 'APPROVED')) {
+      return res.status(400).json({
+        error: 'Subscription not approved',
+        paypal_status: details?.status,
+      });
+    }
+
+    // Activate!
+    const now = new Date();
+    await updateUser(user.id, {
+      plan: 'premium',
+      subscription_status: 'active',
+      subscription_start: now.toISOString(),
+      subscription_end: getSubscriptionEndDate(37), // 7 trial + 30 days
+      paypal_payer_id: details.subscriber?.payer_id || null,
+    } as any);
+
+    console.log(`💳 Subscription activated for ${user.email} (${user.subscription_id})`);
+
+    res.json({
+      status: 'active',
+      plan: 'premium',
+      subscription_end: getSubscriptionEndDate(37),
+    });
+  } catch (err) {
+    console.error('Subscription activate error:', err);
+    res.status(500).json({ error: 'Error al activar suscripción' });
+  }
+});
+
+// Get subscription status
+app.get('/api/subscription/status', requireAuth, async (req, res) => {
+  const user = await getUserById(req.userId!) as any;
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isActive = user.subscription_status === 'active' || user.subscription_status === 'cancelled';
+  const endDate = user.subscription_end ? new Date(user.subscription_end) : null;
+  const hasAccess = isActive && endDate && endDate > new Date();
+
+  res.json({
+    plan: user.plan || 'free',
+    subscription_status: user.subscription_status || 'none',
+    subscription_id: user.subscription_id,
+    subscription_start: user.subscription_start,
+    subscription_end: user.subscription_end,
+    has_access: !!hasAccess,
+    days_remaining: hasAccess
+      ? Math.ceil((endDate!.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 0,
+  });
+});
+
+// Cancel subscription
+app.post('/api/subscription/cancel', requireAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId!) as any;
+    if (!user?.subscription_id) {
+      return res.status(400).json({ error: 'No active subscription' });
+    }
+
+    // Cancel in PayPal (stops future billing)
+    const cancelled = await cancelSubscription(user.subscription_id);
+    if (!cancelled) {
+      return res.status(500).json({ error: 'Failed to cancel in PayPal' });
+    }
+
+    // Mark as cancelled but keep access until subscription_end
+    await updateUser(user.id, {
+      subscription_status: 'cancelled',
+      // plan stays 'premium' until subscription_end
+    } as any);
+
+    console.log(`💳 Subscription cancelled for ${user.email} — access until ${user.subscription_end}`);
+
+    res.json({
+      status: 'cancelled',
+      access_until: user.subscription_end,
+      message: `Tu acceso se mantiene hasta ${new Date(user.subscription_end).toLocaleDateString('es-MX')}`,
+    });
+  } catch (err) {
+    console.error('Subscription cancel error:', err);
+    res.status(500).json({ error: 'Error al cancelar suscripción' });
+  }
+});
+
+// PayPal Webhook (receives renewal, cancellation, failure notifications)
+app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const event = JSON.parse(req.body.toString()) as {
+      event_type: string;
+      resource: { id: string; status: string };
+    };
+
+    console.log(`💳 PayPal Webhook: ${event.event_type}`);
+
+    const subscriptionId = event.resource?.id;
+    if (!subscriptionId) return res.sendStatus(200);
+
+    // Find user by subscription_id
+    const db = (await import('./database.js')).getDb();
+    const user = db.prepare('SELECT * FROM users WHERE subscription_id = ?').get(subscriptionId) as any;
+    if (!user) {
+      console.log(`💳 Webhook: No user found for subscription ${subscriptionId}`);
+      return res.sendStatus(200);
+    }
+
+    switch (event.event_type) {
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+      case 'BILLING.SUBSCRIPTION.RENEWED': {
+        // Extend access by 30 days from now
+        const newEnd = new Date();
+        newEnd.setDate(newEnd.getDate() + 30);
+        await updateUser(user.id, {
+          plan: 'premium',
+          subscription_status: 'active',
+          subscription_end: newEnd.toISOString(),
+        } as any);
+        console.log(`💳 Subscription renewed for ${user.email} → ${newEnd.toISOString()}`);
+        break;
+      }
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+      case 'BILLING.SUBSCRIPTION.SUSPENDED': {
+        await updateUser(user.id, {
+          subscription_status: 'cancelled',
+          // Keep current subscription_end — user retains access until then
+        } as any);
+        console.log(`💳 Subscription cancelled/suspended for ${user.email}`);
+        break;
+      }
+      case 'BILLING.SUBSCRIPTION.EXPIRED':
+      case 'BILLING.SUBSCRIPTION.PAYMENT_FAILED': {
+        // Check if already past end date
+        const endDate = user.subscription_end ? new Date(user.subscription_end) : new Date();
+        if (endDate <= new Date()) {
+          await updateUser(user.id, {
+            plan: 'free',
+            subscription_status: 'expired',
+          } as any);
+          console.log(`💳 Subscription expired for ${user.email}`);
+        }
+        break;
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('PayPal webhook error:', err);
+    res.sendStatus(200); // Always 200 to PayPal
+  }
+});
+
+// ── Books ──
 app.get('/api/books', async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 200;
   const offset = parseInt(req.query.offset as string) || 0;

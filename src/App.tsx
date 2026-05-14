@@ -8,6 +8,7 @@ import BookDetail from './components/BookDetail/BookDetail';
 import Statistics from './components/Dashboard/Statistics';
 import CategoriesDashboard from './components/Dashboard/CategoriesDashboard';
 import AuthPage, { type AuthUser } from './components/Auth/AuthPage';
+import SubscriptionPage from './components/Subscription/SubscriptionPage';
 import CommunityExplorer from './components/Community/CommunityExplorer';
 import SettingsPage from './components/Settings/SettingsPage';
 import type { Book, ViewMode, BookFormat } from './types';
@@ -307,6 +308,25 @@ export default function App() {
 
   if (!currentUser) {
     return <AuthPage onAuthSuccess={(user) => setCurrentUser(user)} />;
+  }
+
+  // Subscription gate: if user has no active subscription, show payment page
+  // Admin (admin@bibliovault.local) bypasses this
+  if (currentUser.plan === 'free' && currentUser.email !== 'admin@bibliovault.local') {
+    return (
+      <SubscriptionPage
+        userEmail={currentUser.email}
+        userName={currentUser.display_name}
+        onSubscribed={() => {
+          // Reload user data to get updated plan
+          const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
+          fetch(`${base}/api/auth/me`, { credentials: 'include' })
+            .then(r => r.json())
+            .then(d => d.user && setCurrentUser(d.user))
+            .catch(() => {});
+        }}
+      />
+    );
   }
 
   // If a book is open in the reader, show the reader overlay

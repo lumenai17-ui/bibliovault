@@ -222,6 +222,17 @@ function initSchema() {
     }
   } catch { /* index may already exist */ }
 
+  // Migration: Subscription columns on users
+  const userCols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!userCols.some(c => c.name === 'subscription_status')) {
+    db.exec("ALTER TABLE users ADD COLUMN subscription_status TEXT DEFAULT 'none'");
+    db.exec("ALTER TABLE users ADD COLUMN subscription_id TEXT DEFAULT NULL");
+    db.exec("ALTER TABLE users ADD COLUMN subscription_start TEXT DEFAULT NULL");
+    db.exec("ALTER TABLE users ADD COLUMN subscription_end TEXT DEFAULT NULL");
+    db.exec("ALTER TABLE users ADD COLUMN paypal_payer_id TEXT DEFAULT NULL");
+    console.log('💳 Added subscription columns to users table');
+  }
+
   // Migration: Fix .doc/.docx books that were incorrectly stored as format='pdf'
   const docFixed = db.prepare(`
     UPDATE books SET format = 'doc' 
