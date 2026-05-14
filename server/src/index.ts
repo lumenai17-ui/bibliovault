@@ -34,6 +34,10 @@ import {
   deleteUserUpload,
   getUserReadingProgress,
   setUserReadingProgress,
+  getUserFavorites,
+  addUserFavorite,
+  removeUserFavorite,
+  isUserFavorite,
 } from './db.js';
 import { scanLibrary, type ScanProgress } from './scanner.js';
 import { streamChat, checkHermesHealth, llmComplete, streamOrganizerChat } from './hermes.js';
@@ -274,7 +278,7 @@ app.get('/api/books/:id', async (req, res) => {
 app.patch('/api/books/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const allowed = [
-    'favorite', 'category_id',
+    'category_id',
     'tags', 'subcategory', 'ai_summary', 'cover_path', 'cover_source',
     'title', 'author', 'description', 'isbn', 'pages',
     'enriched', 'original_title', 'enrichment_source',
@@ -308,6 +312,43 @@ app.put('/api/books/:id/progress', async (req, res) => {
     const { progress, current_page } = req.body;
     await setUserReadingProgress(user.id, bookId, progress ?? 0, current_page ?? 0);
     res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Per-User Favorites ──
+app.get('/api/user/favorites', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.json({ bookIds: [] });
+    const favBooks = await getUserFavorites(user.id);
+    const bookIds = favBooks.map((b: any) => b.id || b.book_id);
+    res.json({ bookIds });
+  } catch {
+    res.json({ bookIds: [] });
+  }
+});
+
+app.post('/api/books/:id/favorite', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const bookId = parseInt(req.params.id);
+    await addUserFavorite(user.id, bookId);
+    res.json({ ok: true, favorite: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/books/:id/favorite', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const bookId = parseInt(req.params.id);
+    await removeUserFavorite(user.id, bookId);
+    res.json({ ok: true, favorite: false });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

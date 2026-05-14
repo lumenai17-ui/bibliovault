@@ -20,6 +20,8 @@ import {
   startScan,
   fetchScanStatus,
   updateBook as apiUpdateBook,
+  fetchUserFavoriteIds,
+  toggleBookFavorite,
   ApiConnectionError,
   type ApiBook,
   type ApiCategory,
@@ -120,7 +122,7 @@ export default function App() {
 
       if (activeFormat !== 'all') params.format = activeFormat;
       if (searchQuery.trim()) params.search = searchQuery.trim();
-      if (activeSection === 'favorites') params.favorite = true;
+      // Don't send favorite filter to server anymore — we filter client-side
       if (activeSection.startsWith('cat-')) {
         params.category_id = parseInt(activeSection.replace('cat-', ''));
       }
@@ -128,11 +130,21 @@ export default function App() {
         params.collection_id = parseInt(activeSection.replace('col-', ''));
       }
 
-      const result = await fetchBooks(params);
-      let mapped = result.books.map(mapBook);
+      // Fetch books + user's favorite IDs in parallel
+      const [result, favIds] = await Promise.all([
+        fetchBooks(params),
+        fetchUserFavoriteIds(),
+      ]);
+
+      let mapped = result.books.map((b: ApiBook) => ({
+        ...mapBook(b),
+        favorite: favIds.has(b.id), // Override with per-user favorite
+      }));
 
       // Client-side section filtering
-      if (activeSection === 'reading') {
+      if (activeSection === 'favorites') {
+        mapped = mapped.filter((b) => b.favorite);
+      } else if (activeSection === 'reading') {
         mapped = mapped.filter((b) => b.readingProgress > 0 && b.readingProgress < 1);
       } else if (activeSection === 'recent') {
         mapped.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
@@ -202,7 +214,7 @@ export default function App() {
     setBooks((prev) =>
       prev.map((b) => (b.id === book.id ? { ...b, favorite: newFav } : b))
     );
-    await apiUpdateBook(book.id, { favorite: newFav ? 1 : 0 });
+    await toggleBookFavorite(book.id, newFav);
     loadMeta();
   };
 

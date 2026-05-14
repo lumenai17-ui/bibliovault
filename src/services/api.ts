@@ -165,6 +165,26 @@ export async function getReadingProgress(bookId: number): Promise<{ progress: nu
   return res.json();
 }
 
+// ── Per-User Favorites ──
+
+export async function fetchUserFavoriteIds(): Promise<Set<number>> {
+  try {
+    const res = await fetch(`${API_BASE}/user/favorites`, { credentials: 'include' });
+    if (!res.ok) return new Set();
+    const data = await res.json();
+    return new Set(data.bookIds || []);
+  } catch {
+    return new Set();
+  }
+}
+
+export async function toggleBookFavorite(bookId: number, isFavorite: boolean): Promise<void> {
+  await fetch(`${API_BASE}/books/${bookId}/favorite`, {
+    method: isFavorite ? 'POST' : 'DELETE',
+    credentials: 'include',
+  });
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
   const res = await fetchWithRetry(`${API_BASE}/categories`);
   return res.json();
