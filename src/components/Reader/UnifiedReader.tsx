@@ -78,7 +78,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
   const currentPageRef = useRef(savedPage);
   const totalPagesRef = useRef(0);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [mobileSubView, setMobileSubView] = useState<'none' | 'themes' | 'bookmarks'>('none');
+  const [mobileSubView, setMobileSubView] = useState<'none' | 'themes' | 'bookmarks' | 'tts'>('none');
 
   const fileUrl = getBookFileUrl(book.id);
 
@@ -698,6 +698,29 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             </div>
           )}
 
+          {/* TTS Mobile Controls (conditional) */}
+          {mobileSubView === 'tts' && (
+            <div className="reader-tts-mobile">
+              <TtsControls
+                text={pageText || `${book.title}. Página ${currentPage}`}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(p) => {
+                  setCurrentPage(p);
+                  setPageInput(String(p));
+                }}
+                fetchPageText={async (page: number) => {
+                  try {
+                    const result = await fetchBookText(book.id, page, page);
+                    return result.fullText?.trim() || '';
+                  } catch {
+                    return '';
+                  }
+                }}
+              />
+            </div>
+          )}
+
           {/* Tool Grid */}
           <div className="reader-sheet-grid">
             {book.format !== 'image' && (
@@ -756,10 +779,9 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             </button>
 
             <button
-              className="reader-sheet-btn"
+              className={`reader-sheet-btn ${mobileSubView === 'tts' ? 'active' : ''}`}
               onClick={() => {
-                setShowMobileMenu(false);
-                // Scroll to TTS in toolbar — on mobile, just toggle the panel
+                setMobileSubView(mobileSubView === 'tts' ? 'none' : 'tts');
               }}
             >
               <Volume2 size={20} />
