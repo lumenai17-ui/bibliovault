@@ -310,9 +310,9 @@ export default function App() {
     return <AuthPage onAuthSuccess={(user) => setCurrentUser(user)} />;
   }
 
-  // Subscription gate: if user has no active subscription, show payment page
-  // Admin (admin@bibliovault.local) bypasses this
-  if (currentUser.plan === 'free' && currentUser.email !== 'admin@bibliovault.local') {
+  // Subscription gate: free users see payment page
+  // Admin (plan='enterprise') and premium users bypass this
+  if (currentUser.plan === 'free') {
     return (
       <SubscriptionPage
         userEmail={currentUser.email}

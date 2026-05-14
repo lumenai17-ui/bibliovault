@@ -293,8 +293,9 @@ async function requireSubscription(req: express.Request, res: express.Response, 
   const user = await getUserById(req.userId) as any;
   if (!user) return res.status(401).json({ error: 'user_not_found' });
 
-  // Admin always has access
-  if (user.email === 'admin@bibliovault.local') return next();
+  // Admin always has access (configurable via env)
+  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map(e => e.trim());
+  if (adminEmails.includes(user.email)) return next();
 
   // Check subscription
   const status = user.subscription_status;
@@ -522,6 +523,49 @@ app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }), asyn
   } catch (err) {
     console.error('PayPal webhook error:', err);
     res.sendStatus(200); // Always 200 to PayPal
+  }
+});
+
+// Admin: Grant premium access to a user (for coupons, free passes)
+app.post('/api/admin/grant-access', requireAuth, async (req, res) => {
+  try {
+    const admin = await getUserById(req.userId!) as any;
+    const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map((e: string) => e.trim());
+    if (!admin || !adminEmails.includes(admin.email)) {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    const { email, days } = req.body as { email: string; days?: number };
+    if (!email) return res.status(400).json({ error: 'email required' });
+
+    const accessDays = days || 30;
+    const end = new Date();
+    end.setDate(end.getDate() + accessDays);
+
+    if (isPostgres()) {
+      const pool = getPgPool();
+      const { rowCount } = await pool.query(
+        `UPDATE users SET plan = 'premium', subscription_status = 'active', 
+         subscription_start = NOW(), subscription_end = $1
+         WHERE email = $2`,
+        [end.toISOString(), email]
+      );
+      if (!rowCount) return res.status(404).json({ error: 'User not found' });
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const result = db.prepare(
+        `UPDATE users SET plan = 'premium', subscription_status = 'active',
+         subscription_start = datetime('now'), subscription_end = ?
+         WHERE email = ?`
+      ).run(end.toISOString(), email);
+      if (!result.changes) return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`💳 Admin granted ${accessDays} days premium to ${email}`);
+    res.json({ success: true, email, access_until: end.toISOString(), days: accessDays });
+  } catch (err) {
+    console.error('Grant access error:', err);
+    res.status(500).json({ error: 'Failed to grant access' });
   }
 });
 
