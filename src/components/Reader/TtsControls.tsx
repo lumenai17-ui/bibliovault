@@ -148,11 +148,20 @@ export default function TtsControls({
 
     shouldStop.current = false;
     isAutoAdvancing.current = false;
+    const localStartPage = currentPage;
     setStartPage(currentPage);
 
-    // Speak current page
+    // Always fetch fresh text for current page (Bug 3 fix)
     let page = currentPage;
-    let pageText = text;
+    let pageText: string;
+    try {
+      pageText = await fetchPageText(page);
+      if (!pageText || pageText.trim().length < 20) {
+        pageText = text; // fallback to prop
+      }
+    } catch {
+      pageText = text;
+    }
 
     while (true) {
       if (shouldStop.current) break;
@@ -164,9 +173,9 @@ export default function TtsControls({
       // Check if we should auto-continue
       if (!settings.autoContinue) break;
 
-      // Check page limit
+      // Check page limit (Bug 4 fix: use local var, not stale state)
       if (settings.pagesToRead > 0) {
-        const pagesRead = page - startPage + 1;
+        const pagesRead = page - localStartPage + 1;
         if (pagesRead >= settings.pagesToRead) break;
       }
 
@@ -201,7 +210,6 @@ export default function TtsControls({
     speakText,
     onPageChange,
     fetchPageText,
-    startPage,
   ]);
 
   const handlePause = useCallback(() => {

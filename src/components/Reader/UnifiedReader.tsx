@@ -50,21 +50,17 @@ const THEME_CONFIG: Record<ReaderTheme, { label: string; icon: string; filterCSS
 };
 
 export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedReaderProps) {
-  const savedProgressRef = useRef(book.readingProgress || 0);
   const hasRestoredRef = useRef(false);
 
-  const savedPage = book.readingProgress > 0 && book.pages > 0
-    ? Math.max(1, Math.round(book.readingProgress * book.pages))
-    : 1;
-
-  const [currentPage, setCurrentPage] = useState(savedPage);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [progressLoaded, setProgressLoaded] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1.2);
   const [theme, setTheme] = useState<ReaderTheme>('default');
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [pageInput, setPageInput] = useState(String(savedPage));
+  const [pageInput, setPageInput] = useState('1');
   const [pageLayout, setPageLayout] = useState<PageLayout>('single');
   const [pageText, setPageText] = useState('');
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>([]);
@@ -108,18 +104,26 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
     return () => clearTimeout(timer);
   }, [book.id, book.format, currentPage, pageLayout]);
 
-  // Load per-user reading progress on mount
+  // Load per-user reading progress on mount (single source of truth)
   useEffect(() => {
     getReadingProgress(book.id).then((data) => {
-      if (data.progress > 0 && book.pages > 0 && !hasRestoredRef.current) {
-        const page = Math.max(1, Math.round(data.progress * book.pages));
-        savedProgressRef.current = data.progress;
-        setCurrentPage(page);
-        setPageInput(String(page));
-        currentPageRef.current = page;
+      if (data.progress > 0 && !hasRestoredRef.current) {
+        hasRestoredRef.current = true;
+        // If we already know totalPages, use it; otherwise store progress for onTotalPages
+        const tp = totalPagesRef.current;
+        if (tp > 0) {
+          const page = Math.max(1, Math.min(tp, Math.round(data.progress * tp)));
+          setCurrentPage(page);
+          setPageInput(String(page));
+          currentPageRef.current = page;
+        } else {
+          // Store for when totalPages arrives
+          (window as any).__bv_pending_progress = data.progress;
+        }
       }
-    }).catch(() => {});
-  }, [book.id, book.pages]);
+      setProgressLoaded(true);
+    }).catch(() => setProgressLoaded(true));
+  }, [book.id]);
 
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { totalPagesRef.current = totalPages; }, [totalPages]);
@@ -290,12 +294,17 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
         }}
         onTotalPages={(t) => {
           setTotalPages(t);
-          if (!hasRestoredRef.current && savedProgressRef.current > 0 && t > 0) {
+          // Restore progress if we got it before totalPages was known
+          const pendingProgress = (window as any).__bv_pending_progress;
+          if (!hasRestoredRef.current && pendingProgress && pendingProgress > 0 && t > 0) {
             hasRestoredRef.current = true;
-            const restoredPage = Math.max(1, Math.min(t, Math.round(savedProgressRef.current * t)));
+            delete (window as any).__bv_pending_progress;
+            const restoredPage = Math.max(1, Math.min(t, Math.round(pendingProgress * t)));
             setCurrentPage(restoredPage);
             setPageInput(String(restoredPage));
             currentPageRef.current = restoredPage;
+          } else if (hasRestoredRef.current) {
+            // Already restored via server fetch, do nothing
           }
         }}
         nightMode={nightMode}

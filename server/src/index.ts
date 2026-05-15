@@ -1744,8 +1744,39 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
     const coverPath = await extractPdfCover(filePath, bookId);
 
     if (coverPath && existsSync(coverPath)) {
-      // Upload to Supabase Storage if configured
       let finalCoverPath = coverPath;
+      let r2CoverKey = '';
+
+      // Upload to R2 if configured (primary — persists across restarts)
+      if (isR2Configured) {
+        try {
+          const { PutObjectCommand } = await import('@aws-sdk/client-s3');
+          const { S3Client } = await import('@aws-sdk/client-s3');
+          const s3 = new S3Client({
+            region: 'auto',
+            endpoint: process.env.R2_ENDPOINT!,
+            credentials: {
+              accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+              secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+            },
+          });
+          const ext = coverPath.split('.').pop()?.toLowerCase() || 'jpg';
+          r2CoverKey = `covers/${bookId}.${ext}`;
+          const coverBuffer = readFileSync(coverPath);
+          await s3.send(new PutObjectCommand({
+            Bucket: process.env.R2_BUCKET || 'bibliovault-books',
+            Key: r2CoverKey,
+            Body: coverBuffer,
+            ContentType: 'image/jpeg',
+          }));
+          console.log(`📦 Cover uploaded to R2: ${r2CoverKey}`);
+        } catch (r2Err) {
+          console.error('R2 cover upload failed:', r2Err);
+          r2CoverKey = '';
+        }
+      }
+
+      // Also upload to Supabase Storage (legacy fallback)
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
       
@@ -1768,10 +1799,13 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
         }
       }
 
-      await updateBook(bookId, {
+      const updateData: any = {
         cover_path: finalCoverPath,
         cover_source: 'pdf',
-      } as any);
+      };
+      if (r2CoverKey) updateData.r2_cover_key = r2CoverKey;
+
+      await updateBook(bookId, updateData);
       res.json({ success: true, coverPath: finalCoverPath });
     } else {
       res.json({ success: false, message: 'Could not extract cover' });

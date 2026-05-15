@@ -240,7 +240,7 @@ export async function fetchBookText(id: number, startPage?: number, endPage?: nu
   const qs = new URLSearchParams();
   if (startPage) qs.set('start', String(startPage));
   if (endPage) qs.set('end', String(endPage));
-  const res = await fetch(`${API_BASE}/books/${id}/text?${qs}`);
+  const res = await fetchWithRetry(`${API_BASE}/books/${id}/text?${qs}`);
   return res.json();
 }
 
