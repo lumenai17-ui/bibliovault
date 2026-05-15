@@ -345,6 +345,26 @@ export async function initPgSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_books_uploaded_by ON books(uploaded_by);
     CREATE INDEX IF NOT EXISTS idx_books_visibility ON books(visibility);
   `).catch(() => {});
+
+  // Phase 16: Admin activity log
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS admin_log (
+      id SERIAL PRIMARY KEY,
+      admin_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details JSONB DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `).catch(() => {});
+
+  // Fix orphaned user_uploads: link them to books where uploaded_by was not set
+  await p.query(`
+    UPDATE books SET uploaded_by = uu.user_id, visibility = 'private'
+    FROM user_uploads uu
+    WHERE books.id = uu.book_id AND books.uploaded_by IS NULL AND uu.book_id IS NOT NULL
+  `).catch(() => {});
 }
 
 // ══════════════════════════════════════
@@ -848,6 +868,7 @@ export async function pgGetAllUsersAdmin(search?: string) {
   const res = await p.query(`
     SELECT u.id, u.email, u.display_name, u.plan,
            u.subscription_status, u.subscription_end,
+           u.paypal_subscription_id,
            u.created_at, u.last_login,
            COALESCE(uc.cnt, 0) as upload_count
     FROM users u
@@ -910,4 +931,51 @@ export async function pgGetRecentUploads(limit = 5) {
     ORDER BY b.date_added DESC LIMIT $1
   `, [limit]);
   return res.rows;
+}
+
+/** Log an admin action */
+export async function pgLogAdminAction(adminId: string, action: string, targetType: string, targetId: string, details: Record<string, unknown> = {}) {
+  const p = getPgPool();
+  await p.query(`
+    INSERT INTO admin_log (admin_id, action, target_type, target_id, details)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [adminId, action, targetType, targetId, JSON.stringify(details)]).catch(() => {});
+}
+
+/** Get admin activity log */
+export async function pgGetAdminLog(limit = 50) {
+  const p = getPgPool();
+  const res = await p.query(`
+    SELECT al.*, u.email as admin_email
+    FROM admin_log al
+    LEFT JOIN users u ON u.id = al.admin_id
+    ORDER BY al.created_at DESC LIMIT $1
+  `, [limit]);
+  return res.rows;
+}
+
+/** Delete a user and their data */
+export async function pgDeleteUser(userId: string) {
+  const p = getPgPool();
+  // Delete user uploads, favorites, reading progress, then user
+  await p.query('DELETE FROM user_uploads WHERE user_id = $1', [userId]);
+  await p.query('DELETE FROM user_favorites WHERE user_id = $1', [userId]);
+  await p.query('DELETE FROM user_reading_progress WHERE user_id = $1', [userId]).catch(() => {});
+  // Mark their uploaded books as orphaned (don't delete the books)
+  await p.query("UPDATE books SET uploaded_by = NULL, visibility = 'public' WHERE uploaded_by = $1", [userId]);
+  // Delete user
+  await p.query('DELETE FROM users WHERE id = $1', [userId]);
+}
+
+/** Admin edit user fields */
+export async function pgAdminEditUser(userId: string, fields: { display_name?: string; email?: string }) {
+  const p = getPgPool();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let i = 1;
+  if (fields.display_name !== undefined) { sets.push(`display_name = $${i++}`); vals.push(fields.display_name); }
+  if (fields.email !== undefined) { sets.push(`email = $${i++}`); vals.push(fields.email); }
+  if (sets.length === 0) return;
+  vals.push(userId);
+  await p.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i}`, vals);
 }

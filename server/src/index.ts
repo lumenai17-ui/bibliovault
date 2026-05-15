@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, createReadStream } from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import { getPgPool, pgGetDashboardStats, pgGetAllUsersAdmin, pgGetPendingBooks, pgGetUserBooks, pgGetRecentUsers, pgGetRecentUploads } from './pgDatabase.js';
+import { getPgPool, pgGetDashboardStats, pgGetAllUsersAdmin, pgGetPendingBooks, pgGetUserBooks, pgGetRecentUsers, pgGetRecentUploads, pgLogAdminAction, pgDeleteUser, pgAdminEditUser } from './pgDatabase.js';
 import {
   initDatabase,
   isPostgres,
@@ -1683,9 +1683,11 @@ app.post('/api/admin/uploads/:bookId/approve', requireAuth, requireAdmin, async 
     if (category_id) updates.category_id = parseInt(category_id);
     if (title) updates.title = title;
     await updateBook(bookId, updates);
+    await pgLogAdminAction(req.userId!, 'approve_book', 'book', bookId.toString(), { title, category_id });
     res.json({ success: true, visibility: 'public' });
   } else {
     await updateBook(bookId, { visibility: 'private' } as any);
+    await pgLogAdminAction(req.userId!, 'reject_book', 'book', bookId.toString(), {});
     res.json({ success: true, visibility: 'private' });
   }
 });
@@ -1749,6 +1751,7 @@ app.post('/api/admin/users/:id/plan', requireAuth, requireAdmin, async (req, res
 
     await updateUser(req.params.id, updates);
     console.log(`⚙️ Admin changed plan for ${targetUser.email}: ${JSON.stringify(updates)}`);
+    await pgLogAdminAction(req.userId!, 'change_plan', 'user', req.params.id, { email: targetUser.email, ...updates });
     res.json({ success: true, updates });
   } catch (err) {
     console.error('Admin plan change error:', err);
@@ -1778,6 +1781,40 @@ app.get('/api/admin/coupons', requireAuth, requireAdmin, async (_req, res) => {
     res.json(coupons);
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener cupones.' });
+  }
+});
+
+// Admin: Delete a user
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const targetUser = await getUserById(req.params.id) as any;
+    if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+    // Don't allow deleting yourself
+    if (req.params.id === req.userId) {
+      return res.status(400).json({ error: 'No puedes eliminarte a ti mismo.' });
+    }
+
+    await pgDeleteUser(req.params.id);
+    await pgLogAdminAction(req.userId!, 'delete_user', 'user', req.params.id, { email: targetUser.email });
+    console.log(`⚙️ Admin deleted user: ${targetUser.email}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Admin delete user error:', err);
+    res.status(500).json({ error: 'Error al eliminar usuario.' });
+  }
+});
+
+// Admin: Edit user fields
+app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { display_name, email } = req.body;
+    await pgAdminEditUser(req.params.id, { display_name, email });
+    await pgLogAdminAction(req.userId!, 'edit_user', 'user', req.params.id, { display_name, email });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Admin edit user error:', err);
+    res.status(500).json({ error: 'Error al editar usuario.' });
   }
 });
 
