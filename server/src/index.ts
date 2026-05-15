@@ -47,6 +47,7 @@ import { enrichBook, runBatchEnrichment, getBatchState, cancelBatchEnrichment, r
 import { extractPdfCover, extractImageCover, runBatchCoverExtraction, getCoverBatchState, cancelCoverBatchJob, resetCoverBatchState } from './pdfCoverExtractor.js';
 import { identifyTitleFromPdf } from './aiTitleIdentifier.js';
 import { searchWeb, formatSearchResults } from './webSearch.js';
+import { getR2Stream, getR2Url, isR2Configured } from './r2Storage.js';
 import {
   initFtsSchema,
   searchFullText,
@@ -874,7 +875,7 @@ app.get('/file', (req, res) => {
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
 
-async function resolveFilePath(filePath: string): Promise<string | null> {
+async function resolveFilePath(filePath: string, bookId?: number): Promise<string | null> {
   // 1. Local file exists?
   if (existsSync(filePath)) return filePath;
   
@@ -883,15 +884,35 @@ async function resolveFilePath(filePath: string): Promise<string | null> {
   const ext = filePath.match(/\.([^.]+)$/)?.[1] || 'bin';
   const tempPath = join(tmpdir(), `bv_${hash}.${ext}`);
   if (existsSync(tempPath)) return tempPath;
+
+  // 3. Try R2 (download to temp for text extraction)
+  if (isR2Configured && bookId) {
+    const r2Key = `books/${bookId}.${ext}`;
+    const r2Data = await getR2Stream(r2Key);
+    if (r2Data) {
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of r2Data.stream as AsyncIterable<Buffer>) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        writeFileSync(tempPath, buffer);
+        console.log(`📦 R2 → temp: ${Math.round(buffer.length/1024)}KB → ${tempPath}`);
+        return tempPath;
+      } catch (err: any) {
+        console.error(`📦 R2 stream error:`, err.message);
+      }
+    }
+  }
   
-  // 3. Try tunnel
+  // 4. Try tunnel (legacy fallback)
   if (!TUNNEL_URL) return null;
   
   try {
     console.log(`📡 Tunnel download: ${filePath.slice(-60)}`);
     const tunnelFileUrl = `${TUNNEL_URL}/file?path=${encodeURIComponent(filePath)}&secret=${TUNNEL_SECRET}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+    const timeout = setTimeout(() => controller.abort(), 120000);
     
     const tunnelRes = await fetch(tunnelFileUrl, { signal: controller.signal });
     clearTimeout(timeout);
@@ -912,11 +933,12 @@ async function resolveFilePath(filePath: string): Promise<string | null> {
 }
 
 app.get('/api/books/:id/file', async (req, res) => {
-  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
+  const bookId = parseInt(req.params.id);
+  const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const filePath = book.file_path as string;
 
-  // Try local file first (dev mode)
+  // 1. Try local file first (dev mode)
   if (existsSync(filePath)) {
     const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
     const mimeMap: Record<string, string> = {
@@ -930,7 +952,25 @@ app.get('/api/books/:id/file', async (req, res) => {
     return res.sendFile(filePath);
   }
 
-  // Production: proxy through Cloudflare Tunnel
+  // 2. Try R2 (production — stream from Cloudflare R2)
+  const r2Key = (book as any).r2_file_key as string;
+  if (isR2Configured && r2Key) {
+    try {
+      const r2Data = await getR2Stream(r2Key);
+      if (r2Data) {
+        res.setHeader('Content-Type', r2Data.contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${book.file_name}"`);
+        if (r2Data.contentLength) res.setHeader('Content-Length', r2Data.contentLength);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        (r2Data.stream as NodeJS.ReadableStream).pipe(res);
+        return;
+      }
+    } catch (err) {
+      console.error('R2 stream error:', err);
+    }
+  }
+
+  // 3. Fallback: Cloudflare Tunnel (legacy)
   if (TUNNEL_URL) {
     try {
       const tunnelFileUrl = `${TUNNEL_URL}/file?path=${encodeURIComponent(filePath)}&secret=${TUNNEL_SECRET}`;
@@ -948,7 +988,7 @@ app.get('/api/books/:id/file', async (req, res) => {
     }
   }
 
-  res.status(404).json({ error: 'File not found. Start the tunnel on your PC.' });
+  res.status(404).json({ error: 'File not found' });
 });
 
 // â”€â”€ Cover serving (supports JPG from API/PDF and SVG fallback) â”€â”€
@@ -966,10 +1006,19 @@ app.get('/api/books/:id/cover', async (req, res) => {
     return res.sendFile(path, (err: any) => { if (err && !res.headersSent) res.status(404).json({ error: 'Cover not found' }); });
   };
 
-  // 1. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)
+  // 1. Try R2 cover first (production)
+  const r2CoverKey = (book as any).r2_cover_key as string;
+  if (isR2Configured && r2CoverKey) {
+    const url = await getR2Url(r2CoverKey);
+    if (url) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.redirect(url);
+    }
+  }
+
+  // 2. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)
   const coverPath = book.cover_path as string;
   if (coverPath && coverPath.startsWith('http')) {
-    // Supabase Storage URL — redirect to it
     return res.redirect(coverPath);
   }
   if (coverPath && existsSync(coverPath)) {
@@ -1018,8 +1067,9 @@ app.get('/api/books/:id/text', async (req, res) => {
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const origPath = book.file_path as string;
-  const filePath = await resolveFilePath(origPath);
-  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
+  const bookId = parseInt(req.params.id);
+  const filePath = await resolveFilePath(origPath, bookId);
+  if (!filePath) return res.status(404).json({ error: 'File not found' });
 
   const startPage = req.query.start ? parseInt(req.query.start as string) : undefined;
   const endPage = req.query.end ? parseInt(req.query.end as string) : undefined;
