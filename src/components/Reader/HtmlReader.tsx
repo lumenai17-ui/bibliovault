@@ -39,12 +39,14 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
     return () => { mounted = false; };
   }, [bookId]);
 
-  // Calculate total pages based on content height
+  // Calculate total pages based on content height using a hidden measurement div
+  const measureRef = useRef<HTMLDivElement>(null);
+
   const calculatePages = useCallback(() => {
-    if (contentRef.current) {
-      const contentHeight = contentRef.current.scrollHeight;
-      const pageH = PAGE_HEIGHT * scale;
-      const pages = Math.max(1, Math.ceil(contentHeight / pageH));
+    if (measureRef.current) {
+      const contentHeight = measureRef.current.scrollHeight;
+      const usablePageH = (PAGE_HEIGHT - 96) * scale; // subtract padding
+      const pages = Math.max(1, Math.ceil(contentHeight / usablePageH));
       setTotalPages(pages);
       if (onTotalPages) onTotalPages(pages);
     }
@@ -53,7 +55,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
   useEffect(() => {
     if (html !== null) {
       // Wait for render
-      const timer = setTimeout(calculatePages, 200);
+      const timer = setTimeout(calculatePages, 300);
       return () => clearTimeout(timer);
     }
   }, [html, scale, calculatePages]);
@@ -98,6 +100,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
 
   // Split content into visual pages using CSS overflow
   const pageH = PAGE_HEIGHT * scale;
+  const usablePageH = (PAGE_HEIGHT - 96) * scale; // page height minus top+bottom padding
 
   return (
     <div 
@@ -116,6 +119,22 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
         scrollBehavior: 'smooth',
       }}
     >
+      {/* Hidden measurement div — renders full HTML to measure true height */}
+      <div
+        ref={measureRef}
+        className="html-reader-container"
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          width: `${(PAGE_WIDTH - 112) * scale}px`,
+          fontSize: `${15 * scale}px`,
+          lineHeight: 1.75,
+          fontFamily: "'Georgia', 'Times New Roman', serif",
+          pointerEvents: 'none',
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+
       {/* Full document rendered with page-break simulation */}
       <div
         ref={contentRef}
@@ -166,7 +185,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
             <div
               className="html-reader-container"
               style={{
-                marginTop: `-${i * (pageH - 96 * scale)}px`,
+                marginTop: `-${i * usablePageH}px`,
               }}
               dangerouslySetInnerHTML={{ __html: html }}
             />
