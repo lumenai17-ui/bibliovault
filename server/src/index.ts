@@ -938,20 +938,40 @@ async function resolveFilePath(filePath: string, bookId?: number): Promise<strin
 
   // 3. Try R2 (download to temp for text extraction)
   if (isR2Configured && bookId) {
-    const r2Key = `books/${bookId}.${ext}`;
-    const r2Data = await getR2Stream(r2Key);
-    if (r2Data) {
-      try {
-        const chunks: Buffer[] = [];
-        for await (const chunk of r2Data.stream as AsyncIterable<Buffer>) {
-          chunks.push(chunk);
+    // Try multiple R2 keys: the file_path itself (for user uploads), then standard key
+    const r2Keys: string[] = [];
+    
+    // For user uploads, file_path IS the r2 key (e.g. uploads/{userId}/{uuid}.pdf)
+    if (filePath.startsWith('uploads/')) {
+      r2Keys.push(filePath);
+    }
+    
+    // Also try the r2_file_key from the book record
+    try {
+      const book = await getBookById(bookId) as any;
+      if (book?.r2_file_key && !r2Keys.includes(book.r2_file_key)) {
+        r2Keys.push(book.r2_file_key);
+      }
+    } catch {}
+    
+    // Standard key for library books
+    r2Keys.push(`books/${bookId}.${ext}`);
+    
+    for (const r2Key of r2Keys) {
+      const r2Data = await getR2Stream(r2Key);
+      if (r2Data) {
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of r2Data.stream as AsyncIterable<Buffer>) {
+            chunks.push(chunk);
+          }
+          const buffer = Buffer.concat(chunks);
+          writeFileSync(tempPath, buffer);
+          console.log(`📦 R2 → temp: ${Math.round(buffer.length/1024)}KB → ${tempPath} (key: ${r2Key})`);
+          return tempPath;
+        } catch (err: any) {
+          console.error(`📦 R2 stream error:`, err.message);
         }
-        const buffer = Buffer.concat(chunks);
-        writeFileSync(tempPath, buffer);
-        console.log(`📦 R2 → temp: ${Math.round(buffer.length/1024)}KB → ${tempPath}`);
-        return tempPath;
-      } catch (err: any) {
-        console.error(`📦 R2 stream error:`, err.message);
       }
     }
   }

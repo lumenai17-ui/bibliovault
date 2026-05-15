@@ -84,8 +84,8 @@ export default function AdminPending() {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Libros por Aprobar</h2>
-        <span className="admin-badge">{books.length} pendientes</span>
+        <h2>Libros Subidos por Usuarios</h2>
+        <span className="admin-badge">{books.length} libros</span>
       </div>
 
       {loading ? (
@@ -93,7 +93,7 @@ export default function AdminPending() {
       ) : books.length === 0 ? (
         <div className="admin-empty">
           <div className="empty-icon">✅</div>
-          No hay libros pendientes de aprobación
+          No hay libros subidos por usuarios
         </div>
       ) : (
         <div className="admin-table-container">
@@ -104,6 +104,7 @@ export default function AdminPending() {
                 <th>Formato</th>
                 <th>Subido por</th>
                 <th>Tamaño</th>
+                <th>Estado</th>
                 <th>Fecha</th>
                 <th>Categoría</th>
                 <th>Acciones</th>
@@ -131,6 +132,15 @@ export default function AdminPending() {
                     <div style={{ color: '#64748b', fontSize: '11px' }}>{b.uploader_email}</div>
                   </td>
                   <td style={{ fontSize: '12px', color: '#94a3b8' }}>{formatSize(b.file_size)}</td>
+                  <td>
+                    <span className={`badge badge-${b.visibility || 'private'}`} style={{
+                      fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                      background: b.visibility === 'pending' ? 'rgba(251,191,36,0.2)' : 'rgba(100,116,139,0.2)',
+                      color: b.visibility === 'pending' ? '#fbbf24' : '#94a3b8',
+                    }}>
+                      {b.visibility === 'pending' ? '⏳ Pendiente' : '🔒 Privado'}
+                    </span>
+                  </td>
                   <td style={{ fontSize: '12px', color: '#64748b' }}>{new Date(b.date_added).toLocaleDateString()}</td>
                   <td>
                     <select

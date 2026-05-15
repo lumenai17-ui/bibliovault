@@ -452,15 +452,24 @@ export default function App() {
             <AdminCoupons />
           ) : activeSection === 'my-books' ? (
             <MyBooks onReadBook={async (id) => {
-              const local = books.find(b => b.id === id);
-              if (local) { handleOpenReader(local); return; }
-              try { const fresh = await fetchBook(id); handleOpenReader(mapBook(fresh)); } catch { console.error('Book not found:', id); }
+              try {
+                const fresh = await fetchBook(id);
+                setDetailBook(mapBook(fresh));
+              } catch {
+                // Fallback: try from local state
+                const local = books.find(b => b.id === id);
+                if (local) setDetailBook(local);
+              }
             }} />
           ) : activeSection === 'community-books' ? (
             <CommunityBooks onReadBook={async (id) => {
-              const local = books.find(b => b.id === id);
-              if (local) { handleOpenReader(local); return; }
-              try { const fresh = await fetchBook(id); handleOpenReader(mapBook(fresh)); } catch { console.error('Book not found:', id); }
+              try {
+                const fresh = await fetchBook(id);
+                setDetailBook(mapBook(fresh));
+              } catch {
+                const local = books.find(b => b.id === id);
+                if (local) setDetailBook(local);
+              }
             }} />
           ) : (
             <LibraryGrid

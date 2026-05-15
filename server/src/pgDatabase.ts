@@ -882,7 +882,7 @@ export async function pgGetAllUsersAdmin(search?: string) {
   return res.rows;
 }
 
-/** Books pending admin approval */
+/** Books pending admin approval (includes private user uploads for visibility) */
 export async function pgGetPendingBooks() {
   const p = getPgPool();
   const res = await p.query(`
@@ -891,8 +891,10 @@ export async function pgGetPendingBooks() {
            u.email as uploader_email, u.display_name as uploader_name
     FROM books b
     LEFT JOIN users u ON u.id = b.uploaded_by
-    WHERE b.visibility = 'pending'
-    ORDER BY b.date_added DESC
+    WHERE b.uploaded_by IS NOT NULL AND b.visibility IN ('pending', 'private')
+    ORDER BY 
+      CASE b.visibility WHEN 'pending' THEN 0 ELSE 1 END,
+      b.date_added DESC
   `);
   return res.rows;
 }
