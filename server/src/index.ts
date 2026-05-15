@@ -691,6 +691,38 @@ app.get('/api/books', optionalAuth, async (req, res) => {
   res.json(result);
 });
 
+// User: Get my uploaded books (MUST be before /api/books/:id)
+app.get('/api/books/my', requireAuth, async (req, res) => {
+  try {
+    const books = await pgGetUserBooks(req.userId!);
+    res.json(books);
+  } catch (err) {
+    console.error('My books error:', err);
+    res.status(500).json({ error: 'Error al obtener tus libros.' });
+  }
+});
+
+// User: Get community books (MUST be before /api/books/:id)
+app.get('/api/books/community', requireAuth, async (req, res) => {
+  try {
+    const p = getPgPool();
+    const result = await p.query(`
+      SELECT b.id, b.title, b.format, b.file_size, b.date_added,
+             b.cover_path, b.category_id, c.name as category_name,
+             u.display_name as uploader_name
+      FROM books b
+      LEFT JOIN categories c ON c.id = b.category_id
+      LEFT JOIN users u ON u.id = b.uploaded_by
+      WHERE b.visibility = 'public' AND b.uploaded_by IS NOT NULL AND b.uploaded_by != $1
+      ORDER BY b.date_added DESC
+    `, [req.userId]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Community books error:', err);
+    res.status(500).json({ error: 'Error al obtener libros de comunidad.' });
+  }
+});
+
 app.get('/api/books/:id', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id));
   if (!book) return res.status(404).json({ error: 'Book not found' });
@@ -1821,37 +1853,7 @@ app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// User: Get my uploaded books
-app.get('/api/books/my', requireAuth, async (req, res) => {
-  try {
-    const books = await pgGetUserBooks(req.userId!);
-    res.json(books);
-  } catch (err) {
-    console.error('My books error:', err);
-    res.status(500).json({ error: 'Error al obtener tus libros.' });
-  }
-});
-
-// User: Get community books (approved uploads from other users)
-app.get('/api/books/community', requireAuth, async (req, res) => {
-  try {
-    const p = getPgPool();
-    const result = await p.query(`
-      SELECT b.id, b.title, b.format, b.file_size, b.date_added,
-             b.cover_path, b.category_id, c.name as category_name,
-             u.display_name as uploader_name
-      FROM books b
-      LEFT JOIN categories c ON c.id = b.category_id
-      LEFT JOIN users u ON u.id = b.uploaded_by
-      WHERE b.visibility = 'public' AND b.uploaded_by IS NOT NULL AND b.uploaded_by != $1
-      ORDER BY b.date_added DESC
-    `, [req.userId]);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Community books error:', err);
-    res.status(500).json({ error: 'Error al obtener libros de comunidad.' });
-  }
-});
+// (Routes /api/books/my and /api/books/community moved above /api/books/:id)
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Production: Serve Frontend Static Files
