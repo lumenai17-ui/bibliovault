@@ -62,7 +62,7 @@ export function isPostgres(): boolean {
 // ══════════════════════════════════════
 
 export async function getAllBooks(limit?: number, offset?: number, filters?: {
-  format?: string; category_id?: number; favorite?: boolean; search?: string; collection_id?: number;
+  format?: string; category_id?: number; favorite?: boolean; search?: string; collection_id?: number; userId?: string;
 }) {
   if (USE_PG) {
     const pg = await getPg();
@@ -97,6 +97,25 @@ export async function insertBook(book: Omit<BookRow, 'id' | 'date_added'>) {
   }
   const s = await getSqlite();
   return s.insertBook(book);
+}
+
+export async function insertUserBook(book: {
+  title: string;
+  format: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  r2_file_key: string;
+  uploaded_by: string;
+  visibility: string;
+  category_id?: number;
+}): Promise<number> {
+  if (USE_PG) {
+    const pg = await getPg();
+    return pg.pgInsertUserBook(book);
+  }
+  // SQLite fallback — not fully supported for user uploads
+  return -1;
 }
 
 export async function getCategories() {

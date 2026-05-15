@@ -334,6 +334,17 @@ export async function initPgSchema(): Promise<void> {
   }
 
   console.log('🐘 PostgreSQL schema initialized');
+
+  // Phase 15.5: Add uploaded_by + visibility columns for user uploads
+  await p.query(`
+    ALTER TABLE books ADD COLUMN IF NOT EXISTS uploaded_by TEXT;
+    ALTER TABLE books ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'public';
+    ALTER TABLE books ADD COLUMN IF NOT EXISTS r2_file_key TEXT;
+  `).catch(() => {});
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_books_uploaded_by ON books(uploaded_by);
+    CREATE INDEX IF NOT EXISTS idx_books_visibility ON books(visibility);
+  `).catch(() => {});
 }
 
 // ══════════════════════════════════════
@@ -383,17 +394,56 @@ export async function pgInsertBook(book: Omit<BookRow, 'id' | 'date_added'>) {
   ]);
 }
 
+/** Insert a user-uploaded book and return its ID */
+export async function pgInsertUserBook(book: {
+  title: string;
+  format: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  r2_file_key: string;
+  uploaded_by: string;
+  visibility: string;
+  category_id?: number;
+}): Promise<number> {
+  const p = getPgPool();
+  const res = await p.query(`
+    INSERT INTO books (
+      title, author, description, format, content_type,
+      file_path, file_name, file_size, r2_file_key,
+      uploaded_by, visibility, category_id, folder_category
+    ) VALUES (
+      $1, '', '', $2, 'text',
+      $3, $4, $5, $6,
+      $7, $8, $9, 'Mis Libros'
+    ) RETURNING id
+  `, [
+    book.title, book.format, book.file_path, book.file_name, book.file_size,
+    book.r2_file_key, book.uploaded_by, book.visibility, book.category_id || null,
+  ]);
+  return res.rows[0].id;
+}
+
 export async function pgGetAllBooks(limit = 2000, offset = 0, filters?: {
   format?: string;
   category_id?: number;
   favorite?: boolean;
   search?: string;
   collection_id?: number;
+  userId?: string;
 }) {
   const p = getPgPool();
   let where = 'WHERE 1=1';
   const params: unknown[] = [];
   let paramIndex = 1;
+
+  // Visibility filter: show public books + user's own private uploads
+  if (filters?.userId) {
+    where += ` AND (b.visibility = 'public' OR b.visibility IS NULL OR b.uploaded_by = $${paramIndex++})`;
+    params.push(filters.userId);
+  } else {
+    where += ` AND (b.visibility = 'public' OR b.visibility IS NULL)`;
+  }
 
   if (filters?.format && filters.format !== 'all') {
     where += ` AND b.format = $${paramIndex++}`;

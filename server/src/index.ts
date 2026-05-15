@@ -32,6 +32,7 @@ import {
   countUserUploads,
   insertUserUpload,
   deleteUserUpload,
+  insertUserBook,
   getUserReadingProgress,
   setUserReadingProgress,
   getUserFavorites,
@@ -1526,11 +1527,10 @@ app.get('/api/affiliate/stats', requireAuth, async (req, res) => {
 });
 
 // â”€â”€ User Uploads â”€â”€
-import { upload, getUploadLimit, deleteUploadFile, UPLOADS_DIR as UPLOAD_PATH } from './uploadStorage.js';
+import { upload, uploadFileToR2, deleteFileFromR2, getMimeType } from './uploadStorage.js';
 // Upload imports from db.js at top
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(UPLOAD_PATH));
+// Files now served from R2 (no local static)
 
 // List user's uploads
 app.get('/api/uploads', requireAuth, async (req, res) => {
@@ -1538,7 +1538,7 @@ app.get('/api/uploads', requireAuth, async (req, res) => {
   res.json(uploads);
 });
 
-// Upload a file
+// Upload a file -> R2 + create book record
 app.post('/api/uploads', requireAuth, async (req, res) => {
   const user = await getUserById(req.userId!) as any;
   const plan = user?.plan || 'free';
@@ -1547,57 +1547,130 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
   
   if (currentCount >= limit) {
     return res.status(403).json({ 
-      error: `LÃ­mite de archivos alcanzado (${limit}). Elimina archivos existentes o mejora tu plan.` 
+      error: `Limite de archivos alcanzado (${limit}). Elimina archivos existentes o mejora tu plan.` 
     });
   }
 
   upload.single('file')(req, res, async (err: any) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'El archivo excede el lÃ­mite de 100 MB.' });
+        return res.status(413).json({ error: 'El archivo excede el limite de 100 MB.' });
       }
       return res.status(400).json({ error: err.message || 'Error al subir archivo.' });
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'No se recibiÃ³ ningÃºn archivo.' });
+      return res.status(400).json({ error: 'No se recibio ningun archivo.' });
     }
 
-    const uploadId = uuidv4();
-    await insertUserUpload(
-      uploadId,
-      req.userId!,
-      null, // book_id â€” can be linked later
-      req.file.originalname,
-      req.file.filename, // storage path (just the filename inside uploads dir)
-      req.file.size
-    );
+    try {
+      const ext = (req.file.originalname.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || 'pdf';
+      const uniqueId = uuidv4();
+      const r2Key = `uploads/${req.userId}/${uniqueId}.${ext}`;
+      const contentType = getMimeType(`.${ext}`);
 
-    res.json({
-      id: uploadId,
-      original_filename: req.file.originalname,
-      storage_path: req.file.filename,
-      file_size: req.file.size,
-      url: `/uploads/${req.file.filename}`,
-    });
+      // Upload to R2
+      const uploaded = await uploadFileToR2(req.file.buffer, r2Key, contentType);
+      if (!uploaded) {
+        return res.status(500).json({ error: 'Error al subir archivo al almacenamiento.' });
+      }
+
+      // Create book record (private by default)
+      const title = req.file.originalname.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      const bookId = await insertUserBook({
+        title,
+        format: ext,
+        file_path: r2Key,
+        file_name: req.file.originalname,
+        file_size: req.file.size,
+        r2_file_key: r2Key,
+        uploaded_by: req.userId!,
+        visibility: 'private',
+      });
+
+      // Link in user_uploads table
+      await insertUserUpload(
+        req.userId!,
+        bookId,
+        req.file.originalname,
+        r2Key,
+        req.file.size
+      );
+
+      res.json({
+        id: bookId,
+        original_filename: req.file.originalname,
+        r2_key: r2Key,
+        file_size: req.file.size,
+        visibility: 'private',
+        title,
+      });
+    } catch (uploadErr) {
+      console.error('Upload processing failed:', uploadErr);
+      res.status(500).json({ error: 'Error al procesar la subida.' });
+    }
   });
 });
 
 // Delete an upload
 app.delete('/api/uploads/:id', requireAuth, async (req, res) => {
   const uploads = await getUserUploads(req.userId!);
-  const target = uploads.find((u: any) => u.id === req.params.id);
+  const target = uploads.find((u: any) => u.id === parseInt(req.params.id));
   
   if (!target) {
     return res.status(404).json({ error: 'Archivo no encontrado.' });
   }
 
-  // Delete physical file
-  deleteUploadFile((target as any).storage_path);
-  // Delete DB record
-  await deleteUserUpload(req.params.id, req.userId!);
+  // Delete from R2
+  const storagePath = (target as any).storage_path;
+  if (storagePath && storagePath.startsWith('uploads/')) {
+    await deleteFileFromR2(storagePath);
+  }
+
+  // Delete book record if linked
+  const bookId = (target as any).book_id;
+  if (bookId) {
+    try {
+      const pgPool = getPgPool();
+      await pgPool.query('DELETE FROM books WHERE id = $1 AND uploaded_by = $2', [bookId, req.userId]);
+    } catch (e) {
+      console.error('Failed to delete book record:', e);
+    }
+  }
+
+  // Delete upload record
+  await deleteUserUpload(parseInt(req.params.id), req.userId!);
   
   res.json({ success: true });
+});
+
+// Share a user-uploaded book (sends to admin for approval)
+app.post('/api/uploads/:bookId/share', requireAuth, async (req, res) => {
+  const bookId = parseInt(req.params.bookId);
+  const book = await getBookById(bookId) as any;
+  if (!book || book.uploaded_by !== req.userId) {
+    return res.status(403).json({ error: 'No tienes permiso para modificar este libro.' });
+  }
+  await updateBook(bookId, { visibility: 'pending' } as any);
+  res.json({ success: true, visibility: 'pending', message: 'Tu libro sera revisado por un administrador.' });
+});
+
+// Admin: approve/reject shared books
+app.post('/api/admin/uploads/:bookId/approve', requireAuth, async (req, res) => {
+  const user = await getUserById(req.userId!) as any;
+  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
+  if (!adminEmails.includes(user?.email?.toLowerCase())) {
+    return res.status(403).json({ error: 'Solo administradores.' });
+  }
+  const bookId = parseInt(req.params.bookId);
+  const action = req.body.action; // 'approve' or 'reject'
+  if (action === 'approve') {
+    await updateBook(bookId, { visibility: 'public' } as any);
+    res.json({ success: true, visibility: 'public' });
+  } else {
+    await updateBook(bookId, { visibility: 'private' } as any);
+    res.json({ success: true, visibility: 'private' });
+  }
 });
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
