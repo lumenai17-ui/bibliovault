@@ -71,7 +71,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
   const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentPageRef = useRef(savedPage);
+  const currentPageRef = useRef(1);
   const totalPagesRef = useRef(0);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [mobileSubView, setMobileSubView] = useState<'none' | 'themes' | 'bookmarks' | 'tts'>('none');
