@@ -1,11 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure the PDF.js worker — use local copy instead of CDN for reliability
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Configure the PDF.js worker — use CDN matching react-pdf's bundled pdfjs version
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export type PageLayout = 'single' | 'double';
 
@@ -30,17 +29,26 @@ export default function PdfReader({
 }: PdfReaderProps) {
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setTotalPages(numPages);
     onTotalPages(numPages);
     setIsLoading(false);
+    setLoadError(null);
   }, [onTotalPages]);
 
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF load error:', error);
     setIsLoading(false);
+    setLoadError(error.message || 'Error al cargar PDF');
   }, []);
+
+  // Pass file as object with credentials for authenticated endpoints
+  const fileSource = useMemo(() => ({
+    url: fileUrl,
+    withCredentials: true,
+  }), [fileUrl]);
 
   // Calculate which pages to show in double layout
   const showSecondPage = pageLayout === 'double' && currentPage + 1 <= totalPages;
@@ -56,8 +64,23 @@ export default function PdfReader({
           <span>Cargando documento...</span>
         </div>
       )}
+      {loadError && (
+        <div className="reader-loading" style={{ color: '#f87171' }}>
+          <span>⚠️ {loadError}</span>
+          <button
+            onClick={() => { setLoadError(null); setIsLoading(true); }}
+            style={{
+              marginTop: 12, padding: '6px 16px', borderRadius: 6,
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#e2e8f0', cursor: 'pointer', fontSize: 13,
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <Document
-        file={fileUrl}
+        file={fileSource}
         onLoadSuccess={onDocumentLoadSuccess}
         onLoadError={onDocumentLoadError}
         loading={null}
@@ -92,3 +115,4 @@ export default function PdfReader({
     </div>
   );
 }
+
