@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, createReadStream } from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getPgPool } from './pgDatabase.js';
@@ -831,6 +831,44 @@ app.get('/api/books/:id/html', async (req, res) => {
 // ── Serve book files for the reader ──
 const TUNNEL_URL = process.env.TUNNEL_URL || ''; // e.g. https://xyz.trycloudflare.com
 const TUNNEL_SECRET = process.env.TUNNEL_SECRET || 'bv-tunnel-2026';
+
+// ── Tunnel file endpoint (runs on LOCAL server, called by Render via tunnel) ──
+app.get('/file', (req, res) => {
+  const secret = req.query.secret as string;
+  const filePath = req.query.path as string;
+
+  if (secret !== TUNNEL_SECRET) {
+    return res.status(403).json({ error: 'Invalid tunnel secret' });
+  }
+
+  if (!filePath) {
+    return res.status(400).json({ error: 'Missing path parameter' });
+  }
+
+  // Security: only allow paths that look like book files
+  if (filePath.includes('..') || filePath.includes('//')) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+
+  if (!existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found on local disk' });
+  }
+
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    epub: 'application/epub+zip',
+    djvu: 'image/vnd.djvu',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    png: 'image/png', webp: 'image/webp',
+  };
+
+  res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${filePath.split(/[/\\]/).pop()}"`);
+  const stream = createReadStream(filePath);
+  stream.pipe(res);
+  stream.on('error', () => res.status(500).end());
+});
 
 // Helper: resolve a file path — local first, then via tunnel download to temp
 import { tmpdir } from 'os';
