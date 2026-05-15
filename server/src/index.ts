@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, createReadStream } from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import { getPgPool } from './pgDatabase.js';
+import { getPgPool, pgGetDashboardStats, pgGetAllUsersAdmin, pgGetPendingBooks, pgGetUserBooks, pgGetRecentUsers, pgGetRecentUploads } from './pgDatabase.js';
 import {
   initDatabase,
   isPostgres,
@@ -242,7 +242,10 @@ app.get('/api/auth/me', async (req, res) => {
     return res.status(401).json({ error: 'SesiÃ³n invÃ¡lida.' });
   }
 
-  res.json({ user });
+  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map(e => e.trim().toLowerCase());
+  const isAdmin = adminEmails.includes((user as any).email?.toLowerCase());
+
+  res.json({ user: { ...user, is_admin: isAdmin } });
 });
 
 app.put('/api/auth/me', requireAuth, async (req, res) => {
@@ -321,6 +324,21 @@ async function requireSubscription(req: express.Request, res: express.Response, 
     message: 'Tu suscripción ha expirado. Renueva para continuar.',
     subscription_status: status || 'none',
   });
+}
+
+// Middleware: Require admin role
+async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!req.userId) {
+    return res.status(401).json({ error: 'auth_required' });
+  }
+  const user = await getUserById(req.userId) as any;
+  if (!user) return res.status(401).json({ error: 'user_not_found' });
+
+  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map(e => e.trim().toLowerCase());
+  if (!adminEmails.includes(user.email?.toLowerCase())) {
+    return res.status(403).json({ error: 'admin_only' });
+  }
+  next();
 }
 
 // Create subscription → redirect to PayPal
@@ -1655,21 +1673,143 @@ app.post('/api/uploads/:bookId/share', requireAuth, async (req, res) => {
   res.json({ success: true, visibility: 'pending', message: 'Tu libro sera revisado por un administrador.' });
 });
 
-// Admin: approve/reject shared books
-app.post('/api/admin/uploads/:bookId/approve', requireAuth, async (req, res) => {
-  const user = await getUserById(req.userId!) as any;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
-  if (!adminEmails.includes(user?.email?.toLowerCase())) {
-    return res.status(403).json({ error: 'Solo administradores.' });
-  }
+// Admin: approve/reject shared books (with categorization)
+app.post('/api/admin/uploads/:bookId/approve', requireAuth, requireAdmin, async (req, res) => {
   const bookId = parseInt(req.params.bookId);
-  const action = req.body.action; // 'approve' or 'reject'
+  const { action, category_id, title } = req.body;
+  
   if (action === 'approve') {
-    await updateBook(bookId, { visibility: 'public' } as any);
+    const updates: any = { visibility: 'public' };
+    if (category_id) updates.category_id = parseInt(category_id);
+    if (title) updates.title = title;
+    await updateBook(bookId, updates);
     res.json({ success: true, visibility: 'public' });
   } else {
     await updateBook(bookId, { visibility: 'private' } as any);
     res.json({ success: true, visibility: 'private' });
+  }
+});
+
+
+// ══════════════════════════════════════
+//  Admin Panel Endpoints (Phase 16)
+// ══════════════════════════════════════
+
+
+// Admin: Dashboard stats
+app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const [stats, recentUsers, recentUploads] = await Promise.all([
+      pgGetDashboardStats(),
+      pgGetRecentUsers(5),
+      pgGetRecentUploads(5),
+    ]);
+    res.json({ ...stats, recentUsers, recentUploads });
+  } catch (err) {
+    console.error('Admin dashboard error:', err);
+    res.status(500).json({ error: 'Error al obtener estadísticas.' });
+  }
+});
+
+// Admin: List all users
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const search = req.query.search as string | undefined;
+    const users = await pgGetAllUsersAdmin(search);
+    res.json(users);
+  } catch (err) {
+    console.error('Admin users error:', err);
+    res.status(500).json({ error: 'Error al obtener usuarios.' });
+  }
+});
+
+// Admin: Change user plan
+app.post('/api/admin/users/:id/plan', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { plan, days } = req.body;
+    const targetUser = await getUserById(req.params.id) as any;
+    if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+    const updates: any = {};
+    if (plan) {
+      updates.plan = plan;
+      if (plan === 'free') {
+        updates.subscription_status = 'none';
+        updates.subscription_end = null;
+      }
+    }
+    if (days && parseInt(days) > 0) {
+      const end = new Date();
+      end.setDate(end.getDate() + parseInt(days));
+      updates.plan = 'premium';
+      updates.subscription_status = 'active';
+      updates.subscription_start = new Date().toISOString();
+      updates.subscription_end = end.toISOString();
+    }
+
+    await updateUser(req.params.id, updates);
+    console.log(`⚙️ Admin changed plan for ${targetUser.email}: ${JSON.stringify(updates)}`);
+    res.json({ success: true, updates });
+  } catch (err) {
+    console.error('Admin plan change error:', err);
+    res.status(500).json({ error: 'Error al cambiar plan.' });
+  }
+});
+
+// Admin: Get pending books
+app.get('/api/admin/books/pending', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const books = await pgGetPendingBooks();
+    res.json(books);
+  } catch (err) {
+    console.error('Admin pending books error:', err);
+    res.status(500).json({ error: 'Error al obtener libros pendientes.' });
+  }
+});
+
+// Admin: Get active coupons
+app.get('/api/admin/coupons', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const couponConfig = process.env.COUPON_CODES || '';
+    const coupons = couponConfig.split(',').filter(Boolean).map(c => {
+      const [code, days] = c.split(':');
+      return { code: code?.trim(), days: parseInt(days) || 0 };
+    }).filter(c => c.code && c.days > 0);
+    res.json(coupons);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener cupones.' });
+  }
+});
+
+// User: Get my uploaded books
+app.get('/api/books/my', requireAuth, async (req, res) => {
+  try {
+    const books = await pgGetUserBooks(req.userId!);
+    res.json(books);
+  } catch (err) {
+    console.error('My books error:', err);
+    res.status(500).json({ error: 'Error al obtener tus libros.' });
+  }
+});
+
+// User: Get community books (approved uploads from other users)
+app.get('/api/books/community', requireAuth, async (req, res) => {
+  try {
+    const p = getPgPool();
+    const result = await p.query(`
+      SELECT b.id, b.title, b.format, b.file_size, b.date_added,
+             b.cover_path, b.category_id, c.name as category_name,
+             u.display_name as uploader_name
+      FROM books b
+      LEFT JOIN categories c ON c.id = b.category_id
+      LEFT JOIN users u ON u.id = b.uploaded_by
+      WHERE b.visibility = 'public' AND b.uploaded_by IS NOT NULL AND b.uploaded_by != $1
+      ORDER BY b.date_added DESC
+    `, [req.userId]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Community books error:', err);
+    res.status(500).json({ error: 'Error al obtener libros de comunidad.' });
   }
 });
 

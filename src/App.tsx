@@ -11,6 +11,12 @@ import AuthPage, { type AuthUser } from './components/Auth/AuthPage';
 import SubscriptionPage from './components/Subscription/SubscriptionPage';
 import CommunityExplorer from './components/Community/CommunityExplorer';
 import SettingsPage from './components/Settings/SettingsPage';
+import AdminDashboard from './components/Admin/AdminDashboard';
+import AdminUsers from './components/Admin/AdminUsers';
+import AdminPending from './components/Admin/AdminPending';
+import AdminCoupons from './components/Admin/AdminCoupons';
+import MyBooks from './components/Library/MyBooks';
+import CommunityBooks from './components/Library/CommunityBooks';
 import type { Book, ViewMode, BookFormat } from './types';
 import {
   fetchBooks,
@@ -436,6 +442,18 @@ export default function App() {
                 setCurrentUser(null);
               }}
             />
+          ) : activeSection === 'admin' ? (
+            <AdminDashboard />
+          ) : activeSection === 'admin-users' ? (
+            <AdminUsers />
+          ) : activeSection === 'admin-pending' ? (
+            <AdminPending />
+          ) : activeSection === 'admin-coupons' ? (
+            <AdminCoupons />
+          ) : activeSection === 'my-books' ? (
+            <MyBooks onReadBook={(id) => { const book = books.find(b => b.id === id); if (book) handleOpenReader(book); }} />
+          ) : activeSection === 'community-books' ? (
+            <CommunityBooks onReadBook={(id) => { const book = books.find(b => b.id === id); if (book) handleOpenReader(book); }} />
           ) : (
             <LibraryGrid
               books={books}

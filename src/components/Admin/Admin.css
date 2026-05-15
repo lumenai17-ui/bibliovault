@@ -1,0 +1,435 @@
+/* BiblioVault AI — Admin Panel Styles (Phase 16) */
+
+.admin-panel {
+  padding: 0 4px;
+  animation: adminFadeIn 0.3s ease;
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.admin-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #a78bfa, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.admin-header .admin-badge {
+  background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(129,140,248,0.2));
+  border: 1px solid rgba(167,139,250,0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  color: #c4b5fd;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* ── Stats Grid ── */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.admin-stat-card {
+  background: linear-gradient(145deg, rgba(30,30,45,0.8), rgba(20,20,35,0.9));
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.admin-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(167,139,250,0.3);
+}
+
+.admin-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--stat-accent, linear-gradient(90deg, #a78bfa, #818cf8));
+}
+
+.admin-stat-card .stat-icon {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.admin-stat-card .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.admin-stat-card .stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-stat-card.users { --stat-accent: linear-gradient(90deg, #60a5fa, #3b82f6); }
+.admin-stat-card.books { --stat-accent: linear-gradient(90deg, #34d399, #10b981); }
+.admin-stat-card.premium { --stat-accent: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.admin-stat-card.pending { --stat-accent: linear-gradient(90deg, #fb923c, #f97316); }
+.admin-stat-card.uploads { --stat-accent: linear-gradient(90deg, #a78bfa, #8b5cf6); }
+.admin-stat-card.revenue { --stat-accent: linear-gradient(90deg, #4ade80, #22c55e); }
+
+/* ── Table Styles ── */
+.admin-table-container {
+  background: rgba(15,15,25,0.6);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  background: rgba(30,30,45,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+
+.admin-table tr:hover td {
+  background: rgba(167,139,250,0.04);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.badge-free {
+  background: rgba(148,163,184,0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148,163,184,0.2);
+}
+
+.badge-premium {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.2);
+}
+
+.badge-enterprise {
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(167,139,250,0.2);
+}
+
+.badge-active {
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+.badge-cancelled {
+  background: rgba(251,146,60,0.15);
+  color: #fb923c;
+  border: 1px solid rgba(251,146,60,0.2);
+}
+
+.badge-expired {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+.badge-pending {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.2);
+}
+
+.badge-private {
+  background: rgba(148,163,184,0.15);
+  color: #94a3b8;
+}
+
+.badge-public {
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+}
+
+.badge-pdf { background: rgba(239,68,68,0.15); color: #ef4444; }
+.badge-epub { background: rgba(52,211,153,0.15); color: #34d399; }
+.badge-doc, .badge-docx { background: rgba(96,165,250,0.15); color: #60a5fa; }
+
+/* ── Action Buttons ── */
+.admin-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(30,30,45,0.8);
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-btn:hover {
+  border-color: rgba(167,139,250,0.4);
+  background: rgba(167,139,250,0.1);
+}
+
+.admin-btn.approve {
+  border-color: rgba(52,211,153,0.3);
+  color: #34d399;
+}
+.admin-btn.approve:hover {
+  background: rgba(52,211,153,0.15);
+  border-color: rgba(52,211,153,0.5);
+}
+
+.admin-btn.reject {
+  border-color: rgba(239,68,68,0.3);
+  color: #ef4444;
+}
+.admin-btn.reject:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.5);
+}
+
+.admin-btn.primary {
+  background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(129,140,248,0.2));
+  border-color: rgba(167,139,250,0.3);
+  color: #c4b5fd;
+}
+
+/* ── Search/Filter Bar ── */
+.admin-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(15,15,25,0.6);
+  color: #e2e8f0;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.admin-search:focus {
+  border-color: rgba(167,139,250,0.4);
+}
+
+.admin-select {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(15,15,25,0.6);
+  color: #e2e8f0;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Approve Form ── */
+.approve-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(52,211,153,0.05);
+  border: 1px solid rgba(52,211,153,0.15);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 8px;
+}
+
+.approve-form select,
+.approve-form input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(15,15,25,0.8);
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+/* ── Section Titles ── */
+.admin-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin: 24px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Recent List ── */
+.admin-recent-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.admin-recent-card {
+  background: rgba(20,20,35,0.6);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.admin-recent-card h4 {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.admin-recent-item:last-child {
+  border-bottom: none;
+}
+
+.admin-recent-item .meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* ── Coupon Cards ── */
+.coupon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.coupon-card {
+  background: linear-gradient(145deg, rgba(30,30,45,0.8), rgba(20,20,35,0.9));
+  border: 1px dashed rgba(167,139,250,0.3);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.coupon-card .coupon-code {
+  font-size: 20px;
+  font-weight: 700;
+  color: #c4b5fd;
+  letter-spacing: 2px;
+  font-family: monospace;
+  margin-bottom: 6px;
+}
+
+.coupon-card .coupon-days {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.coupon-card .coupon-copy {
+  margin-top: 10px;
+  padding: 5px 16px;
+  background: rgba(167,139,250,0.15);
+  border: 1px solid rgba(167,139,250,0.3);
+  border-radius: 8px;
+  color: #c4b5fd;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.coupon-card .coupon-copy:hover {
+  background: rgba(167,139,250,0.25);
+}
+
+/* ── Empty State ── */
+.admin-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-empty .empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-recent-list { grid-template-columns: 1fr; }
+  .admin-table { font-size: 12px; }
+  .admin-table th, .admin-table td { padding: 8px 10px; }
+}

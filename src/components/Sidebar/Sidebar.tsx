@@ -16,6 +16,12 @@ import {
   User,
   Settings,
   LogOut,
+  Shield,
+  Users,
+  BookCheck,
+  Ticket,
+  FolderOpen,
+  Globe,
 } from 'lucide-react';
 import type { ApiCategory } from '../../services/api';
 import type { AuthUser } from '../Auth/AuthPage';
@@ -46,7 +52,16 @@ const NAV_ITEMS = [
   { id: 'favorites', label: 'Favoritos', icon: Heart },
   { id: 'reading', label: 'Leyendo', icon: BookOpen },
   { id: 'recent', label: 'Recientes', icon: Clock },
+  { id: 'my-books', label: 'Mis Libros', icon: FolderOpen },
+  { id: 'community-books', label: 'Comunidad', icon: Globe },
   { id: 'community', label: 'Foro', icon: MessageCircle },
+];
+
+const ADMIN_ITEMS = [
+  { id: 'admin', label: 'Dashboard', icon: BarChart3 },
+  { id: 'admin-users', label: 'Usuarios', icon: Users },
+  { id: 'admin-pending', label: 'Por Aprobar', icon: BookCheck },
+  { id: 'admin-coupons', label: 'Cupones', icon: Ticket },
 ];
 
 export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser, isOpen, onLogout }: SidebarProps) {
@@ -192,6 +207,26 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
             <span>Estadísticas</span>
           </div>
         </div>
+
+        {/* Admin Section — only visible to admins */}
+        {(currentUser as any)?.is_admin && (
+          <div className="sidebar-section">
+            <div className="sidebar-section-title" style={{ color: '#a78bfa' }}>
+              <Shield size={12} style={{ marginRight: '4px' }} />
+              Administración
+            </div>
+            {ADMIN_ITEMS.map((item) => (
+              <div
+                key={item.id}
+                className={`sidebar-item ${activeSection === item.id ? 'active' : ''}`}
+                onClick={() => onSectionChange(item.id)}
+              >
+                <item.icon />
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="sidebar-stats">

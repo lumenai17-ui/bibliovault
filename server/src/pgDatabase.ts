@@ -806,3 +806,108 @@ export async function pgDeleteUserUpload(id: number, userId: string) {
   const p = getPgPool();
   return p.query('DELETE FROM user_uploads WHERE id = $1 AND user_id = $2', [id, userId]);
 }
+
+// ══════════════════════════════════════
+//  Admin Queries (Phase 16)
+// ══════════════════════════════════════
+
+/** Dashboard aggregate stats */
+export async function pgGetDashboardStats() {
+  const p = getPgPool();
+  const [users, books, active, pending, uploads] = await Promise.all([
+    p.query('SELECT COUNT(*) as c FROM users'),
+    p.query("SELECT COUNT(*) as c FROM books WHERE visibility IS NULL OR visibility = 'public'"),
+    p.query("SELECT COUNT(*) as c FROM users WHERE subscription_status = 'active'"),
+    p.query("SELECT COUNT(*) as c FROM books WHERE visibility = 'pending'"),
+    p.query('SELECT COUNT(*) as c FROM user_uploads'),
+  ]);
+  const activeCount = parseInt(active.rows[0].c);
+  return {
+    totalUsers: parseInt(users.rows[0].c),
+    totalBooks: parseInt(books.rows[0].c),
+    activeSubscriptions: activeCount,
+    pendingBooks: parseInt(pending.rows[0].c),
+    totalUploads: parseInt(uploads.rows[0].c),
+    estimatedRevenue: activeCount * 12.99,
+  };
+}
+
+/** All users for admin table */
+export async function pgGetAllUsersAdmin(search?: string) {
+  const p = getPgPool();
+  let where = 'WHERE 1=1';
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (search) {
+    where += ` AND (u.email ILIKE $${idx} OR u.display_name ILIKE $${idx})`;
+    params.push(`%${search}%`);
+    idx++;
+  }
+
+  const res = await p.query(`
+    SELECT u.id, u.email, u.display_name, u.plan,
+           u.subscription_status, u.subscription_end,
+           u.created_at, u.last_login,
+           COALESCE(uc.cnt, 0) as upload_count
+    FROM users u
+    LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM user_uploads GROUP BY user_id) uc ON uc.user_id = u.id
+    ${where}
+    ORDER BY u.created_at DESC
+  `, params);
+  return res.rows;
+}
+
+/** Books pending admin approval */
+export async function pgGetPendingBooks() {
+  const p = getPgPool();
+  const res = await p.query(`
+    SELECT b.id, b.title, b.format, b.file_size, b.date_added,
+           b.uploaded_by, b.visibility, b.category_id,
+           u.email as uploader_email, u.display_name as uploader_name
+    FROM books b
+    LEFT JOIN users u ON u.id = b.uploaded_by
+    WHERE b.visibility = 'pending'
+    ORDER BY b.date_added DESC
+  `);
+  return res.rows;
+}
+
+/** Books uploaded by a specific user */
+export async function pgGetUserBooks(userId: string) {
+  const p = getPgPool();
+  const res = await p.query(`
+    SELECT b.id, b.title, b.format, b.file_size, b.date_added,
+           b.cover_path, b.visibility, b.category_id,
+           c.name as category_name
+    FROM books b
+    LEFT JOIN categories c ON c.id = b.category_id
+    WHERE b.uploaded_by = $1
+    ORDER BY b.date_added DESC
+  `, [userId]);
+  return res.rows;
+}
+
+/** Recently registered users (for dashboard) */
+export async function pgGetRecentUsers(limit = 5) {
+  const p = getPgPool();
+  const res = await p.query(`
+    SELECT id, email, display_name, plan, created_at
+    FROM users ORDER BY created_at DESC LIMIT $1
+  `, [limit]);
+  return res.rows;
+}
+
+/** Recently uploaded books (for dashboard) */
+export async function pgGetRecentUploads(limit = 5) {
+  const p = getPgPool();
+  const res = await p.query(`
+    SELECT b.id, b.title, b.format, b.visibility, b.date_added,
+           u.email as uploader_email
+    FROM books b
+    LEFT JOIN users u ON u.id = b.uploaded_by
+    WHERE b.uploaded_by IS NOT NULL
+    ORDER BY b.date_added DESC LIMIT $1
+  `, [limit]);
+  return res.rows;
+}

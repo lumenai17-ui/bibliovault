@@ -12,6 +12,7 @@ export interface AuthUser {
   avatar_url: string;
   created_at: string;
   last_login: string | null;
+  is_admin?: boolean;
 }
 
 interface AuthPageProps {
