@@ -801,8 +801,8 @@ app.get('/api/books/:id/html', async (req, res) => {
   const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const origPath = book.file_path as string;
-  const filePath = await resolveFilePath(origPath);
-  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
+  const filePath = await resolveFilePath(origPath, parseInt(req.params.id));
+  if (!filePath) return res.status(404).json({ error: 'File not found' });
 
   const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
   
@@ -1045,7 +1045,7 @@ app.get('/api/books/:id/cover', async (req, res) => {
   }
 
   // 4. Generate SVG fallback
-  const filePath = await resolveFilePath(book.file_path as string) || book.file_path as string;
+  const filePath = await resolveFilePath(book.file_path as string, bookId) || book.file_path as string;
   try {
     const newCoverPath = await generateCover(
       bookId, filePath, book.title as string, book.author as string,
@@ -1091,8 +1091,8 @@ app.post('/api/books/:id/summary', async (req, res) => {
   }
 
   const origPath = book.file_path as string;
-  const filePath = await resolveFilePath(origPath);
-  if (!filePath) return res.status(404).json({ error: 'File not found (local or tunnel)' });
+  const filePath = await resolveFilePath(origPath, parseInt(req.params.id));
+  if (!filePath) return res.status(404).json({ error: 'File not found' });
 
   try {
     let excerpt = '';
@@ -1738,7 +1738,7 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
 
   try {
     // Resolve file path (local or via tunnel)
-    const filePath = await resolveFilePath(book.file_path as string);
+    const filePath = await resolveFilePath(book.file_path as string, bookId);
     if (!filePath) return res.status(404).json({ error: 'PDF file not accessible' });
 
     const coverPath = await extractPdfCover(filePath, bookId);
@@ -1823,7 +1823,7 @@ app.post('/api/books/:id/identify-title', async (req, res) => {
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
   const origPath = book.file_path as string;
-  const filePath = await resolveFilePath(origPath) || origPath;
+  const filePath = await resolveFilePath(origPath, bookId) || origPath;
   const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
 
   try {
