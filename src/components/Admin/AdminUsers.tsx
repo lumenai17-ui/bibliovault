@@ -10,7 +10,7 @@ interface AdminUser {
   plan: string;
   subscription_status: string;
   subscription_end: string | null;
-  paypal_subscription_id: string | null;
+  subscription_id: string | null;
   created_at: string;
   last_login: string | null;
   upload_count: number;
@@ -155,9 +155,9 @@ export default function AdminUsers() {
                     </span>
                   </td>
                   <td style={{ fontSize: '11px', color: '#64748b', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {u.paypal_subscription_id ? (
-                      <span title={u.paypal_subscription_id} style={{ color: '#60a5fa', cursor: 'help' }}>
-                        💳 {u.paypal_subscription_id.substring(0, 8)}...
+                    {u.subscription_id ? (
+                      <span title={u.subscription_id} style={{ color: '#60a5fa', cursor: 'help' }}>
+                        💳 {u.subscription_id.substring(0, 8)}...
                       </span>
                     ) : '—'}
                   </td>

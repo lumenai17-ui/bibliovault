@@ -359,6 +359,9 @@ export async function initPgSchema(): Promise<void> {
     );
   `).catch(() => {});
 
+  // Ensure subscription_id column exists (subscription code uses this name)
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_id TEXT`).catch(() => {});
+
   // Fix orphaned user_uploads: link them to books where uploaded_by was not set
   await p.query(`
     UPDATE books SET uploaded_by = uu.user_id, visibility = 'private'
@@ -868,7 +871,7 @@ export async function pgGetAllUsersAdmin(search?: string) {
   const res = await p.query(`
     SELECT u.id, u.email, u.display_name, u.plan,
            u.subscription_status, u.subscription_end,
-           u.paypal_subscription_id,
+           u.subscription_id,
            u.created_at, u.last_login,
            COALESCE(uc.cnt, 0) as upload_count
     FROM users u

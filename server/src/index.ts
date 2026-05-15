@@ -1595,6 +1595,7 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
 
       // Create book record (private by default)
       const title = req.file.originalname.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      console.log(`📚 Creating book record: "${title}" for user ${req.userId}`);
       const bookId = await insertUserBook({
         title,
         format: ext,
@@ -1605,6 +1606,7 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
         uploaded_by: req.userId!,
         visibility: 'private',
       });
+      console.log(`📚 Book record created with ID: ${bookId}`);
 
       // Link in user_uploads table
       await insertUserUpload(
@@ -1614,6 +1616,7 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
         r2Key,
         req.file.size
       );
+      console.log(`📤 Upload linked: book ${bookId} → user ${req.userId}`);
 
       res.json({
         id: bookId,
@@ -1624,7 +1627,7 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
         title,
       });
     } catch (uploadErr) {
-      console.error('Upload processing failed:', uploadErr);
+      console.error('❌ Upload processing failed:', uploadErr);
       res.status(500).json({ error: 'Error al procesar la subida.' });
     }
   });
