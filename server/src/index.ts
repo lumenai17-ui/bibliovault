@@ -678,7 +678,7 @@ app.post('/api/admin/grant-access', requireAuth, async (req, res) => {
 });
 
 // ── Books ──
-app.get('/api/books', async (req, res) => {
+app.get('/api/books', optionalAuth, async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 200;
   const offset = parseInt(req.query.offset as string) || 0;
   const format = req.query.format as string | undefined;
@@ -687,7 +687,7 @@ app.get('/api/books', async (req, res) => {
   const search = req.query.search as string | undefined;
   const collection_id = req.query.collection_id ? parseInt(req.query.collection_id as string) : undefined;
 
-  const result = await getAllBooks(limit, offset, { format, category_id, favorite, search, collection_id });
+  const result = await getAllBooks(limit, offset, { format, category_id, favorite, search, collection_id, userId: req.userId || undefined });
   res.json(result);
 });
 

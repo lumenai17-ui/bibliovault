@@ -6,10 +6,13 @@ const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 interface UserUpload {
   id: string;
+  book_id: number | null;
   original_filename: string;
   storage_path: string;
   file_size: number;
   uploaded_at: string;
+  title?: string;
+  visibility?: string;
 }
 
 interface UploadPanelProps {
@@ -118,6 +121,27 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
     if (file) handleUpload(file);
   };
 
+  const handleShare = async (upload: UserUpload) => {
+    if (!upload.book_id) return;
+    try {
+      const res = await fetch(`${API_BASE}/uploads/${upload.book_id}/share`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        loadUploads();
+      }
+    } catch (err) {
+      console.error('Failed to share:', err);
+    }
+  };
+
+  const getVisibilityBadge = (v?: string) => {
+    if (v === 'public') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34,197,94,0.2)', color: '#4ade80' }}>✅ Público</span>;
+    if (v === 'pending') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ En revisión</span>;
+    return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(100,116,139,0.2)', color: '#94a3b8' }}>🔒 Privado</span>;
+  };
+
   return (
     <>
       <div className="upload-panel-overlay" onClick={onClose} />
@@ -181,18 +205,31 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
                   <FileText size={18} />
                 </div>
                 <div className="upload-item-info">
-                  <div className="upload-item-name">{upload.original_filename}</div>
+                  <div className="upload-item-name">{upload.title || upload.original_filename}</div>
                   <div className="upload-item-meta">
                     {formatFileSize(upload.file_size)} · {new Date(upload.uploaded_at).toLocaleDateString()}
+                    {' '}{getVisibilityBadge(upload.visibility)}
                   </div>
                 </div>
-                <button
-                  className="upload-item-delete"
-                  onClick={() => handleDelete(upload.id)}
-                  title="Eliminar"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {upload.visibility === 'private' && upload.book_id && (
+                    <button
+                      className="upload-item-delete"
+                      onClick={() => handleShare(upload)}
+                      title="Compartir con la comunidad"
+                      style={{ color: '#60a5fa' }}
+                    >
+                      📤
+                    </button>
+                  )}
+                  <button
+                    className="upload-item-delete"
+                    onClick={() => handleDelete(upload.id)}
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))
           )}

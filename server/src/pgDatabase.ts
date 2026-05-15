@@ -802,7 +802,7 @@ export async function pgTrackAffiliateClick(userId: string | null, linkId: numbe
 export async function pgGetUserUploads(userId: string) {
   const p = getPgPool();
   const res = await p.query(`
-    SELECT uu.*, b.title, b.author, b.format
+    SELECT uu.*, b.title, b.author, b.format, b.visibility
     FROM user_uploads uu
     LEFT JOIN books b ON b.id = uu.book_id
     WHERE uu.user_id = $1

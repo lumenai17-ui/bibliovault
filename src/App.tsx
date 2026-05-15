@@ -451,9 +451,17 @@ export default function App() {
           ) : activeSection === 'admin-coupons' ? (
             <AdminCoupons />
           ) : activeSection === 'my-books' ? (
-            <MyBooks onReadBook={(id) => { const book = books.find(b => b.id === id); if (book) handleOpenReader(book); }} />
+            <MyBooks onReadBook={async (id) => {
+              const local = books.find(b => b.id === id);
+              if (local) { handleOpenReader(local); return; }
+              try { const fresh = await fetchBook(id); handleOpenReader(mapBook(fresh)); } catch { console.error('Book not found:', id); }
+            }} />
           ) : activeSection === 'community-books' ? (
-            <CommunityBooks onReadBook={(id) => { const book = books.find(b => b.id === id); if (book) handleOpenReader(book); }} />
+            <CommunityBooks onReadBook={async (id) => {
+              const local = books.find(b => b.id === id);
+              if (local) { handleOpenReader(local); return; }
+              try { const fresh = await fetchBook(id); handleOpenReader(mapBook(fresh)); } catch { console.error('Book not found:', id); }
+            }} />
           ) : (
             <LibraryGrid
               books={books}
