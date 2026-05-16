@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart,
   Bar,
@@ -29,16 +30,16 @@ import {
 } from 'lucide-react';
 import './Dashboard.css';
 
-function getRelativeTime(date: Date): string {
+function getRelativeTime(date: Date, t: any): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'Ahora mismo';
-  if (diffMins < 60) return `Hace ${diffMins} min`;
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minsAgo', { count: diffMins });
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `Hace ${diffHours}h`;
+  if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
   return date.toLocaleDateString();
 }
 
@@ -46,6 +47,7 @@ const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444', '#ec4
 const MEDAL_COLORS = ['#f59e0b', '#94a3b8', '#cd7f32'];
 
 export default function Statistics() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<ExtendedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export default function Statistics() {
     return (
       <div className="dashboard-loading">
         <Loader2 className="spin" size={32} />
-        <p>Cargando estadísticas...</p>
+        <p>{t('stats.loading')}</p>
       </div>
     );
   }
@@ -73,11 +75,11 @@ export default function Statistics() {
     return (
       <div className="dashboard-container">
         <div className="dashboard-header">
-          <h1>Dashboard & Estadísticas</h1>
+          <h1>{t('stats.title')}</h1>
         </div>
         <div className="dashboard-error" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <p style={{ fontSize: '18px', marginBottom: '8px' }}>No se pudieron cargar las estadísticas</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{error || 'Intenta recargar la página'}</p>
+          <p style={{ fontSize: '18px', marginBottom: '8px' }}>{t('stats.errorTitle')}</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{error || t('stats.errorSubtitle')}</p>
         </div>
       </div>
     );
@@ -86,8 +88,8 @@ export default function Statistics() {
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h1>Dashboard & Estadísticas</h1>
-        <p>Tu actividad de lectura en BiblioVault AI</p>
+        <h1>{t('stats.title')}</h1>
+        <p>{t('stats.subtitle')}</p>
       </div>
 
       {/* KPI Cards */}
@@ -98,7 +100,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.totalBooks.toLocaleString()}</span>
-            <span className="kpi-label">Libros en Biblioteca</span>
+            <span className="kpi-label">{t('stats.booksInLibrary')}</span>
           </div>
         </div>
 
@@ -108,7 +110,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.totalPagesRead.toLocaleString()}</span>
-            <span className="kpi-label">Páginas Leídas</span>
+            <span className="kpi-label">{t('stats.pagesRead')}</span>
           </div>
         </div>
 
@@ -118,7 +120,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.completedBooks}</span>
-            <span className="kpi-label">Libros Completados</span>
+            <span className="kpi-label">{t('stats.completedBooks')}</span>
           </div>
         </div>
 
@@ -128,7 +130,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.booksInProgress}</span>
-            <span className="kpi-label">En Progreso</span>
+            <span className="kpi-label">{t('stats.inProgress')}</span>
           </div>
         </div>
       </div>
@@ -136,10 +138,10 @@ export default function Statistics() {
       {/* Charts Row — right after KPIs */}
       <div className="dashboard-charts">
         <div className="chart-card">
-          <h3>Progreso de Lectura</h3>
+          <h3>{t('stats.readingProgressTitle')}</h3>
           {stats.progressBreakdown.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Abre algunos libros para ver tu progreso
+              {t('stats.noReadingData')}
             </div>
           ) : (
             <div className="chart-wrapper">
@@ -156,20 +158,27 @@ export default function Statistics() {
                     stroke="none"
                   >
                     {stats.progressBreakdown.map((entry, index) => {
+                      // Note: 'entry.name' will now be a translation key from the backend ('completed', etc.)
                       const colorMap: Record<string, string> = {
-                        'Completados': '#14b8a6',
-                        'Avanzados': '#667eea',
-                        'En Progreso': '#a855f7',
-                        'Recién Empezados': '#f59e0b',
+                        'completed': '#14b8a6',
+                        'advanced': '#667eea',
+                        'in_progress': '#a855f7',
+                        'just_started': '#f59e0b',
                       };
                       return <Cell key={`cell-${index}`} fill={colorMap[entry.name] || PIE_COLORS[index % PIE_COLORS.length]} />;
                     })}
                   </Pie>
                   <Tooltip
+                    formatter={(value: any, name: any) => [value, t(`stats.${name}`)]}
                     contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
                     itemStyle={{ color: 'var(--text-primary)' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: 'var(--text-primary)' }} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36} 
+                    wrapperStyle={{ color: 'var(--text-primary)' }} 
+                    formatter={(value: any) => t(`stats.${value}`)}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -177,10 +186,10 @@ export default function Statistics() {
         </div>
 
         <div className="chart-card">
-          <h3>Tus Categorías Más Leídas</h3>
+          <h3>{t('stats.topCategoriesTitle')}</h3>
           {stats.categoryStats.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Lee algunos libros para ver tus categorías favoritas
+              {t('stats.noCategoryData')}
             </div>
           ) : (
             <div className="chart-wrapper">
@@ -212,17 +221,17 @@ export default function Statistics() {
       <div className="dashboard-charts">
         {/* Recently Read */}
         <div className="chart-card" style={{ minHeight: 280 }}>
-          <h3><BookMarked size={15} style={{ marginRight: 6, verticalAlign: -2 }} />Lectura Reciente</h3>
+          <h3><BookMarked size={15} style={{ marginRight: 6, verticalAlign: -2 }} />{t('stats.recentReadingTitle')}</h3>
           {stats.recentlyRead.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Aún no has abierto ningún libro
+              {t('stats.noRecentReading')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
               {stats.recentlyRead.map((book, i) => {
                 const pct = Math.round(book.progress * 100);
                 const pagesRead = Math.round((book.pages || 0) * book.progress);
-                const ago = getRelativeTime(new Date(book.lastRead));
+                const ago = getRelativeTime(new Date(book.lastRead), t);
                 return (
                   <div key={i} style={{
                     background: 'rgba(255,255,255,0.03)',
@@ -248,7 +257,7 @@ export default function Statistics() {
                         {book.title}
                       </div>
                       <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
-                        {ago} · {pagesRead}/{book.pages} págs · {book.format.toUpperCase()}
+                        {ago} • {t('stats.pagesReadLabel', { pages: pagesRead })} • {pct}% • {book.format.toUpperCase()}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -278,10 +287,10 @@ export default function Statistics() {
 
         {/* Leaderboard */}
         <div className="chart-card" style={{ minHeight: 280 }}>
-          <h3><Trophy size={15} style={{ marginRight: 6, verticalAlign: -2 }} />Ranking de Lectores</h3>
+          <h3><Trophy size={15} style={{ marginRight: 6, verticalAlign: -2 }} />{t('stats.leaderboardTitle')}</h3>
           {stats.leaderboard.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Nadie ha leído aún — sé el primero
+              {t('stats.noLeaderboard')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
@@ -312,10 +321,12 @@ export default function Statistics() {
                       color: user.isCurrentUser ? '#818cf8' : 'var(--text-primary)',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
-                      {user.name} {user.isCurrentUser && '(tú)'}
+                      {user.name} {user.isCurrentUser && t('stats.you')}
                     </div>
                     <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
-                      {user.booksRead} libro{user.booksRead !== 1 ? 's' : ''} leído{user.booksRead !== 1 ? 's' : ''}
+                      {user.booksRead === 1 
+                        ? t('stats.booksRead_one', { count: 1 }) 
+                        : t('stats.booksRead_other', { count: user.booksRead })}
                     </div>
                   </div>
                   <div style={{
@@ -324,7 +335,7 @@ export default function Statistics() {
                     flexShrink: 0,
                   }}>
                     {user.pagesRead.toLocaleString()}
-                    <span style={{ fontSize: 9.5, fontWeight: 400, marginLeft: 2, opacity: 0.7 }}>págs</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 400, marginLeft: 2, opacity: 0.7 }}>{t('stats.ptsLabel')}</span>
                   </div>
                 </div>
               ))}
@@ -337,11 +348,11 @@ export default function Statistics() {
       <div className="dashboard-tools">
         <div className="tool-card">
           <div className="tool-info">
-            <h3>Exportar a CSV</h3>
-            <p>Descarga un archivo CSV con toda la metadata de tu colección para abrirlo en Excel o Notion.</p>
+            <h3>{t('stats.exportTitle')}</h3>
+            <p>{t('stats.exportDesc')}</p>
           </div>
           <a href={`${API_BASE}/export/csv`} download className="btn btn-primary">
-            <Download size={16} /> Descargar CSV
+            <Download size={16} /> {t('stats.downloadCsv')}
           </a>
         </div>
       </div>

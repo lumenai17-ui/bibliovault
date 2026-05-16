@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Folder, BookText, BookOpen, Layers, LibraryBig,
   Flame, Sparkles, BookMarked, Telescope, Brain,
@@ -39,6 +40,7 @@ const getCategoryColor = (index: number) => {
 const getCoverUrl = (bookId: number) => `${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${bookId}/cover`;
 
 export default function CategoriesDashboard({ categories, collections, books, onSelectSection, userName, stats }: CategoriesDashboardProps) {
+  const { t } = useTranslation();
   
   // Pre-calculate 3 sample books with REAL covers per category (skip SVG placeholders)
   const categoryFanCovers = useMemo(() => {
@@ -69,7 +71,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
 
   // Time-based greeting
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+  const greeting = hour < 12 ? t('categories.goodMorning') : hour < 18 ? t('categories.goodAfternoon') : t('categories.goodEvening');
 
   return (
     <div className="categories-dashboard animate-fade-in">
@@ -83,8 +85,8 @@ export default function CategoriesDashboard({ categories, collections, books, on
           <h2>{greeting}{userName ? `, ${userName}` : ''}</h2>
           {stats && (
             <p>
-              {stats.total.toLocaleString()} libros · {stats.categories} categorías
-              {stats.reading > 0 && <> · {stats.reading} leyendo</>}
+              {t('categories.statsTotalBooks', { count: stats.total })} · {t('categories.statsCategories', { count: stats.categories })}
+              {stats.reading > 0 && <> · {t('categories.statsReading', { count: stats.reading })}</>}
             </p>
           )}
         </div>
@@ -94,7 +96,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <Layers className="section-icon" size={20} />
-            <h2>Mis Colecciones</h2>
+            <h2>{t('categories.myCollections')}</h2>
             <span className="section-count">{collections.length}</span>
           </div>
           <div className="dashboard-grid">
@@ -116,7 +118,9 @@ export default function CategoriesDashboard({ categories, collections, books, on
                   <div className="card-info">
                     <h3>{col.name}</h3>
                     <span className="card-meta">
-                      {col.book_count || 0} {(col.book_count || 0) === 1 ? 'libro' : 'libros'}
+                      {(col.book_count || 0) === 1 
+                        ? t('categories.bookCount_one', { count: 1 }) 
+                        : t('categories.bookCount_other', { count: col.book_count || 0 })}
                     </span>
                   </div>
                   {col.description && <p className="card-desc">{col.description}</p>}
@@ -131,7 +135,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
       <section className="dashboard-section">
         <div className="dashboard-section-header">
           <LibraryBig className="section-icon" size={20} />
-          <h2>Explorar Categorías</h2>
+          <h2>{t('categories.exploreCategories')}</h2>
           <span className="section-count">{categories.length}</span>
         </div>
         <div className="dashboard-grid">
@@ -168,7 +172,9 @@ export default function CategoriesDashboard({ categories, collections, books, on
                 <div className="card-info" style={{ zIndex: 2 }}>
                   <h3>{cat.name}</h3>
                   <span className="card-meta">
-                    {cat.book_count} {cat.book_count === 1 ? 'libro' : 'libros'}
+                    {cat.book_count === 1 
+                      ? t('categories.bookCount_one', { count: 1 }) 
+                      : t('categories.bookCount_other', { count: cat.book_count })}
                   </span>
                 </div>
                 <div className="card-glow" />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import '../Admin/Admin.css';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
@@ -20,6 +21,7 @@ interface MyBooksProps {
 }
 
 export default function MyBooks({ onReadBook }: MyBooksProps) {
+  const { t } = useTranslation();
   const [books, setBooks] = useState<UserBook[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,38 +60,41 @@ export default function MyBooks({ onReadBook }: MyBooksProps) {
   };
 
   const visibilityBadge = (v: string) => {
-    if (v === 'public') return <span className="badge badge-public">✅ Público</span>;
-    if (v === 'pending') return <span className="badge badge-pending">⏳ En revisión</span>;
-    return <span className="badge badge-private">🔒 Privado</span>;
+    if (v === 'public') return <span className="badge badge-public">{t('myBooks.statusPublic')}</span>;
+    if (v === 'pending') return <span className="badge badge-pending">{t('myBooks.statusPending')}</span>;
+    return <span className="badge badge-private">{t('myBooks.statusPrivate')}</span>;
   };
 
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>📂 Mis Libros</h2>
-        <span className="admin-badge">{books.length} libros</span>
+        <h2>{t('myBooks.title')}</h2>
+        <span className="admin-badge">
+          {books.length === 1 
+            ? t('myBooks.count_one', { count: 1 }) 
+            : t('myBooks.count_other', { count: books.length })}
+        </span>
       </div>
 
       {loading ? (
-        <div className="admin-empty"><div className="empty-icon">⏳</div>Cargando...</div>
+        <div className="admin-empty"><div className="empty-icon">⏳</div>{t('myBooks.loading')}</div>
       ) : books.length === 0 ? (
         <div className="admin-empty">
           <div className="empty-icon">📂</div>
-          Aún no has subido libros.<br />
-          Usa el botón "Subir Archivos" del sidebar para empezar.
+          <span dangerouslySetInnerHTML={{ __html: t('myBooks.empty') }} />
         </div>
       ) : (
         <div className="admin-table-container">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Título</th>
-                <th>Formato</th>
-                <th>Tamaño</th>
-                <th>Estado</th>
-                <th>Categoría</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
+                <th>{t('myBooks.colTitle')}</th>
+                <th>{t('myBooks.colFormat')}</th>
+                <th>{t('myBooks.colSize')}</th>
+                <th>{t('myBooks.colStatus')}</th>
+                <th>{t('myBooks.colCategory')}</th>
+                <th>{t('myBooks.colDate')}</th>
+                <th>{t('myBooks.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,11 +108,11 @@ export default function MyBooks({ onReadBook }: MyBooksProps) {
                   <td style={{ fontSize: '12px', color: '#64748b' }}>{new Date(b.date_added).toLocaleDateString()}</td>
                   <td>
                     <div className="admin-actions">
-                      <button className="admin-btn" onClick={() => onReadBook?.(b.id)} title="Leer">📖</button>
+                      <button className="admin-btn" onClick={() => onReadBook?.(b.id)} title={t('myBooks.actionRead')}>📖</button>
                       {b.visibility === 'private' && (
-                        <button className="admin-btn approve" onClick={() => shareBook(b.id)} title="Compartir con la comunidad">📤</button>
+                        <button className="admin-btn approve" onClick={() => shareBook(b.id)} title={t('myBooks.actionShare')}>📤</button>
                       )}
-                      <button className="admin-btn reject" onClick={() => { if (confirm('¿Eliminar este libro?')) deleteBook(b.id); }} title="Eliminar">🗑️</button>
+                      <button className="admin-btn reject" onClick={() => { if (confirm(t('myBooks.confirmDelete'))) deleteBook(b.id); }} title={t('myBooks.actionDelete')}>🗑️</button>
                     </div>
                   </td>
                 </tr>

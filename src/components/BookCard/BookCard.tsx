@@ -1,4 +1,5 @@
 import { BookOpen, Heart, Info, FileText, Image, ScanLine } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Book, ViewMode } from '../../types';
 import { getBookCoverUrl } from '../../services/api';
 import './BookCard.css';
@@ -26,6 +27,7 @@ function getBadge(book: Book) {
 }
 
 export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFavorite }: BookCardProps) {
+  const { t } = useTranslation();
   const badge = getBadge(book);
   const coverUrl = getBookCoverUrl(book.id);
 
@@ -45,7 +47,7 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
         </div>
         <div className="book-card-list-info">
           <div className="book-card-list-title">{book.title}</div>
-          <div className="book-card-list-author">{book.author || 'Autor desconocido'}</div>
+          <div className="book-card-list-author">{book.author || t('bookCard.unknownAuthor')}</div>
         </div>
         <div className="book-card-list-meta">
           <span className={badge.className}>{badge.label}</span>
@@ -82,7 +84,7 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
             e.stopPropagation();
             onToggleFavorite(book);
           }}
-          title={book.favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+          title={book.favorite ? t('bookCard.removeFavorite') : t('bookCard.addFavorite')}
         >
           <Heart fill={book.favorite ? 'currentColor' : 'none'} />
         </button>
@@ -96,7 +98,7 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
                 onRead(book);
               }}
             >
-              <BookOpen size={12} /> Leer
+              <BookOpen size={12} /> {t('bookCard.read')}
             </button>
             <button
               className="book-card-overlay-info"
@@ -105,7 +107,7 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
                 onDetail(book);
               }}
             >
-              <Info size={12} /> Info
+              <Info size={12} /> {t('bookCard.info')}
             </button>
           </div>
         </div>
@@ -122,7 +124,7 @@ export default function BookCard({ book, viewMode, onRead, onDetail, onToggleFav
 
       <div className="book-card-info">
         <div className="book-card-title">{book.title}</div>
-        <div className="book-card-author">{book.author || 'Autor desconocido'}</div>
+        <div className="book-card-author">{book.author || t('bookCard.unknownAuthor')}</div>
         {book.category && (
           <div className="book-card-category">{book.category}</div>
         )}

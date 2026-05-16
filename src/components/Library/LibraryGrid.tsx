@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Library, ScanLine, Sparkles, ArrowLeft, ChevronRight } from 'lucide-react';
 import BookCard from '../BookCard/BookCard';
 import type { Book, ViewMode } from '../../types';
@@ -31,6 +32,7 @@ export default function LibraryGrid({
   showBack = false,
   onBack,
 }: LibraryGridProps) {
+  const { t } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -65,7 +67,7 @@ export default function LibraryGrid({
         {showBack && onBack && (
           <button className="library-breadcrumb" onClick={onBack}>
             <ArrowLeft size={16} />
-            <span className="breadcrumb-home">Inicio</span>
+            <span className="breadcrumb-home">{t('library.breadcrumbHome')}</span>
             <ChevronRight size={12} className="breadcrumb-sep" />
             <span className="breadcrumb-current">{sectionTitle}</span>
           </button>
@@ -104,7 +106,7 @@ export default function LibraryGrid({
         {onBack && (
           <button className="library-breadcrumb" onClick={onBack}>
             <ArrowLeft size={16} />
-            <span className="breadcrumb-home">Inicio</span>
+            <span className="breadcrumb-home">{t('library.breadcrumbHome')}</span>
             <ChevronRight size={12} className="breadcrumb-sep" />
             <span className="breadcrumb-current">{sectionTitle}</span>
           </button>
@@ -114,9 +116,9 @@ export default function LibraryGrid({
         </div>
         <div className="library-empty-category">
           <Library size={48} strokeWidth={1} />
-          <p>No hay libros en esta sección aún.</p>
+          <p>{t('library.emptySection')}</p>
           <button className="btn btn-secondary" onClick={onBack}>
-            <ArrowLeft size={14} /> Volver al inicio
+            <ArrowLeft size={14} /> {t('library.backHome')}
           </button>
         </div>
       </div>
@@ -128,7 +130,7 @@ export default function LibraryGrid({
       {showBack && onBack && (
         <button className="library-breadcrumb" onClick={onBack}>
           <ArrowLeft size={16} />
-          <span className="breadcrumb-home">Inicio</span>
+          <span className="breadcrumb-home">{t('library.breadcrumbHome')}</span>
           <ChevronRight size={12} className="breadcrumb-sep" />
           <span className="breadcrumb-current">{sectionTitle}</span>
         </button>
@@ -137,8 +139,8 @@ export default function LibraryGrid({
         <h2>{sectionTitle}</h2>
         <span>
           {visibleCount < books.length
-            ? `${visibleCount.toLocaleString()} de ${books.length.toLocaleString()} libros`
-            : `${books.length.toLocaleString()} libros`}
+            ? t('library.showingCount', { visible: visibleCount.toLocaleString(), total: books.length.toLocaleString() })
+            : t('library.totalCount', { total: books.length.toLocaleString() })}
         </span>
       </div>
       <div className={viewMode === 'grid' ? 'library-grid' : 'library-list'}>
@@ -164,19 +166,17 @@ export default function LibraryGrid({
 }
 
 function WelcomeBanner({ onScan }: { onScan: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="welcome-banner">
-      <h2>Bienvenido a BiblioVault AI</h2>
-      <p>
-        Tu biblioteca personal inteligente. Escanea tu colección de libros para empezar
-        a explorar, leer, y conversar con AI sobre tus lecturas.
-      </p>
+      <h2>{t('library.welcomeTitle')}</h2>
+      <p>{t('library.welcomeDesc')}</p>
       <div className="welcome-banner-actions">
         <button className="btn btn-primary" onClick={onScan}>
-          <ScanLine size={16} /> Escanear Biblioteca
+          <ScanLine size={16} /> {t('library.scanBtn')}
         </button>
         <button className="btn btn-secondary">
-          <Sparkles size={16} /> Ver Demo
+          <Sparkles size={16} /> {t('library.demoBtn')}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import '../Admin/Admin.css';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
@@ -20,6 +21,7 @@ interface CommunityBooksProps {
 }
 
 export default function CommunityBooks({ onReadBook }: CommunityBooksProps) {
+  const { t } = useTranslation();
   const [books, setBooks] = useState<CommunityBook[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,29 +41,33 @@ export default function CommunityBooks({ onReadBook }: CommunityBooksProps) {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>🌐 Libros de la Comunidad</h2>
-        <span className="admin-badge">{books.length} libros</span>
+        <h2>{t('communityBooks.title')}</h2>
+        <span className="admin-badge">
+          {books.length === 1 
+            ? t('communityBooks.count_one', { count: 1 }) 
+            : t('communityBooks.count_other', { count: books.length })}
+        </span>
       </div>
 
       {loading ? (
-        <div className="admin-empty"><div className="empty-icon">⏳</div>Cargando...</div>
+        <div className="admin-empty"><div className="empty-icon">⏳</div>{t('communityBooks.loading')}</div>
       ) : books.length === 0 ? (
         <div className="admin-empty">
           <div className="empty-icon">🌐</div>
-          Aún no hay libros compartidos por la comunidad.
+          {t('communityBooks.empty')}
         </div>
       ) : (
         <div className="admin-table-container">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Título</th>
-                <th>Formato</th>
-                <th>Categoría</th>
-                <th>Compartido por</th>
-                <th>Tamaño</th>
-                <th>Fecha</th>
-                <th>Acción</th>
+                <th>{t('communityBooks.colTitle')}</th>
+                <th>{t('communityBooks.colFormat')}</th>
+                <th>{t('communityBooks.colCategory')}</th>
+                <th>{t('communityBooks.colUploader')}</th>
+                <th>{t('communityBooks.colSize')}</th>
+                <th>{t('communityBooks.colDate')}</th>
+                <th>{t('communityBooks.colAction')}</th>
               </tr>
             </thead>
             <tbody>
@@ -70,11 +76,11 @@ export default function CommunityBooks({ onReadBook }: CommunityBooksProps) {
                   <td style={{ fontWeight: 500 }}>{b.title}</td>
                   <td><span className={`badge badge-${b.format}`}>{b.format.toUpperCase()}</span></td>
                   <td style={{ fontSize: '12px', color: '#94a3b8' }}>{b.category_name || '—'}</td>
-                  <td style={{ fontSize: '12px' }}>{b.uploader_name || 'Anónimo'}</td>
+                  <td style={{ fontSize: '12px' }}>{b.uploader_name || t('communityBooks.anonymous')}</td>
                   <td style={{ fontSize: '12px', color: '#94a3b8' }}>{formatSize(b.file_size)}</td>
                   <td style={{ fontSize: '12px', color: '#64748b' }}>{new Date(b.date_added).toLocaleDateString()}</td>
                   <td>
-                    <button className="admin-btn" onClick={() => onReadBook?.(b.id)} title="Leer">📖 Leer</button>
+                    <button className="admin-btn" onClick={() => onReadBook?.(b.id)} title={t('communityBooks.actionRead')}>{t('communityBooks.actionRead')}</button>
                   </td>
                 </tr>
               ))}
