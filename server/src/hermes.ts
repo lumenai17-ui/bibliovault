@@ -171,6 +171,7 @@ export async function streamChat(req: Request, res: Response) {
         model: LLM_MODEL,
         messages: fullMessages,
         stream: true,
+        stream_options: { include_usage: true },
         temperature: 0.7,
         max_tokens: 2048,
       }),

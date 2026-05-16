@@ -264,6 +264,24 @@ export async function generateSummary(id: number, options?: { refresh?: boolean;
   return res.json();
 }
 
+// ── AI Chat ──
+
+export async function fetchAiChatHistory(bookId: number): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/ai-chat-history`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function saveAiChatHistory(bookId: number, messages: any[]): Promise<void> {
+  await fetch(`${API_BASE}/books/${bookId}/ai-chat-history`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages })
+  });
+}
+
 // ── Collections ──
 
 import type { Collection } from '../types';

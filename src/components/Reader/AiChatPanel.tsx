@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search } from 'lucide-react';
+import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
-import { fetchBookText } from '../../services/api';
+import { fetchBookText, fetchAiChatHistory, saveAiChatHistory } from '../../services/api';
 import type { Book } from '../../types';
 import './AiChat.css';
 
@@ -37,10 +37,52 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingActions, setPendingActions] = useState<AiAction[]>([]);
+  const [sessionTokens, setSessionTokens] = useState(0);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportPdf = async () => {
+    if (!chatContainerRef.current) return;
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const opt = {
+        margin:       10,
+        filename:     `Hermes_Chat_${book.title.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(chatContainerRef.current).save();
+    } catch (err) {
+      console.error('PDF Export error:', err);
+    }
+  };
+
+  const handleCopyMessage = (text: string, index: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    });
+  };
+
+  const handleShareMessage = async (text: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Hermes AI sobre ${book.title}`,
+          text: text,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      handleCopyMessage(text, -1);
+    }
+  };
 
   // Check Hermes health
   useEffect(() => {
@@ -50,6 +92,15 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     }, 15000);
     return () => clearInterval(interval);
   }, [isStreaming]);
+
+  // Load chat history on mount
+  useEffect(() => {
+    fetchAiChatHistory(book.id).then((history) => {
+      if (history && history.length > 0) {
+        setMessages(history);
+      }
+    }).catch(console.error);
+  }, [book.id]);
 
   // Extract text from current page area when page changes
   useEffect(() => {
@@ -198,6 +249,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         const { cleanText, actions } = parseAiActions(fullResponse);
 
         // Clean up the displayed message (remove action tags)
+        let finalMessages = newMessages;
         if (actions.length > 0) {
           setMessages((prev) => {
             const updated = [...prev];
@@ -205,10 +257,21 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
             if (last && last.role === 'assistant') {
               updated[updated.length - 1] = { ...last, content: cleanText };
             }
+            finalMessages = updated;
             return updated;
           });
           setPendingActions(actions);
+        } else {
+          setMessages((prev) => {
+            finalMessages = prev;
+            return prev;
+          });
         }
+        
+        // Save to backend
+        setTimeout(() => {
+          saveAiChatHistory(book.id, finalMessages).catch(console.error);
+        }, 500);
       },
       (error) => {
         setMessages((prev) => {
@@ -226,7 +289,13 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       },
       abortRef.current.signal,
       webSearchContext || undefined,
-      i18n.language
+      undefined, // libraryContext
+      i18n.language,
+      (usage) => {
+        if (usage?.total_tokens) {
+          setSessionTokens((prev) => prev + usage.total_tokens);
+        }
+      }
     );
   }, [messages, isStreaming, book.title, book.author, pageContext, webSearchContext, i18n.language]);
 
@@ -308,6 +377,18 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               <span className="ai-status-label">Web</span>
             </div>
           )}
+          {sessionTokens > 0 && (
+            <div className="ai-status" title="Tokens usados">
+              <span className="ai-status-label" style={{ color: 'var(--accent-warning)' }}>
+                {sessionTokens.toLocaleString()} t
+              </span>
+            </div>
+          )}
+          {messages.length > 0 && (
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleExportPdf} title="Exportar a PDF">
+              <Download size={14} />
+            </button>
+          )}
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}>
             <X size={14} />
           </button>
@@ -368,11 +449,23 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
             </div>
           </div>
         ) : (
-          <div className="ai-messages">
+          <div className="ai-messages" ref={chatContainerRef}>
             {messages.map((msg, i) => (
               <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
                 {msg.role === 'assistant' ? (
-                  <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
+                  <div className="ai-msg-assistant-content">
+                    <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
+                    {msg.content && !isStreaming && (
+                      <div className="ai-msg-actions">
+                        <button className="ai-msg-action-btn" onClick={() => handleCopyMessage(msg.content, i)} title="Copiar">
+                          {copiedIndex === i ? <Check size={12} color="var(--accent-success)" /> : <Copy size={12} />}
+                        </button>
+                        <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)} title="Compartir">
+                          <Share2 size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   msg.content
                 )}

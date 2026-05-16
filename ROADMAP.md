@@ -27,10 +27,18 @@
 | Fase | Descripcion | Estado |
 |------|-------------|--------|
 | 17 | Internacionalizacion Portal (ES + EN) | Done |
+| 18 | Filtros Avanzados (Idioma, Extension) y Soporte Nativo EPUB | Done |
 
 ---
 
-## Backlog — Prioridad Alta (Ingresos y Lanzamiento)
+## Próximos Pasos (Backlog Inmediato)
+
+| Prioridad | Item | Descripcion |
+|-----------|------|-------------|
+| Alta | Aislamiento Multi-usuario | Las tablas de bookmarks, conversaciones IA y colecciones actualmente comparten datos entre usuarios. Se requiere aislar con `WHERE user_id = $1`. |
+| Alta | Caché de Libros (Performance) | Optimizar la carga del catálogo inicial (no cargar 1,402 libros completos siempre, usar caché local con invalidación por timestamp). |
+| Media | Rediseño de Hermes AI | Mejorar la interfaz del chat del lector (memoria de conversación y contexto del libro). |
+| Alta | Amazon Affiliates | Conectar enlaces reales para monetizar descargas comunitarias. |
 
 | Item | Descripcion | Notas |
 |------|-------------|-------|

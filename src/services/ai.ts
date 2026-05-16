@@ -64,6 +64,7 @@ export async function streamAiChat(
   webSearchResults?: string,
   libraryContext?: string,
   userLanguage?: string,
+  onUsage?: (usage: { prompt_tokens: number, completion_tokens: number, total_tokens: number }) => void,
 ): Promise<void> {
   try {
     const response = await fetch(`${API_BASE}/ai/chat`, {
@@ -122,6 +123,9 @@ export async function streamAiChat(
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
               onToken(delta);
+            }
+            if (parsed.usage && onUsage) {
+              onUsage(parsed.usage);
             }
           } catch {
             // Not valid JSON, skip

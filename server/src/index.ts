@@ -1427,6 +1427,97 @@ app.get('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
   }
 });
 
+// ── AI Chat History ──
+app.get('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
+  try {
+    const bookId = parseInt(req.params.id);
+    const userId = req.userId || 'anonymous';
+
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id SERIAL PRIMARY KEY,
+          book_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          messages JSONB DEFAULT '[]',
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      const { rows } = await pool.query(
+        'SELECT messages FROM ai_conversations WHERE book_id = $1 AND user_id = $2',
+        [bookId, userId]
+      );
+      res.json(rows[0] ? rows[0].messages : []);
+    } else {
+      const db = (await import('./database.js')).getDb();
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          book_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          messages TEXT DEFAULT '[]',
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+      const row = db.prepare('SELECT messages FROM ai_conversations WHERE book_id = ? AND user_id = ?').get(bookId, userId) as any;
+      res.json(row ? JSON.parse(row.messages) : []);
+    }
+  } catch (err) {
+    console.error('Failed to get AI history:', err);
+    res.json([]);
+  }
+});
+
+app.post('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
+  try {
+    const bookId = parseInt(req.params.id);
+    const userId = req.userId || 'anonymous';
+    const { messages } = req.body;
+
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id SERIAL PRIMARY KEY,
+          book_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          messages JSONB DEFAULT '[]',
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          UNIQUE (book_id, user_id)
+        )
+      `);
+      await pool.query(`
+        INSERT INTO ai_conversations (book_id, user_id, messages, updated_at)
+        VALUES ($1, $2, $3::jsonb, NOW())
+        ON CONFLICT (book_id, user_id) DO UPDATE SET messages = EXCLUDED.messages, updated_at = NOW()
+      `, [bookId, userId, JSON.stringify(messages)]);
+      res.json({ success: true });
+    } else {
+      const db = (await import('./database.js')).getDb();
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          book_id INTEGER NOT NULL,
+          user_id TEXT NOT NULL,
+          messages TEXT DEFAULT '[]',
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (book_id, user_id)
+        )
+      `).run();
+      db.prepare(`
+        INSERT INTO ai_conversations (book_id, user_id, messages) 
+        VALUES (?, ?, ?)
+        ON CONFLICT(book_id, user_id) DO UPDATE SET messages=excluded.messages, updated_at=CURRENT_TIMESTAMP
+      `).run(bookId, userId, JSON.stringify(messages));
+      res.json({ success: true });
+    }
+  } catch (err) {
+    console.error('Failed to save AI history:', err);
+    res.status(500).json({ error: 'Failed to save AI history' });
+  }
+});
+
 app.post('/api/books/:id/bookmarks', optionalAuth, async (req, res) => {
   const { page, label, color } = req.body as { page: number; label?: string; color?: string };
   if (!page || page < 1) return res.status(400).json({ error: 'Valid page number required' });

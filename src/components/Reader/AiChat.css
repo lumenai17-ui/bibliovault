@@ -35,6 +35,45 @@
   margin-bottom: var(--space-sm);
 }
 
+.ai-msg-assistant-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-msg-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+  border-top: 1px solid var(--glass-border);
+  padding-top: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.ai-msg-assistant:hover .ai-msg-actions {
+  opacity: 1;
+}
+
+.ai-msg-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.ai-msg-action-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
 .ai-msg-assistant p:last-child {
   margin-bottom: 0;
 }
