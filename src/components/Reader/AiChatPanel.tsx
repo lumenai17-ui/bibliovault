@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX } from 'lucide-react';
+import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
 import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks } from '../../services/api';
@@ -48,6 +48,39 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
+  const [showVoicePicker, setShowVoicePicker] = useState(false);
+
+  // Load voices (they load async in Chrome)
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const langPrefix = i18n.language === 'en' ? 'en' : 'es';
+        const filtered = voices.filter(v => v.lang.startsWith(langPrefix));
+        const sorted = filtered.sort((a, b) => {
+          // Prioritize Google > Microsoft > others
+          const score = (v: SpeechSynthesisVoice) => {
+            const n = v.name.toLowerCase();
+            if (n.includes('google')) return 3;
+            if (n.includes('microsoft') && (n.includes('online') || n.includes('natural'))) return 2;
+            if (n.includes('microsoft')) return 1;
+            return 0;
+          };
+          return score(b) - score(a);
+        });
+        setAvailableVoices(sorted.length > 0 ? sorted : voices);
+        // Auto-select best voice if none selected
+        if (!selectedVoiceURI && sorted.length > 0) {
+          setSelectedVoiceURI(sorted[0].voiceURI);
+        }
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, [i18n.language]);
 
   // TTS: speak or stop a message
   const handleSpeak = useCallback((text: string, index: number) => {
@@ -67,23 +100,19 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = i18n.language === 'en' ? 'en-US' : 'es-MX';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.05;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
 
-    // Try to pick a good voice
-    const voices = window.speechSynthesis.getVoices();
-    const langPrefix = i18n.language === 'en' ? 'en' : 'es';
-    const preferred = voices.find(v => v.lang.startsWith(langPrefix) && v.name.toLowerCase().includes('female'))
-      || voices.find(v => v.lang.startsWith(langPrefix))
-      || voices[0];
-    if (preferred) utterance.voice = preferred;
+    // Use selected voice or best available
+    const voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI) || availableVoices[0];
+    if (voice) utterance.voice = voice;
 
     utterance.onend = () => setSpeakingIndex(null);
     utterance.onerror = () => setSpeakingIndex(null);
 
     setSpeakingIndex(index);
     window.speechSynthesis.speak(utterance);
-  }, [speakingIndex, i18n.language]);
+  }, [speakingIndex, i18n.language, availableVoices, selectedVoiceURI]);
 
   // Stop TTS when panel closes
   useEffect(() => {
@@ -482,11 +511,51 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               <Download size={14} />
             </button>
           )}
+          <button
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={() => setShowVoicePicker(!showVoicePicker)}
+            title="Configurar voz de Hermes"
+            style={showVoicePicker ? { color: 'var(--accent-primary)' } : {}}
+          >
+            <Settings size={14} />
+          </button>
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}>
             <X size={14} />
           </button>
         </div>
       </div>
+
+      {/* Voice Picker */}
+      {showVoicePicker && (
+        <div className="ai-voice-picker">
+          <label style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            <Volume2 size={10} /> Voz de Hermes:
+          </label>
+          <select
+            value={selectedVoiceURI}
+            onChange={(e) => {
+              setSelectedVoiceURI(e.target.value);
+              setShowVoicePicker(false);
+              // Preview the selected voice
+              window.speechSynthesis.cancel();
+              const voice = availableVoices.find(v => v.voiceURI === e.target.value);
+              if (voice) {
+                const preview = new SpeechSynthesisUtterance(i18n.language === 'en' ? 'Hello, I am Hermes.' : 'Hola, soy Hermes.');
+                preview.voice = voice;
+                preview.rate = 0.95;
+                window.speechSynthesis.speak(preview);
+              }
+            }}
+            className="ai-voice-select"
+          >
+            {availableVoices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name} {v.name.toLowerCase().includes('google') ? '⭐' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="reader-ai-body">
