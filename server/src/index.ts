@@ -45,7 +45,7 @@ import { streamChat, checkHermesHealth, llmComplete, streamOrganizerChat } from 
 import { extractPdfText, extractBookExcerpt, isPdfTextBased } from './textExtractor.js';
 import { generateCover, COVERS_DIR } from './coverGenerator.js';
 import { enrichBook, runBatchEnrichment, getBatchState, cancelBatchEnrichment, resetBatchState } from './metadataEnricher.js';
-import { extractPdfCover, extractImageCover, runBatchCoverExtraction, getCoverBatchState, cancelCoverBatchJob, resetCoverBatchState } from './pdfCoverExtractor.js';
+import { extractPdfCover, extractEpubCover, extractImageCover, runBatchCoverExtraction, getCoverBatchState, cancelCoverBatchJob, resetCoverBatchState } from './pdfCoverExtractor.js';
 import { identifyTitleFromPdf } from './aiTitleIdentifier.js';
 import { searchWeb, formatSearchResults } from './webSearch.js';
 import { getR2Stream, getR2Url, isR2Configured } from './r2Storage.js';
@@ -2107,23 +2107,32 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
   const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
-  if (book.format !== 'pdf') {
-    return res.status(400).json({ error: 'Only PDF books supported' });
+  if (book.format !== 'pdf' && book.format !== 'epub') {
+    return res.status(400).json({ error: 'Only PDF and EPUB books supported for cover extraction' });
   }
 
   try {
     // Resolve file path (local or via tunnel)
     const filePath = await resolveFilePath(book.file_path as string, bookId);
-    if (!filePath) return res.status(404).json({ error: 'PDF file not accessible' });
+    if (!filePath) return res.status(404).json({ error: 'File not accessible' });
 
-    const coverPath = await extractPdfCover(filePath, bookId);
+    let coverPath: string | null = null;
+    let source = '';
+
+    if (book.format === 'pdf') {
+      coverPath = await extractPdfCover(filePath, bookId);
+      source = 'pdf';
+    } else if (book.format === 'epub') {
+      coverPath = await extractEpubCover(filePath, bookId);
+      source = 'epub';
+    }
 
     if (coverPath && existsSync(coverPath)) {
       const { finalCoverPath, r2CoverKey } = await uploadCoverToCloudAndGetUrl(bookId, coverPath);
 
       const updateData: any = {
         cover_path: finalCoverPath,
-        cover_source: 'pdf',
+        cover_source: source,
       };
       if (r2CoverKey) updateData.r2_cover_key = r2CoverKey;
 

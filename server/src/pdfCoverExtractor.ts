@@ -8,10 +8,11 @@
  * 
  * Dependencies: mupdf (WASM, zero native deps), sharp
  */
-import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import AdmZip from 'adm-zip';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const COVERS_DIR = join(__dirname, '..', 'data', 'covers');
@@ -116,6 +117,68 @@ function extractJpegFromPdf(pdfBuffer: Buffer): Buffer | null {
   }
 
   return bestJpeg;
+}
+
+// ─── EPUB Cover Extraction ───
+
+/**
+ * Extracts the cover image from an EPUB file
+ */
+export async function extractEpubCover(filePath: string, bookId: number): Promise<string | null> {
+  try {
+    const zip = new AdmZip(filePath);
+    const zipEntries = zip.getEntries();
+    
+    const containerEntry = zipEntries.find(e => e.entryName === 'META-INF/container.xml');
+    if (!containerEntry) return null;
+    
+    const containerXml = containerEntry.getData().toString('utf8');
+    const rootFileMatch = containerXml.match(/full-path="([^"]+)"/);
+    if (!rootFileMatch) return null;
+    
+    const opfPath = rootFileMatch[1];
+    const opfEntry = zipEntries.find(e => e.entryName === opfPath);
+    if (!opfEntry) return null;
+    
+    const opfContent = opfEntry.getData().toString('utf8');
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+    
+    let coverImagePath: string | null = null;
+    
+    const metaCoverMatch = opfContent.match(/<meta[^>]*name=["']cover["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+    if (metaCoverMatch) {
+      const coverId = metaCoverMatch[1];
+      const itemRegex = new RegExp(`<item[^>]*id=["']${coverId}["'][^>]*href=["']([^"']+)["'][^>]*>`, 'i');
+      const itemMatch = opfContent.match(itemRegex);
+      if (itemMatch) coverImagePath = opfDir + itemMatch[1];
+    }
+    
+    if (!coverImagePath) {
+      const propMatch = opfContent.match(/<item[^>]*href=["']([^"']+)["'][^>]*properties=["'][^>]*cover-image[^>]*["'][^>]*>/i);
+      if (propMatch) coverImagePath = opfDir + propMatch[1];
+    }
+    
+    if (!coverImagePath) {
+      const guessMatch = opfContent.match(/<item[^>]*href=["']([^"']+(cover|front)[^"']*\.(jpg|jpeg|png))["'][^>]*>/i);
+      if (guessMatch) coverImagePath = opfDir + guessMatch[1];
+    }
+
+    if (!coverImagePath) return null;
+
+    const decodedPath = decodeURIComponent(coverImagePath);
+    const coverEntry = zipEntries.find(e => e.entryName === decodedPath || e.entryName === coverImagePath);
+    
+    if (!coverEntry) return null;
+    
+    const ext = coverImagePath.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+    const outPath = join(COVERS_DIR, `${bookId}_epub.${ext}`);
+    
+    writeFileSync(outPath, coverEntry.getData());
+    return outPath;
+  } catch (err) {
+    console.error('EPUB cover extraction error:', err);
+    return null;
+  }
 }
 
 // ─── Image Book Cover ───
@@ -280,6 +343,9 @@ export async function runBatchCoverExtraction(
       if (book.format === 'pdf') {
         coverPath = await extractPdfCover(book.file_path, book.id);
         source = 'pdf';
+      } else if (book.format === 'epub') {
+        coverPath = await extractEpubCover(book.file_path, book.id);
+        source = 'epub';
       } else if (book.format === 'image') {
         coverPath = await extractImageCover(book.file_path, book.id);
         source = 'image';

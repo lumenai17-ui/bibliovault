@@ -10,6 +10,7 @@
     "@aws-sdk/client-s3": "^3.1047.0",
     "@aws-sdk/s3-request-presigner": "^3.1048.0",
     "@supabase/supabase-js": "^2.105.4",
+    "adm-zip": "^0.5.17",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^11.9.0",
     "canvas": "^3.2.3",
@@ -30,6 +31,7 @@
     "word-extractor": "^1.0.4"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "*",
     "@types/cookie-parser": "^1.4.10",

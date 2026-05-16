@@ -88,8 +88,9 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
 
   // Extract real text from current page for TTS narration
   useEffect(() => {
-    if (book.format === 'image') {
-      setPageText('');
+    if (book.format === 'image' || book.format === 'epub') {
+      // EPUB text extraction is handled natively by EpubReader via onTextExtracted callback
+      if (book.format === 'image') setPageText('');
       return;
     }
 
@@ -98,14 +99,15 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
         const endPage = pageLayout === 'double' ? currentPage + 1 : currentPage;
         const result = await fetchBookText(book.id, currentPage, endPage);
         const text = result.fullText?.trim() || '';
-        setPageText(text.length > 30 ? text : '');
-      } catch {
-        setPageText('');
+        if (text) setPageText(text);
+        else setPageText(`${book.title}. Página ${currentPage}`);
+      } catch (err) {
+        setPageText(`${book.title}. Página ${currentPage}`);
       }
-    }, 500);
+    }, 1000); // 1s debounce to avoid spamming backend on fast scroll
 
     return () => clearTimeout(timer);
-  }, [book.id, book.format, currentPage, pageLayout]);
+  }, [book.id, currentPage, pageLayout, book.format, book.title]);
 
   // Load per-user reading progress on mount (single source of truth)
   useEffect(() => {
@@ -292,12 +294,18 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
           fileUrl={fileUrl} 
           scale={scale} 
           nightMode={nightMode}
+          currentPage={currentPage}
           onPageChange={(p) => {
             setCurrentPage(p);
             setPageInput(String(p));
           }}
           onTotalPages={(t) => {
             setTotalPages(t);
+          }}
+          onTextExtracted={(text) => {
+            if (text && text.trim()) {
+              setPageText(text);
+            }
           }}
         />
       );

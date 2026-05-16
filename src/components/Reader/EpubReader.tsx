@@ -7,8 +7,11 @@ interface EpubReaderProps {
   nightMode: boolean;
   onLocationChanged?: (location: string) => void;
   initialLocation?: string;
+  initialLocation?: string;
+  currentPage?: number;
   onPageChange?: (page: number) => void;
   onTotalPages?: (total: number) => void;
+  onTextExtracted?: (text: string) => void;
 }
 
 export default function EpubReader({ 
@@ -17,14 +20,20 @@ export default function EpubReader({
   nightMode, 
   onLocationChanged, 
   initialLocation,
+  currentPage,
   onPageChange,
-  onTotalPages
+  onTotalPages,
+  onTextExtracted
 }: EpubReaderProps) {
   const [location, setLocation] = useState<string | number>(initialLocation || 0);
   const [bookData, setBookData] = useState<ArrayBuffer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const renditionRef = useRef<any>(null);
+  const locationsRef = useRef<any>(null);
   const tocRef = useRef<any[]>([]);
+
+  // Prevent recursive loop if EpubReader triggers onPageChange which changes currentPage prop
+  const internalPageRef = useRef<number>(1);
 
   useEffect(() => {
     let mounted = true;
@@ -47,8 +56,29 @@ export default function EpubReader({
     setLocation(epubcifi);
     if (onLocationChanged) onLocationChanged(epubcifi);
     
-    // Attempt to calculate a rough page number based on percentage if possible
-    if (renditionRef.current && renditionRef.current.location) {
+    // Extract text for TTS
+    if (renditionRef.current && onTextExtracted) {
+      try {
+        const contents = renditionRef.current.getContents();
+        if (contents && contents.length > 0) {
+          const text = contents[0].document.body.innerText;
+          onTextExtracted(text);
+        }
+      } catch (e) {
+        console.error('Error extracting text for TTS:', e);
+      }
+    }
+
+    if (renditionRef.current && locationsRef.current) {
+      // Use locations mapping if available
+      try {
+        const page = locationsRef.current.locationFromCfi(epubcifi);
+        if (page > 0) {
+          internalPageRef.current = page;
+          if (onPageChange) onPageChange(page);
+        }
+      } catch (e) {}
+    } else if (renditionRef.current && renditionRef.current.location) {
       const loc = renditionRef.current.location;
       if (loc.start && loc.start.displayed && loc.start.displayed.page) {
         const page = loc.start.displayed.page;
@@ -65,6 +95,20 @@ export default function EpubReader({
       }
     }
   };
+
+  useEffect(() => {
+    if (currentPage && currentPage !== internalPageRef.current && locationsRef.current) {
+      try {
+        const cfi = locationsRef.current.cfiFromLocation(currentPage);
+        if (cfi) {
+          setLocation(cfi);
+          internalPageRef.current = currentPage;
+        }
+      } catch (e) {
+        console.error('Could not navigate to page', currentPage, e);
+      }
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     if (renditionRef.current) {
@@ -140,6 +184,23 @@ export default function EpubReader({
           
           rendition.themes.fontSize(`${Math.max(80, scale * 100)}%`);
           rendition.themes.select(nightMode ? 'night' : 'light');
+
+          // Generate locations for pagination
+          rendition.book.ready.then(() => {
+            return rendition.book.locations.generate(1600);
+          }).then((locations: any) => {
+            locationsRef.current = rendition.book.locations;
+            if (onTotalPages) {
+              onTotalPages(locationsRef.current.length());
+            }
+            // If there's an initial currentPage, jump to it
+            if (currentPage && currentPage > 1) {
+              try {
+                const cfi = locationsRef.current.cfiFromLocation(currentPage);
+                if (cfi) setLocation(cfi);
+              } catch (e) {}
+            }
+          }).catch((err: any) => console.error("Error generating locations", err));
 
           // Add epubjs pagination if requested
           rendition.on('relocated', (loc: any) => {
