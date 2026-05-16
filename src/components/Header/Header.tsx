@@ -39,6 +39,7 @@ interface HeaderProps {
   onScan: () => void;
   isScanning: boolean;
   onRefresh?: () => void;
+  isAdmin?: boolean;
 }
 
 const FORMAT_FILTERS: { id: BookFormat | 'all'; label: string }[] = [
@@ -59,6 +60,7 @@ export default function Header({
   onScan,
   isScanning,
   onRefresh,
+  isAdmin = false,
 }: HeaderProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -256,6 +258,7 @@ export default function Header({
           </button>
         </div>
 
+        {isAdmin && (<>
         <button
           className={`btn btn-sm header-cover-btn ${extractingCovers ? 'extracting' : ''}`}
           onClick={handleExtractCovers}
@@ -329,6 +332,7 @@ export default function Header({
           <ScanLine size={14} />
           {isScanning ? 'Escaneando...' : 'Escanear'}
         </button>
+        </>)}
       </div>
     </header>
   );

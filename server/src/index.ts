@@ -1275,8 +1275,8 @@ app.delete('/api/collections/:id/books/:bookId', optionalAuth, async (req, res) 
 });
 
 // â”€â”€ Stats â”€â”€
-app.get('/api/stats', async (_req, res) => {
-  res.json(await getStats());
+app.get('/api/stats', optionalAuth, async (req, res) => {
+  res.json(await getStats(req.userId || undefined));
 });
 
 // â”€â”€ Scan â”€â”€

@@ -555,12 +555,18 @@ export async function pgGetCategories() {
   return res.rows;
 }
 
-export async function pgGetStats() {
+export async function pgGetStats(userId?: string) {
   const p = getPgPool();
+  
+  // Reading count: per-user if authenticated, otherwise 0
+  const readingQuery = userId 
+    ? p.query('SELECT COUNT(*) as c FROM user_reading_progress WHERE user_id = $1 AND progress > 0 AND progress < 1', [userId])
+    : Promise.resolve({ rows: [{ c: '0' }] });
+
   const [total, favorites, reading, byFormat, categories] = await Promise.all([
     p.query('SELECT COUNT(*) as c FROM books'),
     p.query('SELECT COUNT(*) as c FROM books WHERE favorite = 1'),
-    p.query('SELECT COUNT(*) as c FROM books WHERE reading_progress > 0 AND reading_progress < 1'),
+    readingQuery,
     p.query('SELECT format, COUNT(*) as c FROM books GROUP BY format'),
     p.query('SELECT COUNT(*) as c FROM categories'),
   ]);

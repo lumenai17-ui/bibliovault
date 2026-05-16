@@ -394,6 +394,7 @@ export default function App() {
           onScan={handleScan}
           isScanning={isScanning}
           onRefresh={loadBooks}
+          isAdmin={!!(currentUser as any)?.is_admin}
         />
         <div className="app-content">
           {/* Connection error banner */}
