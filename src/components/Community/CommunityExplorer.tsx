@@ -37,7 +37,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
     setLoading(true);
     try {
       const [all, mine, books, official, recent] = await Promise.all([
-        fetchCommunities(50),
+        fetchCommunities(50).catch(() => []),
         fetchMyCommunities().catch(() => []),
         fetchBookCommunities(50).catch(() => []),
         fetchOfficialCommunities().catch(() => []),
@@ -119,30 +119,30 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
                   <p>{t('community.noActivity')}</p>
                 </div>
               ) : (
-                recentThreads.map(t => (
-                  <div key={t.id} className="activity-card" onClick={() => openCommunity(t.community_slug)}>
+                recentThreads.map(thread => (
+                  <div key={thread.id} className="activity-card" onClick={() => openCommunity(thread.community_slug)}>
                     <div className="activity-source">
                       <span className="activity-source-icon">
-                        {t.book_id ? '📚' : t.community_type === 'official' ? '🏛️' : '👥'}
+                        {thread.book_id ? '📚' : thread.community_type === 'official' ? '🏛️' : '👥'}
                       </span>
-                      <span className="activity-source-name">{t.community_name}</span>
+                      <span className="activity-source-name">{thread.community_name}</span>
                     </div>
                     <div className="thread-card" style={{ border: 'none', background: 'transparent', padding: '8px 0' }}>
                       <div className="thread-votes" style={{ minWidth: 28 }}>
-                        <span style={{ fontSize: 12 }}>{t.upvotes > 0 ? `+${t.upvotes}` : t.upvotes}</span>
+                        <span style={{ fontSize: 12 }}>{thread.upvotes > 0 ? `+${thread.upvotes}` : thread.upvotes}</span>
                       </div>
                       <div className="thread-content">
                         <div className="thread-title">
-                          {t.pinned && <Pin size={12} className="pin-icon" />}
-                          {t.has_spoilers && <AlertTriangle size={12} className="spoiler-icon" />}
-                          {t.title}
+                          {thread.pinned && <Pin size={12} className="pin-icon" />}
+                          {thread.has_spoilers && <AlertTriangle size={12} className="spoiler-icon" />}
+                          {thread.title}
                         </div>
                         <div className="thread-meta">
-                          <span>{t.author_name}</span>
+                          <span>{thread.author_name}</span>
                           <span>·</span>
-                          <span>{timeAgo(t.created_at, t)}</span>
+                          <span>{timeAgo(thread.created_at, t)}</span>
                           <span>·</span>
-                          <span><MessageCircle size={11} /> {t.reply_count}</span>
+                          <span><MessageCircle size={11} /> {thread.reply_count}</span>
                         </div>
                       </div>
                     </div>
