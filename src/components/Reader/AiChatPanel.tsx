@@ -593,12 +593,34 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
 
             {/* Web/Library search input */}
             {showSearchInput && (
-              <div className="ai-search-input-bar">
-                <Search size={14} />
+              <div className="ai-search-input-bar" style={{ borderColor: searchMode === 'library' ? 'var(--accent-primary)' : 'rgba(96, 165, 250, 0.4)' }}>
+                {/* Mode toggle button */}
+                <button
+                  className="ai-search-mode-toggle"
+                  onClick={() => setSearchMode(searchMode === 'web' ? 'library' : 'web')}
+                  title={searchMode === 'web' ? 'Cambiar a Biblioteca' : 'Cambiar a Web'}
+                  style={{
+                    background: searchMode === 'library' ? 'rgba(102,126,234,0.15)' : 'rgba(96,165,250,0.15)',
+                    color: searchMode === 'library' ? 'var(--accent-primary)' : '#60a5fa',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap' as const,
+                    flexShrink: 0,
+                  }}
+                >
+                  {searchMode === 'library' ? <><BookOpen size={12} /> Biblioteca</> : <><Globe size={12} /> Web</>}
+                </button>
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder={searchMode === 'web' ? t('aiChat.searchPlaceholder') : 'Buscar en la biblioteca...'}
+                  placeholder={searchMode === 'web' ? t('aiChat.searchPlaceholder') : 'Buscar en tu biblioteca...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -613,7 +635,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                   disabled={!searchQuery.trim() || isSearching}
                   title={searchMode === 'web' ? 'Buscar en la Web' : 'Buscar en la Biblioteca'}
                 >
-                  {searchMode === 'web' ? <Globe size={12} /> : <BookOpen size={12} />}
+                  <Search size={12} />
                 </button>
               </div>
             )}
