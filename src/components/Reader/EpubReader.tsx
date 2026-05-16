@@ -21,8 +21,27 @@ export default function EpubReader({
   onTotalPages
 }: EpubReaderProps) {
   const [location, setLocation] = useState<string | number>(initialLocation || 0);
+  const [bookData, setBookData] = useState<ArrayBuffer | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const renditionRef = useRef<any>(null);
   const tocRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(fileUrl, { credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error('No se pudo cargar el archivo EPUB');
+        return res.arrayBuffer();
+      })
+      .then(data => {
+        if (mounted) setBookData(data);
+      })
+      .catch(err => {
+        console.error('Error fetching EPUB:', err);
+        if (mounted) setError(err.message);
+      });
+    return () => { mounted = false; };
+  }, [fileUrl]);
 
   const locationChanged = (epubcifi: string) => {
     setLocation(epubcifi);
@@ -79,10 +98,27 @@ export default function EpubReader({
     }
   };
 
+  if (error) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ef4444' }}>
+        <p>Error: {error}</p>
+      </div>
+    );
+  }
+
+  if (!bookData) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+        <div className="spinner" style={{ width: 24, height: 24, border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: 8 }} />
+        <span>Cargando libro electrónico...</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <ReactReader
-        url={fileUrl}
+        url={bookData}
         location={location}
         locationChanged={locationChanged}
         readerStyles={customStyle}
