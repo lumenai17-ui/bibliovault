@@ -39,6 +39,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const [searchMode, setSearchMode] = useState<'web' | 'library'>('web');
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingActions, setPendingActions] = useState<AiAction[]>([]);
+  const [suggestedFollowUps, setSuggestedFollowUps] = useState<string[]>([]);
   const [sessionTokens, setSessionTokens] = useState(0);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -310,11 +311,11 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         setIsStreaming(false);
 
         // Parse actions from the complete response
-        const { cleanText, actions } = parseAiActions(fullResponse);
+        const { cleanText, actions, followUps } = parseAiActions(fullResponse);
 
         // Clean up the displayed message (remove action tags)
         let finalMessages = newMessages;
-        if (actions.length > 0) {
+        if (actions.length > 0 || followUps.length > 0) {
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
@@ -324,7 +325,8 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
             finalMessages = updated;
             return updated;
           });
-          setPendingActions(actions);
+          if (actions.length > 0) setPendingActions(actions);
+          if (followUps.length > 0) setSuggestedFollowUps(followUps);
         } else {
           setMessages((prev) => {
             finalMessages = prev;
@@ -553,6 +555,19 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                         <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)} title="Compartir">
                           <Share2 size={12} />
                         </button>
+                      </div>
+                    )}
+                    {!isStreaming && i === messages.length - 1 && suggestedFollowUps.length > 0 && (
+                      <div className="ai-followups">
+                        {suggestedFollowUps.map((followUp, idx) => (
+                          <button
+                            key={idx}
+                            className="ai-followup-btn"
+                            onClick={() => sendMessage(followUp)}
+                          >
+                            {followUp} <ArrowRight size={12} />
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>

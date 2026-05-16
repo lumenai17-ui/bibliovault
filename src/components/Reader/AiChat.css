@@ -262,3 +262,39 @@
 .ai-action-btn svg {
   flex-shrink: 0;
 }
+
+/* Follow-ups */
+.ai-followups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  border-top: 1px dashed var(--glass-border);
+  padding-top: 12px;
+}
+
+.ai-followup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.ai-followup-btn:hover {
+  border-color: var(--accent-primary);
+  background: rgba(102, 126, 234, 0.05);
+  transform: translateX(2px);
+}
+
+.ai-followup-btn svg {
+  color: var(--accent-primary);
+  opacity: 0.7;
+}

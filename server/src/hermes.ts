@@ -107,7 +107,12 @@ REGLAS DE ACCIONES:
 - Solo emite UNA acción por respuesta
 - La acción debe estar en su propia línea al final
 - No inventes IDs de libros — solo usa search si no sabes el ID exacto
-- El usuario puede mencionar categorías existentes como: CIENCIA, FILOSOFÍA, ESOTERISMO, etc.`;
+- El usuario puede mencionar categorías existentes como: CIENCIA, FILOSOFÍA, ESOTERISMO, etc.
+
+🧠 PREGUNTAS DE CONTINUACIÓN (FOLLOW-UPS):
+Al final de CADA una de tus respuestas, DEBES sugerir exactamente 3 preguntas cortas que el usuario podría hacerte para continuar la conversación.
+Usa este formato EXACTO en la última línea:
+@@FOLLOW_UPS:["Pregunta 1", "Pregunta 2", "Pregunta 3"]@@`;
 
   if (pageContext) {
     prompt += `\n\n📄 CONTENIDO ACTUAL DEL LIBRO (texto extraído de las páginas que el usuario está leyendo):\n---\n${pageContext}\n---\n\n⚡ IMPORTANTE: El texto anterior es contenido REAL extraído del libro. Úsalo como base principal para responder. El usuario está leyendo esto en este momento.`;

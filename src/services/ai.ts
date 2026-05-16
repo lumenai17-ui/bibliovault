@@ -38,17 +38,31 @@ export interface AiAction {
   value: string;
 }
 
-/** Parse AI actions from response text (@@ACTION:type:value@@) */
-export function parseAiActions(text: string): { cleanText: string; actions: AiAction[] } {
+/** Parse AI actions from response text (@@ACTION:type:value@@ and @@FOLLOW_UPS:[...]@@) */
+export function parseAiActions(text: string): { cleanText: string; actions: AiAction[]; followUps: string[] } {
   const actions: AiAction[] = [];
-  const cleanText = text.replace(/@@ACTION:(\w+):([^@]+)@@/g, (_match, type, value) => {
+  let followUps: string[] = [];
+  
+  let cleanText = text.replace(/@@FOLLOW_UPS:(\[.*?\])@@/g, (_match, jsonArray) => {
+    try {
+      const parsed = JSON.parse(jsonArray);
+      if (Array.isArray(parsed)) {
+        followUps = parsed.filter(i => typeof i === 'string');
+      }
+    } catch (e) {
+      console.error('Failed to parse follow-ups', e);
+    }
+    return '';
+  });
+
+  cleanText = cleanText.replace(/@@ACTION:(\w+):([^@]+)@@/g, (_match, type, value) => {
     if (['search', 'category', 'open', 'navigate'].includes(type)) {
       actions.push({ type: type as AiAction['type'], value: value.trim() });
     }
     return ''; // Remove action tags from displayed text
   }).trim();
 
-  return { cleanText, actions };
+  return { cleanText: cleanText.trim(), actions, followUps };
 }
 
 /** Stream AI chat response from Hermes via the backend proxy */
