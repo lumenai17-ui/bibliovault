@@ -22,26 +22,27 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ currentUser, onUserUpdate, onLogout }: SettingsPageProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<SettingsTab>('profile');
 
   return (
     <div className="settings-page">
       <div className="settings-header">
-        <h2><Settings size={22} /> Configuración</h2>
+        <h2><Settings size={22} /> {t('settings.title')}</h2>
       </div>
 
       <div className="settings-tabs">
         <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>
-          <User size={14} /> Perfil
+          <User size={14} /> {t('settings.tabProfile')}
         </button>
         <button className={tab === 'membership' ? 'active' : ''} onClick={() => setTab('membership')}>
-          <CreditCard size={14} /> Membresía
+          <CreditCard size={14} /> {t('settings.tabMembership')}
         </button>
         <button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>
-          <Settings size={14} /> Preferencias
+          <Settings size={14} /> {t('settings.tabPreferences')}
         </button>
         <button className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>
-          <Shield size={14} /> Seguridad
+          <Shield size={14} /> {t('settings.tabSecurity')}
         </button>
       </div>
 
@@ -58,6 +59,7 @@ export default function SettingsPage({ currentUser, onUserUpdate, onLogout }: Se
 // ── Profile Tab ──
 
 function ProfileTab({ currentUser, onUserUpdate }: { currentUser: AuthUser; onUserUpdate: (u: AuthUser) => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(currentUser.display_name);
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar_url);
@@ -84,7 +86,7 @@ function ProfileTab({ currentUser, onUserUpdate }: { currentUser: AuthUser; onUs
 
   return (
     <div className="settings-section">
-      <h3>Tu Perfil</h3>
+      <h3>{t('settings.profileTitle')}</h3>
 
       <div className="profile-avatar-section">
         <div className="profile-avatar">
@@ -93,36 +95,36 @@ function ProfileTab({ currentUser, onUserUpdate }: { currentUser: AuthUser; onUs
         <div className="profile-avatar-edit">
           <input
             type="text"
-            placeholder="URL de tu avatar..."
+            placeholder={t('settings.avatarPlaceholder')}
             value={avatarUrl}
             onChange={e => setAvatarUrl(e.target.value)}
           />
-          <span className="hint">Pega la URL de una imagen</span>
+          <span className="hint">{t('settings.avatarHint')}</span>
         </div>
       </div>
 
       <div className="form-group">
-        <label>Nombre</label>
+        <label>{t('settings.name')}</label>
         <input type="text" value={name} onChange={e => setName(e.target.value)} />
       </div>
 
       <div className="form-group">
-        <label>Email</label>
+        <label>{t('settings.email')}</label>
         <input type="text" value={currentUser.email} disabled className="disabled" />
       </div>
 
       <div className="form-group">
-        <label>Bio</label>
-        <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3} placeholder="Cuéntanos sobre ti..." />
+        <label>{t('settings.bio')}</label>
+        <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3} placeholder={t('settings.bioPlaceholder')} />
       </div>
 
       <div className="form-group">
-        <label>Miembro desde</label>
-        <input type="text" value={new Date(currentUser.created_at).toLocaleDateString('es')} disabled className="disabled" />
+        <label>{t('settings.memberSince')}</label>
+        <input type="text" value={new Date(currentUser.created_at).toLocaleDateString()} disabled className="disabled" />
       </div>
 
       <button className="btn-save" onClick={handleSave} disabled={saving}>
-        {saved ? <><Check size={14} /> Guardado</> : saving ? <><Loader2 size={14} className="spin" /> Guardando...</> : <><Save size={14} /> Guardar cambios</>}
+        {saved ? <><Check size={14} /> {t('settings.saved')}</> : saving ? <><Loader2 size={14} className="spin" /> {t('settings.saving')}</> : <><Save size={14} /> {t('settings.saveChanges')}</>}
       </button>
     </div>
   );
@@ -131,6 +133,7 @@ function ProfileTab({ currentUser, onUserUpdate }: { currentUser: AuthUser; onUs
 // ── Membership Tab ──
 
 function MembershipTab() {
+  const { t } = useTranslation();
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [coupon, setCoupon] = useState('');
@@ -180,31 +183,31 @@ function MembershipTab() {
     setProcessing(false);
   };
 
-  if (loading) return <div className="settings-loading">Cargando membresía...</div>;
+  if (loading) return <div className="settings-loading">{t('settings.loadingMembership')}</div>;
 
   const isPremium = sub?.plan === 'premium';
 
   return (
     <div className="settings-section">
-      <h3>Tu Membresía</h3>
+      <h3>{t('settings.membershipTitle')}</h3>
 
       <div className={`plan-card ${isPremium ? 'premium' : 'free'}`}>
         <div className="plan-badge">
-          {isPremium ? <><Crown size={16} /> Premium</> : '🆓 Free'}
+          {isPremium ? <><Crown size={16} /> {t('settings.premiumBadge')}</> : `🆓 ${t('settings.freeBadge')}`}
         </div>
         <div className="plan-details">
           {isPremium ? (
             <>
-              <p className="plan-price">$12.99/mes</p>
+              <p className="plan-price">{t('settings.priceMonthly')}</p>
               {sub?.nextBilling && (
-                <p className="plan-next">Próximo cobro: {new Date(sub.nextBilling).toLocaleDateString('es')}</p>
+                <p className="plan-next">{t('settings.nextBilling', { date: new Date(sub.nextBilling).toLocaleDateString() })}</p>
               )}
               {sub?.startDate && (
-                <p className="plan-since">Miembro Premium desde: {new Date(sub.startDate).toLocaleDateString('es')}</p>
+                <p className="plan-since">{t('settings.memberSinceDate', { date: new Date(sub.startDate).toLocaleDateString() })}</p>
               )}
             </>
           ) : (
-            <p className="plan-desc">Suscríbete para acceder a todas las funciones de Lectura Arcana.</p>
+            <p className="plan-desc">{t('settings.freeDesc')}</p>
           )}
         </div>
       </div>
@@ -212,26 +215,26 @@ function MembershipTab() {
       {!isPremium && (
         <div className="subscribe-section">
           <div className="subscribe-features">
-            <h4>Plan Premium — $12.99/mes</h4>
+            <h4>{t('settings.premiumPlanTitle')}</h4>
             <ul>
-              <li><Check size={13} /> Biblioteca ilimitada</li>
-              <li><Check size={13} /> Narración AI (Hermes)</li>
-              <li><Check size={13} /> Foro & Comunidades</li>
-              <li><Check size={13} /> Colecciones avanzadas</li>
-              <li><Check size={13} /> Soporte prioritario</li>
+              <li><Check size={13} /> {t('settings.featUnlimited')}</li>
+              <li><Check size={13} /> {t('settings.featAudio')}</li>
+              <li><Check size={13} /> {t('settings.featForums')}</li>
+              <li><Check size={13} /> {t('settings.featCollections')}</li>
+              <li><Check size={13} /> {t('settings.featSupport')}</li>
             </ul>
           </div>
 
           <div className="coupon-section">
-            <label><Tag size={12} /> ¿Tienes un cupón?</label>
+            <label><Tag size={12} /> {t('settings.haveCoupon')}</label>
             <div className="coupon-input">
               <input
                 type="text"
-                placeholder="Código de cupón"
+                placeholder={t('subscription.couponPlaceholder')}
                 value={coupon}
                 onChange={e => { setCoupon(e.target.value); setCouponResult(null); }}
               />
-              <button onClick={handleValidateCoupon} disabled={!coupon.trim()}>Validar</button>
+              <button onClick={handleValidateCoupon} disabled={!coupon.trim()}>{t('settings.validateCoupon')}</button>
             </div>
             {couponResult && (
               <div className={`coupon-result ${couponResult.valid ? 'valid' : 'invalid'}`}>
@@ -242,9 +245,9 @@ function MembershipTab() {
           </div>
 
           <button className="btn-subscribe" onClick={handleSubscribe} disabled={processing}>
-            {processing ? <><Loader2 size={16} className="spin" /> Procesando...</> : '💳 Suscribirse con PayPal'}
+            {processing ? <><Loader2 size={16} className="spin" /> {t('settings.processing')}</> : t('settings.subscribePaypal')}
           </button>
-          <p className="subscribe-note">Cancela cuando quieras. Sin contratos.</p>
+          <p className="subscribe-note">{t('settings.cancelNote')}</p>
         </div>
       )}
 
@@ -252,15 +255,15 @@ function MembershipTab() {
         <div className="cancel-section">
           {!confirmCancel ? (
             <button className="btn-cancel-sub" onClick={() => setConfirmCancel(true)}>
-              Cancelar membresía
+              {t('settings.cancelSub')}
             </button>
           ) : (
             <div className="cancel-confirm">
-              <p>¿Estás seguro? Perderás acceso a las funciones Premium.</p>
+              <p>{t('settings.cancelConfirmText')}</p>
               <div className="cancel-buttons">
-                <button className="btn-cancel-no" onClick={() => setConfirmCancel(false)}>No, mantener</button>
+                <button className="btn-cancel-no" onClick={() => setConfirmCancel(false)}>{t('settings.cancelNo')}</button>
                 <button className="btn-cancel-yes" onClick={handleCancel} disabled={processing}>
-                  {processing ? 'Cancelando...' : 'Sí, cancelar'}
+                  {processing ? t('settings.canceling') : t('settings.cancelYes')}
                 </button>
               </div>
             </div>
@@ -270,15 +273,15 @@ function MembershipTab() {
 
       {payments.length > 0 && (
         <div className="payment-history">
-          <h4>Historial de Pagos</h4>
+          <h4>{t('settings.paymentHistory')}</h4>
           <table>
             <thead>
-              <tr><th>Fecha</th><th>Monto</th><th>Estado</th><th>Cupón</th></tr>
+              <tr><th>{t('settings.colDate')}</th><th>{t('settings.colAmount')}</th><th>{t('settings.colStatus')}</th><th>{t('settings.colCoupon')}</th></tr>
             </thead>
             <tbody>
               {payments.map(p => (
                 <tr key={p.id}>
-                  <td>{new Date(p.created_at).toLocaleDateString('es')}</td>
+                  <td>{new Date(p.created_at).toLocaleDateString()}</td>
                   <td>${p.amount} {p.currency}</td>
                   <td><span className={`status-${p.status}`}>{p.status}</span></td>
                   <td>{p.coupon_code || '—'}</td>
@@ -368,6 +371,7 @@ function PreferencesTab() {
 // ── Security Tab ──
 
 function SecurityTab({ onLogout }: { onLogout: () => void }) {
+  const { t } = useTranslation();
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -395,15 +399,15 @@ function SecurityTab({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="settings-section">
-      <h3>Seguridad</h3>
+      <h3>{t('settings.securityTitle')}</h3>
 
       <div className="security-block">
-        <h4>Cambiar Contraseña</h4>
+        <h4>{t('settings.changePassword')}</h4>
         {error && <div className="settings-error">{error}</div>}
-        {success && <div className="settings-success"><Check size={14} /> Contraseña actualizada</div>}
+        {success && <div className="settings-success"><Check size={14} /> {t('settings.pwUpdated')}</div>}
 
         <div className="form-group">
-          <label>Contraseña actual</label>
+          <label>{t('settings.currentPw')}</label>
           <div className="password-input">
             <input type={showPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
             <button onClick={() => setShowPw(!showPw)}>{showPw ? <EyeOff size={14} /> : <Eye size={14} />}</button>
@@ -411,24 +415,24 @@ function SecurityTab({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <div className="form-group">
-          <label>Nueva contraseña</label>
+          <label>{t('settings.newPw')}</label>
           <input type={showPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)} />
         </div>
 
         <div className="form-group">
-          <label>Confirmar nueva contraseña</label>
+          <label>{t('settings.confirmNewPw')}</label>
           <input type={showPw ? 'text' : 'password'} value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
         </div>
 
         <button className="btn-save" onClick={handleChangePassword} disabled={saving}>
-          <Shield size={14} /> {saving ? 'Guardando...' : 'Cambiar contraseña'}
+          <Shield size={14} /> {saving ? t('settings.saving') : t('settings.changePwBtn')}
         </button>
       </div>
 
       <div className="security-block danger-zone">
-        <h4>Sesión</h4>
+        <h4>{t('settings.session')}</h4>
         <button className="btn-logout" onClick={onLogout}>
-          <LogOut size={14} /> Cerrar sesión
+          <LogOut size={14} /> {t('settings.logout')}
         </button>
       </div>
     </div>

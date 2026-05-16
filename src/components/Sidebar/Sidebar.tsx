@@ -131,7 +131,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
                     onClick={() => onSectionChange(`cat-${cat.id}`)}
                   >
                     <Folder size={14} />
-                    <span>{cat.name}</span>
+                    <span>{t(`categories.${cat.name}`, { defaultValue: cat.name })}</span>
                     <span className="sidebar-item-count">{cat.book_count}</span>
                   </div>
                 ))}

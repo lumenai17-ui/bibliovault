@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Users, Plus, MessageCircle, Clock, TrendingUp, ChevronUp, ChevronDown,
   Pin, AlertTriangle, Send, ArrowLeft, UserPlus, UserMinus, Crown, Shield,
@@ -19,6 +20,7 @@ import './Community.css';
 type ForumTab = 'activity' | 'books' | 'communities' | 'official';
 
 export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?: () => void }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<ForumTab>('activity');
   const [communities, setCommunities] = useState<Community[]>([]);
   const [bookForums, setBookForums] = useState<Community[]>([]);
@@ -75,25 +77,25 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
   return (
     <div className="community-explorer">
       <div className="community-explorer-header">
-        <h2><MessageCircle size={22} /> Foro</h2>
+        <h2><MessageCircle size={22} /> {t('community.title')}</h2>
         <button className="btn-new-community" onClick={() => setShowCreate(true)}>
-          <Plus size={14} /> Crear Comunidad
+          <Plus size={14} /> {t('community.createCommunity')}
         </button>
       </div>
 
       {/* 4-tab navigation */}
       <div className="forum-tabs">
         <button className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}>
-          <Activity size={14} /> Actividad
+          <Activity size={14} /> {t('community.tabActivity')}
         </button>
         <button className={tab === 'books' ? 'active' : ''} onClick={() => setTab('books')}>
-          <BookOpen size={14} /> Libros ({bookForums.length})
+          <BookOpen size={14} /> {t('community.tabBooks', { count: bookForums.length })}
         </button>
         <button className={tab === 'communities' ? 'active' : ''} onClick={() => setTab('communities')}>
-          <Users size={14} /> Comunidades ({communities.length})
+          <Users size={14} /> {t('community.tabCommunities', { count: communities.length })}
         </button>
         <button className={tab === 'official' ? 'active' : ''} onClick={() => setTab('official')}>
-          <Landmark size={14} /> Oficiales
+          <Landmark size={14} /> {t('community.tabOfficial')}
         </button>
       </div>
 
@@ -105,7 +107,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
       )}
 
       {loading ? (
-        <div className="community-loading">Cargando foro...</div>
+        <div className="community-loading">{t('community.loading')}</div>
       ) : (
         <>
           {/* Tab: Activity — Global Feed */}
@@ -114,7 +116,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
               {recentThreads.length === 0 ? (
                 <div className="no-threads">
                   <Activity size={40} />
-                  <p>No hay actividad aún. ¡Sé el primero en publicar!</p>
+                  <p>{t('community.noActivity')}</p>
                 </div>
               ) : (
                 recentThreads.map(t => (
@@ -138,7 +140,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
                         <div className="thread-meta">
                           <span>{t.author_name}</span>
                           <span>·</span>
-                          <span>{timeAgo(t.created_at)}</span>
+                          <span>{timeAgo(t.created_at, t)}</span>
                           <span>·</span>
                           <span><MessageCircle size={11} /> {t.reply_count}</span>
                         </div>
@@ -156,7 +158,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
               {bookForums.length === 0 ? (
                 <div className="no-communities">
                   <BookOpen size={40} />
-                  <p>No hay foros de libros aún. Abre un libro y comienza una discusión.</p>
+                  <p>{t('community.noBookForums')}</p>
                 </div>
               ) : bookForums.map(c => (
                 <BookForumCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
@@ -170,19 +172,19 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
               {/* My communities first */}
               {myCommunities.length > 0 && (
                 <>
-                  <div className="grid-section-title">Mis Comunidades</div>
+                  <div className="grid-section-title">{t('community.myCommunities')}</div>
                   {myCommunities.filter(c => c.type !== 'official' && !c.book_id).map(c => (
                     <CommunityCard key={c.id} community={c} onClick={() => openCommunity(c.slug)} />
                   ))}
-                  <div className="grid-section-title">Explorar</div>
+                  <div className="grid-section-title">{t('community.explore')}</div>
                 </>
               )}
               {communities.length === 0 ? (
                 <div className="no-communities">
                   <Users size={40} />
-                  <p>No hay comunidades aún.</p>
+                  <p>{t('community.noCommunities')}</p>
                   <button onClick={() => setShowCreate(true)}>
-                    <Plus size={14} /> Crear la primera
+                    <Plus size={14} /> {t('community.createFirst')}
                   </button>
                 </div>
               ) : communities.map(c => (
@@ -208,6 +210,7 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
 // ── Book Forum Card (with cover thumbnail) ──
 
 function BookForumCard({ community, onClick }: { community: Community; onClick: () => void }) {
+  const { t } = useTranslation();
   const coverUrl = community.book_id ? getBookCoverUrl(community.book_id) : null;
 
   return (
@@ -225,7 +228,7 @@ function BookForumCard({ community, onClick }: { community: Community; onClick: 
           {(community as any).book_author && <span style={{ color: 'var(--accent-primary)', fontSize: 11 }}>{(community as any).book_author}</span>}
         </div>
         <div className="community-card-stats">
-          <span><MessageCircle size={11} /> {community.thread_count || 0} temas</span>
+          <span><MessageCircle size={11} /> {t('community.threadsCount', { count: community.thread_count || 0 })}</span>
           <span><Users size={11} /> {community.member_count}</span>
         </div>
       </div>
@@ -236,6 +239,7 @@ function BookForumCard({ community, onClick }: { community: Community; onClick: 
 // ── Official Forum Card ──
 
 function OfficialForumCard({ community, onClick }: { community: Community; onClick: () => void }) {
+  const { t } = useTranslation();
   const iconMap: Record<string, string> = {
     'novedades': '📢',
     'recomendaciones': '💡',
@@ -251,7 +255,7 @@ function OfficialForumCard({ community, onClick }: { community: Community; onCli
         <div className="community-card-name">{community.name}</div>
         <div className="community-card-desc">{community.description}</div>
         <div className="community-card-stats">
-          <span><MessageCircle size={11} /> {community.thread_count || 0} temas</span>
+          <span><MessageCircle size={11} /> {t('community.threadsCount', { count: community.thread_count || 0 })}</span>
         </div>
       </div>
     </div>
@@ -261,6 +265,7 @@ function OfficialForumCard({ community, onClick }: { community: Community; onCli
 // ── Community Card ──
 
 function CommunityCard({ community, onClick }: { community: Community; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="community-card" onClick={onClick}>
       <div className="community-card-icon">👥</div>
@@ -276,8 +281,8 @@ function CommunityCard({ community, onClick }: { community: Community; onClick: 
         </div>
         <div className="community-card-desc">{community.description}</div>
         <div className="community-card-stats">
-          <span><Users size={11} /> {community.member_count}</span>
-          <span><MessageCircle size={11} /> {community.thread_count || 0}</span>
+          <span><Users size={11} /> {t('community.membersCount', { count: community.member_count })}</span>
+          <span><MessageCircle size={11} /> {t('community.threadsCount', { count: community.thread_count || 0 })}</span>
         </div>
       </div>
     </div>
@@ -293,6 +298,7 @@ function CommunityPage({
   onBack: () => void;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [userVotes, setUserVotes] = useState<Record<number, number>>({});
   const [activeThread, setActiveThread] = useState<{thread: Thread; replies: Reply[]; replyVotes: Record<number, number>} | null>(null);
@@ -368,7 +374,7 @@ function CommunityPage({
       {/* Banner */}
       <div className="community-banner">
         <button className="btn-back-community" onClick={onBack}>
-          <ArrowLeft size={16} /> Foro
+          <ArrowLeft size={16} /> {t('community.title')}
         </button>
         <div className="community-banner-content">
           <div className="community-banner-icon">
@@ -378,10 +384,10 @@ function CommunityPage({
             <h2>{community.name}</h2>
             <p>{community.description}</p>
             <div className="community-banner-stats">
-              <span><Users size={13} /> {community.member_count} miembros</span>
-              <span><MessageCircle size={13} /> {threads.length} temas</span>
+              <span><Users size={13} /> {t('community.membersCount', { count: community.member_count })}</span>
+              <span><MessageCircle size={13} /> {t('community.threadsCount', { count: threads.length })}</span>
               {community.creator_name && (
-                <span>Creada por {community.creator_name}</span>
+                <span>{t('community.created_by', { name: community.creator_name })}</span>
               )}
             </div>
           </div>
@@ -392,9 +398,9 @@ function CommunityPage({
               disabled={joining}
             >
               {community.user_role ? (
-                <><UserMinus size={14} /> Salir</>
+                <><UserMinus size={14} /> {t('community.btnLeave')}</>
               ) : (
-                <><UserPlus size={14} /> Unirse</>
+                <><UserPlus size={14} /> {t('community.btnJoin')}</>
               )}
             </button>
           )}
@@ -403,21 +409,21 @@ function CommunityPage({
 
       {community.rules && (
         <div className="community-rules">
-          <strong>📋 Reglas:</strong> {community.rules}
+          <strong>📋 {t('community.rules')}</strong> {community.rules}
         </div>
       )}
 
       <div className="community-toolbar">
         <div className="sort-tabs">
           <button className={sort === 'recent' ? 'active' : ''} onClick={() => setSort('recent')}>
-            <Clock size={12} /> Recientes
+            <Clock size={12} /> {t('community.sortRecent')}
           </button>
           <button className={sort === 'popular' ? 'active' : ''} onClick={() => setSort('popular')}>
-            <TrendingUp size={12} /> Populares
+            <TrendingUp size={12} /> {t('community.sortPopular')}
           </button>
         </div>
         <button className="btn-new-thread" onClick={() => setShowCompose(true)}>
-          <Plus size={14} /> Nuevo Tema
+          <Plus size={14} /> {t('community.newThread')}
         </button>
       </div>
 
@@ -433,34 +439,34 @@ function CommunityPage({
         {threads.length === 0 ? (
           <div className="no-threads">
             <MessageCircle size={40} />
-            <p>No hay temas de discusión aún.</p>
-            <button onClick={() => setShowCompose(true)}>Inicia la conversación</button>
+            <p>{t('community.noThreads')}</p>
+            <button onClick={() => setShowCompose(true)}>{t('community.startConversation')}</button>
           </div>
-        ) : threads.map(t => (
-          <div key={t.id} className={`thread-card ${t.pinned ? 'pinned' : ''}`} onClick={() => openThread(t)}>
+        ) : threads.map(tData => (
+          <div key={tData.id} className={`thread-card ${tData.pinned ? 'pinned' : ''}`} onClick={() => openThread(tData)}>
             <div className="thread-votes">
-              <button onClick={(e) => { e.stopPropagation(); handleVote('thread', t.id, 1); }}
-                className={userVotes[t.id] === 1 ? 'voted' : ''}>
+              <button onClick={(e) => { e.stopPropagation(); handleVote('thread', tData.id, 1); }}
+                className={userVotes[tData.id] === 1 ? 'voted' : ''}>
                 <ChevronUp size={16} />
               </button>
-              <span>{t.upvotes}</span>
-              <button onClick={(e) => { e.stopPropagation(); handleVote('thread', t.id, -1); }}
-                className={userVotes[t.id] === -1 ? 'voted-down' : ''}>
+              <span>{tData.upvotes}</span>
+              <button onClick={(e) => { e.stopPropagation(); handleVote('thread', tData.id, -1); }}
+                className={userVotes[tData.id] === -1 ? 'voted-down' : ''}>
                 <ChevronDown size={16} />
               </button>
             </div>
             <div className="thread-content">
               <div className="thread-title">
-                {t.pinned && <Pin size={12} className="pin-icon" />}
-                {t.has_spoilers && <AlertTriangle size={12} className="spoiler-icon" />}
-                {t.title}
+                {tData.pinned && <Pin size={12} className="pin-icon" />}
+                {tData.has_spoilers && <AlertTriangle size={12} className="spoiler-icon" />}
+                {tData.title}
               </div>
               <div className="thread-meta">
-                <span>{t.author_name}</span>
+                <span>{tData.author_name}</span>
                 <span>·</span>
-                <span>{timeAgo(t.created_at)}</span>
+                <span>{timeAgo(tData.created_at, t)}</span>
                 <span>·</span>
-                <span><MessageCircle size={11} /> {t.reply_count}</span>
+                <span><MessageCircle size={11} /> {tData.reply_count}</span>
               </div>
             </div>
           </div>
@@ -481,6 +487,7 @@ function CommunityThreadView({
   onBack: () => void;
   onVote: (type: 'thread' | 'reply', id: number, value: 1 | -1) => void;
 }) {
+  const { t } = useTranslation();
   const [replyText, setReplyText] = useState('');
   const [replyTo, setReplyTo] = useState<number | undefined>(undefined);
   const [sending, setSending] = useState(false);
@@ -505,25 +512,25 @@ function CommunityThreadView({
 
   return (
     <div className="thread-detail">
-      <button className="btn-back" onClick={onBack}>← Volver a la comunidad</button>
+      <button className="btn-back" onClick={onBack}>{t('community.btnBack')}</button>
 
       <div className="thread-full">
         <h3>{thread.title}</h3>
         <div className="thread-author">
-          <strong>{thread.author_name}</strong> · {timeAgo(thread.created_at)}
-          {thread.has_spoilers && <span className="spoiler-tag">⚠️ Spoilers</span>}
+          <strong>{thread.author_name}</strong> · {timeAgo(thread.created_at, t)}
+          {thread.has_spoilers && <span className="spoiler-tag">{t('community.spoilerTag')}</span>}
         </div>
         <div className="thread-body">{thread.content}</div>
       </div>
 
       <div className="replies-section">
-        <h4><MessageCircle size={14} /> {replies.length} respuestas</h4>
+        <h4><MessageCircle size={14} /> {t('community.repliesCount', { count: replies.length })}</h4>
 
         {topReplies.map(r => (
           <div key={r.id} className="reply">
             <div className="reply-header">
               <strong>{r.author_name}</strong>
-              <span>{timeAgo(r.created_at)}</span>
+              <span>{timeAgo(r.created_at, t)}</span>
             </div>
             <div className="reply-body">{r.content}</div>
             <div className="reply-actions">
@@ -531,14 +538,14 @@ function CommunityThreadView({
                 className={userVotes[r.id] === 1 ? 'voted' : ''}>
                 <ChevronUp size={13} /> {r.upvotes}
               </button>
-              <button onClick={() => setReplyTo(r.id)}>Responder</button>
+              <button onClick={() => setReplyTo(r.id)}>{t('community.btnReply')}</button>
             </div>
 
             {childReplies(r.id).map(child => (
               <div key={child.id} className="reply nested">
                 <div className="reply-header">
                   <strong>{child.author_name}</strong>
-                  <span>{timeAgo(child.created_at)}</span>
+                  <span>{timeAgo(child.created_at, t)}</span>
                 </div>
                 <div className="reply-body">{child.content}</div>
                 <div className="reply-actions">
@@ -557,18 +564,18 @@ function CommunityThreadView({
         <div className="reply-composer">
           {replyTo && (
             <div className="replying-to">
-              Respondiendo a {replies.find(r => r.id === replyTo)?.author_name}
+              {t('community.replyingTo', { name: replies.find(r => r.id === replyTo)?.author_name })}
               <button onClick={() => setReplyTo(undefined)}>×</button>
             </div>
           )}
           <textarea
-            placeholder="Escribe tu respuesta..."
+            placeholder={t('community.replyPlaceholder')}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             rows={3}
           />
           <button onClick={handleReply} disabled={sending || !replyText.trim()}>
-            <Send size={14} /> {sending ? 'Enviando...' : 'Responder'}
+            <Send size={14} /> {sending ? t('community.sending') : t('community.btnSend')}
           </button>
         </div>
       )}
@@ -585,6 +592,7 @@ function ThreadComposerInline({
   onCreated: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [spoilers, setSpoilers] = useState(false);
@@ -607,19 +615,19 @@ function ThreadComposerInline({
 
   return (
     <div className="thread-composer">
-      <h4>Nuevo Tema de Discusión</h4>
+      <h4>{t('community.newThreadTitle')}</h4>
       {error && <div className="composer-error">{error}</div>}
-      <input type="text" placeholder="Título del tema..." value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea placeholder="¿Qué quieres discutir?" value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
+      <input type="text" placeholder={t('community.threadTitlePlaceholder')} value={title} onChange={(e) => setTitle(e.target.value)} />
+      <textarea placeholder={t('community.threadContentPlaceholder')} value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
       <div className="composer-footer">
         <label className="spoiler-check">
           <input type="checkbox" checked={spoilers} onChange={(e) => setSpoilers(e.target.checked)} />
-          <AlertTriangle size={12} /> Contiene spoilers
+          <AlertTriangle size={12} /> {t('community.hasSpoilers')}
         </label>
         <div className="composer-buttons">
-          <button className="btn-cancel" onClick={onCancel}>Cancelar</button>
+          <button className="btn-cancel" onClick={onCancel}>{t('community.btnCancel')}</button>
           <button className="btn-submit" onClick={handleSubmit} disabled={sending}>
-            {sending ? 'Publicando...' : 'Publicar'}
+            {sending ? t('community.publishing') : t('community.btnPublish')}
           </button>
         </div>
       </div>
@@ -635,6 +643,7 @@ function CreateCommunityModal({
   onCreated: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [rules, setRules] = useState('');
@@ -662,40 +671,40 @@ function CreateCommunityModal({
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="create-community-modal" onClick={e => e.stopPropagation()}>
-        <h3><Users size={18} /> Crear Comunidad</h3>
+        <h3><Users size={18} /> {t('community.createModalTitle')}</h3>
         {error && <div className="composer-error">{error}</div>}
 
         <div className="form-group">
-          <label>Nombre</label>
-          <input type="text" placeholder="Ej: Ocultismo Avanzado" value={name} onChange={e => setName(e.target.value)} />
+          <label>{t('community.nameLabel')}</label>
+          <input type="text" placeholder={t('community.namePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
         </div>
 
         <div className="form-group">
-          <label>Descripción</label>
-          <textarea placeholder="¿De qué trata esta comunidad?" value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+          <label>{t('community.descLabel')}</label>
+          <textarea placeholder={t('community.descPlaceholder')} value={description} onChange={e => setDescription(e.target.value)} rows={3} />
         </div>
 
         <div className="form-group">
-          <label>Reglas (opcional)</label>
-          <textarea placeholder="Reglas de la comunidad..." value={rules} onChange={e => setRules(e.target.value)} rows={2} />
+          <label>{t('community.rulesLabel')}</label>
+          <textarea placeholder={t('community.rulesPlaceholder')} value={rules} onChange={e => setRules(e.target.value)} rows={2} />
         </div>
 
         <div className="form-group">
-          <label>Tipo</label>
+          <label>{t('community.typeLabel')}</label>
           <div className="type-selector">
             <button className={type === 'public' ? 'active' : ''} onClick={() => setType('public')}>
-              🌐 Pública
+              {t('community.typePublic')}
             </button>
             <button className={type === 'private' ? 'active' : ''} onClick={() => setType('private')}>
-              🔒 Privada
+              {t('community.typePrivate')}
             </button>
           </div>
         </div>
 
         <div className="modal-actions">
-          <button className="btn-cancel" onClick={onCancel}>Cancelar</button>
+          <button className="btn-cancel" onClick={onCancel}>{t('community.btnCancel')}</button>
           <button className="btn-submit" onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creando...' : 'Crear Comunidad'}
+            {creating ? t('community.creating') : t('community.btnCreate')}
           </button>
         </div>
       </div>
@@ -705,13 +714,13 @@ function CreateCommunityModal({
 
 // ── Utility ──
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: any): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return 'hace un momento';
-  if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `hace ${Math.floor(diff / 86400)}d`;
-  return new Date(dateStr).toLocaleDateString('es');
+  if (diff < 60) return t('community.timeMoment', { defaultValue: 'hace un momento' });
+  if (diff < 3600) return t('community.timeM', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('community.timeH', { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t('community.timeD', { count: Math.floor(diff / 86400) });
+  return new Date(dateStr).toLocaleDateString();
 }

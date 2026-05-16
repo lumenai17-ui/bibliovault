@@ -170,7 +170,7 @@ export default function CategoriesDashboard({ categories, collections, books, on
                   {getCategoryIcon(index)}
                 </div>
                 <div className="card-info" style={{ zIndex: 2 }}>
-                  <h3>{cat.name}</h3>
+                  <h3>{t(`categories.${cat.name}`, { defaultValue: cat.name })}</h3>
                   <span className="card-meta">
                     {cat.book_count === 1 
                       ? t('categories.bookCount_one', { count: 1 }) 
