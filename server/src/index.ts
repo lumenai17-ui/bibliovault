@@ -1120,10 +1120,10 @@ app.get('/api/books/:id/cover', async (req, res) => {
   }
 
   // 4. Generate SVG fallback
-  const filePath = await resolveFilePath(book.file_path as string, bookId) || book.file_path as string;
+  const originalFilePath = book.file_path as string;
   try {
     const newCoverPath = await generateCover(
-      bookId, filePath, book.title as string, book.author as string,
+      bookId, originalFilePath, book.title as string, book.author as string,
     );
     if (newCoverPath && existsSync(newCoverPath)) {
       await updateBook(bookId, { cover_path: newCoverPath, cover_source: 'svg' } as any);
