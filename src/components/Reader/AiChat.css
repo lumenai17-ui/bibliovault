@@ -65,36 +65,42 @@
 /* ── Message action buttons (Speak, Copy, Share) ── */
 .ai-msg-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
   justify-content: flex-start;
-  margin-top: 8px;
+  margin-top: 10px;
   border-top: 1px solid var(--glass-border);
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .ai-msg-action-btn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--glass-border);
-  color: var(--text-muted);
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  color: var(--text-secondary);
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: 500;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .ai-msg-action-btn:hover {
-  background: var(--bg-surface);
+  background: rgba(102, 126, 234, 0.18);
   color: var(--text-primary);
   border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
 }
 
 .ai-msg-action-btn.speaking {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.2);
   border-color: rgba(168, 85, 247, 0.5);
   color: #d8b4fe;
   animation: hermes-speak-pulse 1.2s ease-in-out infinite;

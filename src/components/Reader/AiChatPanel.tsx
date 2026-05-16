@@ -639,14 +639,14 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                     <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
                     {msg.content && !isStreaming && (
                       <div className="ai-msg-actions">
-                        <button className={`ai-msg-action-btn ${speakingIndex === i ? 'speaking' : ''}`} onClick={() => handleSpeak(msg.content, i)} title={speakingIndex === i ? 'Detener' : 'Escuchar'}>
-                          {speakingIndex === i ? <VolumeX size={12} color="var(--accent-warning)" /> : <Volume2 size={12} />}
+                        <button className={`ai-msg-action-btn ${speakingIndex === i ? 'speaking' : ''}`} onClick={() => handleSpeak(msg.content, i)}>
+                          {speakingIndex === i ? <><VolumeX size={14} /> Detener</> : <><Volume2 size={14} /> Escuchar</>}
                         </button>
-                        <button className="ai-msg-action-btn" onClick={() => handleCopyMessage(msg.content, i)} title="Copiar">
-                          {copiedIndex === i ? <Check size={12} color="var(--accent-success)" /> : <Copy size={12} />}
+                        <button className="ai-msg-action-btn" onClick={() => handleCopyMessage(msg.content, i)}>
+                          {copiedIndex === i ? <><Check size={14} color="var(--accent-success)" /> Copiado</> : <><Copy size={14} /> Copiar</>}
                         </button>
-                        <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)} title="Compartir">
-                          <Share2 size={12} />
+                        <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)}>
+                          <Share2 size={14} /> Compartir
                         </button>
                       </div>
                     )}
