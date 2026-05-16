@@ -18,11 +18,11 @@ import {
 } from '../../services/api';
 import {
   Download,
-  Database,
   Library,
   BookOpen,
   CheckCircle,
-  Clock,
+  Trophy,
+  Flame,
   Loader2,
 } from 'lucide-react';
 import './Dashboard.css';
@@ -40,7 +40,8 @@ function getRelativeTime(date: Date): string {
   return date.toLocaleDateString();
 }
 
-const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444'];
+const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'];
+const MEDAL_EMOJIS = ['🥇', '🥈', '🥉'];
 
 export default function Statistics() {
   const [stats, setStats] = useState<ExtendedStats | null>(null);
@@ -84,7 +85,7 @@ export default function Statistics() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>Dashboard & Estadísticas</h1>
-        <p>Visión general de tu colección en BiblioVault AI</p>
+        <p>Tu actividad de lectura en BiblioVault AI</p>
       </div>
 
       {/* KPI Cards */}
@@ -95,7 +96,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.totalBooks.toLocaleString()}</span>
-            <span className="kpi-label">Libros Totales</span>
+            <span className="kpi-label">Libros en Biblioteca</span>
           </div>
         </div>
 
@@ -105,7 +106,7 @@ export default function Statistics() {
           </div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.totalPagesRead.toLocaleString()}</span>
-            <span className="kpi-label">Páginas Leídas (Aprox)</span>
+            <span className="kpi-label">Páginas Leídas</span>
           </div>
         </div>
 
@@ -114,25 +115,140 @@ export default function Statistics() {
             <CheckCircle size={24} />
           </div>
           <div className="kpi-content">
-            <span className="kpi-value">{stats.completedBooks.toLocaleString()}</span>
+            <span className="kpi-value">{stats.completedBooks}</span>
             <span className="kpi-label">Libros Completados</span>
           </div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
-            <Clock size={24} />
+            <Flame size={24} />
           </div>
           <div className="kpi-content">
-            <span className="kpi-value">
-              {stats.totalPages > 0 ? Math.round((stats.totalPagesRead / stats.totalPages) * 100) : 0}%
-            </span>
-            <span className="kpi-label">Progreso Global</span>
+            <span className="kpi-value">{stats.booksInProgress}</span>
+            <span className="kpi-label">En Progreso</span>
           </div>
         </div>
       </div>
 
-      {/* Charts Row */}
+      {/* Main Content: 2 columns */}
+      <div className="dashboard-charts">
+        {/* Left: Recently Read */}
+        <div className="chart-card" style={{ minHeight: 320 }}>
+          <h3>📖 Lectura Reciente</h3>
+          {stats.recentlyRead.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Aún no has abierto ningún libro
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              {stats.recentlyRead.map((book, i) => {
+                const pct = Math.round(book.progress * 100);
+                const pagesRead = Math.round((book.pages || 0) * book.progress);
+                const date = new Date(book.lastRead);
+                const ago = getRelativeTime(date);
+                return (
+                  <div key={i} style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 8,
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 6,
+                      background: pct >= 99 ? 'rgba(20,184,166,0.15)' : 'rgba(102,126,234,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 14, flexShrink: 0,
+                    }}>
+                      {pct >= 99 ? '✅' : '📖'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {book.title}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {ago} · {pagesRead}/{book.pages} págs · {book.format.toUpperCase()}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <div style={{
+                        width: 60, height: 5, borderRadius: 3,
+                        background: 'rgba(255,255,255,0.08)',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${pct}%`, height: '100%', borderRadius: 3,
+                          background: pct >= 99 ? '#14b8a6' : pct > 50 ? '#667eea' : '#a855f7',
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, minWidth: 30, textAlign: 'right',
+                        color: pct >= 99 ? '#14b8a6' : '#94a3b8',
+                      }}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Leaderboard */}
+        <div className="chart-card" style={{ minHeight: 320 }}>
+          <h3><Trophy size={16} style={{ marginRight: 6, verticalAlign: -2 }} />Ranking de Lectores</h3>
+          {stats.leaderboard.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Nadie ha leído aún — ¡sé el primero!
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+              {stats.leaderboard.map((user, i) => (
+                <div key={i} style={{
+                  background: user.isCurrentUser ? 'rgba(102,126,234,0.1)' : 'rgba(255,255,255,0.03)',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  border: user.isCurrentUser ? '1px solid rgba(102,126,234,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <span style={{ fontSize: 18, width: 28, textAlign: 'center', flexShrink: 0 }}>
+                    {i < 3 ? MEDAL_EMOJIS[i] : <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>#{i + 1}</span>}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: user.isCurrentUser ? 600 : 500,
+                      fontSize: 13,
+                      color: user.isCurrentUser ? '#818cf8' : 'var(--text-primary)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {user.name} {user.isCurrentUser && '(tú)'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                      {user.booksRead} libro{user.booksRead !== 1 ? 's' : ''} leído{user.booksRead !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontSize: 14, fontWeight: 700,
+                    color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#cd7f32' : '#64748b',
+                    flexShrink: 0,
+                  }}>
+                    {user.pagesRead.toLocaleString()}
+                    <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 2 }}>págs</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Second Row: Charts */}
       <div className="dashboard-charts">
         <div className="chart-card">
           <h3>Distribución por Formato</h3>
@@ -164,83 +280,38 @@ export default function Statistics() {
         </div>
 
         <div className="chart-card">
-          <h3>Top Categorías</h3>
-          <div className="chart-wrapper">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={stats.categoryStats}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-              >
-                <XAxis type="number" stroke="var(--text-muted)" />
-                <YAxis type="category" dataKey="name" stroke="var(--text-primary)" fontSize={12} width={100} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
-                />
-                <Bar dataKey="value" fill="#667eea" radius={[0, 4, 4, 0]}>
-                  {stats.categoryStats.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3>Tus Categorías Más Leídas</h3>
+          {stats.categoryStats.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Lee algunos libros para ver tus categorías favoritas
+            </div>
+          ) : (
+            <div className="chart-wrapper">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={stats.categoryStats}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                >
+                  <XAxis type="number" stroke="var(--text-muted)" />
+                  <YAxis type="category" dataKey="name" stroke="var(--text-primary)" fontSize={12} width={100} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
+                  />
+                  <Bar dataKey="value" fill="#667eea" radius={[0, 4, 4, 0]}>
+                    {stats.categoryStats.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Recently Read Section */}
-      {stats.recentlyRead.length > 0 && (
-        <div className="dashboard-recent">
-          <h3 style={{ marginBottom: 16, fontSize: 16, color: 'var(--text-primary)' }}>📖 Lectura Reciente</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {stats.recentlyRead.map((book, i) => {
-              const pct = Math.round(book.progress * 100);
-              const date = new Date(book.lastRead);
-              const ago = getRelativeTime(date);
-              return (
-                <div key={i} style={{
-                  background: 'var(--bg-secondary)',
-                  borderRadius: 10,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  border: '1px solid var(--glass-border)',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {book.title}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{ago}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <div style={{
-                      width: 80, height: 6, borderRadius: 3,
-                      background: 'rgba(255,255,255,0.08)',
-                      overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        width: `${pct}%`, height: '100%', borderRadius: 3,
-                        background: pct >= 99 ? '#14b8a6' : pct > 50 ? '#667eea' : '#a855f7',
-                        transition: 'width 0.3s ease',
-                      }} />
-                    </div>
-                    <span style={{
-                      fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: 'right',
-                      color: pct >= 99 ? '#14b8a6' : '#94a3b8',
-                    }}>
-                      {pct >= 99 ? '✓' : `${pct}%`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tools Row */}
+      {/* Export Tool */}
       <div className="dashboard-tools">
         <div className="tool-card">
           <div className="tool-info">
@@ -249,16 +320,6 @@ export default function Statistics() {
           </div>
           <a href={`${API_BASE}/export/csv`} download className="btn btn-primary">
             <Download size={16} /> Descargar CSV
-          </a>
-        </div>
-
-        <div className="tool-card">
-          <div className="tool-info">
-            <h3>Backup Base de Datos</h3>
-            <p>Descarga el archivo <code>bibliovault.db</code> que contiene tu progreso, chats, notas y marcas.</p>
-          </div>
-          <a href={`${API_BASE}/backup`} download className="btn btn-secondary">
-            <Database size={16} /> Descargar .db
           </a>
         </div>
       </div>

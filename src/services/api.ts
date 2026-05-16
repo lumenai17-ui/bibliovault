@@ -471,25 +471,28 @@ export interface ExtendedStats {
   totalBooks: number;
   totalPages: number;
   completedBooks: number;
+  booksInProgress: number;
   totalPagesRead: number;
   formatStats: Array<{ name: string; value: number }>;
   categoryStats: Array<{ name: string; value: number }>;
-  recentlyRead: Array<{ title: string; progress: number; lastRead: string }>;
+  recentlyRead: Array<{ title: string; progress: number; lastRead: string; pages: number; format: string }>;
+  leaderboard: Array<{ name: string; pagesRead: number; booksRead: number; isCurrentUser: boolean }>;
 }
 
 export async function fetchExtendedStats(): Promise<ExtendedStats> {
   const res = await fetch(`${API_BASE}/stats/extended`, { credentials: 'include' });
   if (!res.ok) throw new Error(`Stats API error: ${res.status}`);
   const data = await res.json();
-  // Guard against malformed responses
   return {
     totalBooks: data.totalBooks ?? 0,
     totalPages: data.totalPages ?? 0,
     completedBooks: data.completedBooks ?? 0,
+    booksInProgress: data.booksInProgress ?? 0,
     totalPagesRead: data.totalPagesRead ?? 0,
     formatStats: Array.isArray(data.formatStats) ? data.formatStats : [],
     categoryStats: Array.isArray(data.categoryStats) ? data.categoryStats : [],
     recentlyRead: Array.isArray(data.recentlyRead) ? data.recentlyRead : [],
+    leaderboard: Array.isArray(data.leaderboard) ? data.leaderboard : [],
   };
 }
 

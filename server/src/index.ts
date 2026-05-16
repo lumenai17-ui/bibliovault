@@ -2251,30 +2251,93 @@ app.get('/api/stats/extended', optionalAuth, async (req, res) => {
     const totalBooks = allBooks.length;
     const totalPages = allBooks.reduce((sum, b) => sum + (b.pages || 0), 0);
 
-    // Per-user reading stats
     let completedBooks = 0;
     let totalPagesRead = 0;
+    let booksInProgress = 0;
     const readingMap: Record<number, number> = {};
 
-    if (req.userId && isPostgres()) {
+    const categories = await getCategories() as Array<Record<string, any>>;
+    const catMap = new Map<number, string>();
+    categories.forEach(c => catMap.set(c.id, c.name));
+
+    let recentlyRead: Array<{ title: string; progress: number; lastRead: string; pages: number; format: string }> = [];
+    let userCategoryStats: Array<{ name: string; value: number }> = [];
+    let leaderboard: Array<{ name: string; pagesRead: number; booksRead: number; isCurrentUser: boolean }> = [];
+
+    if (isPostgres()) {
       const p = getPgPool();
-      const progressRows = await p.query(
-        'SELECT book_id, progress FROM user_reading_progress WHERE user_id = $1 AND progress > 0',
-        [req.userId]
-      );
-      for (const row of progressRows.rows) {
-        readingMap[row.book_id] = row.progress;
+
+      if (req.userId) {
+        const progressRows = await p.query(
+          'SELECT book_id, progress FROM user_reading_progress WHERE user_id = $1 AND progress > 0',
+          [req.userId]
+        );
+        for (const row of progressRows.rows) {
+          readingMap[row.book_id] = row.progress;
+        }
+        completedBooks = progressRows.rows.filter((r: any) => r.progress >= 0.99).length;
+        booksInProgress = progressRows.rows.filter((r: any) => r.progress > 0 && r.progress < 0.99).length;
+        totalPagesRead = Math.round(
+          allBooks.reduce((acc, b) => {
+            const progress = readingMap[b.id] || 0;
+            return acc + ((b.pages || 0) * progress);
+          }, 0)
+        );
+
+        const recentRows = await p.query(`
+          SELECT b.title, b.pages, b.format, urp.progress, urp.last_read
+          FROM user_reading_progress urp
+          JOIN books b ON b.id = urp.book_id
+          WHERE urp.user_id = $1 AND urp.progress > 0
+          ORDER BY urp.last_read DESC
+          LIMIT 10
+        `, [req.userId]);
+        recentlyRead = recentRows.rows.map((r: any) => ({
+          title: r.title,
+          progress: r.progress,
+          lastRead: r.last_read,
+          pages: r.pages || 0,
+          format: r.format || 'unknown',
+        }));
+
+        const userCatRows = await p.query(`
+          SELECT COALESCE(c.name, 'Sin categoría') as name, COUNT(*) as cnt
+          FROM user_reading_progress urp
+          JOIN books b ON b.id = urp.book_id
+          LEFT JOIN categories c ON b.category_id = c.id
+          WHERE urp.user_id = $1 AND urp.progress > 0
+          GROUP BY c.name
+          ORDER BY cnt DESC
+          LIMIT 5
+        `, [req.userId]);
+        userCategoryStats = userCatRows.rows.map((r: any) => ({
+          name: r.name,
+          value: parseInt(r.cnt),
+        }));
       }
-      completedBooks = progressRows.rows.filter((r: any) => r.progress >= 0.99).length;
-      totalPagesRead = Math.round(
-        allBooks.reduce((acc, b) => {
-          const progress = readingMap[b.id] || 0;
-          return acc + ((b.pages || 0) * progress);
-        }, 0)
-      );
+
+      const leaderRows = await p.query(`
+        SELECT 
+          u.id,
+          COALESCE(u.display_name, split_part(u.email, '@', 1)) as name,
+          COALESCE(SUM(ROUND(COALESCE(b.pages, 0) * urp.progress)), 0) as pages_read,
+          COUNT(CASE WHEN urp.progress > 0 THEN 1 END) as books_read
+        FROM users u
+        LEFT JOIN user_reading_progress urp ON urp.user_id = u.id AND urp.progress > 0
+        LEFT JOIN books b ON b.id = urp.book_id
+        GROUP BY u.id, u.display_name, u.email
+        HAVING COUNT(CASE WHEN urp.progress > 0 THEN 1 END) > 0
+        ORDER BY pages_read DESC
+        LIMIT 10
+      `);
+      leaderboard = leaderRows.rows.map((r: any) => ({
+        name: r.name,
+        pagesRead: parseInt(r.pages_read) || 0,
+        booksRead: parseInt(r.books_read) || 0,
+        isCurrentUser: req.userId === r.id,
+      }));
     }
-    
-    // Books by format
+
     const formatMap = new Map<string, number>();
     allBooks.forEach(b => {
       const fmt = b.format || 'unknown';
@@ -2282,48 +2345,16 @@ app.get('/api/stats/extended', optionalAuth, async (req, res) => {
     });
     const formatStats = Array.from(formatMap.entries()).map(([name, value]) => ({ name, value }));
 
-    // Top 5 categories
-    const categories = await getCategories() as Array<Record<string, any>>;
-    const catMap = new Map<number, string>();
-    categories.forEach(c => catMap.set(c.id, c.name));
-    
-    const catCountMap = new Map<string, number>();
-    allBooks.forEach(b => {
-      const catName = catMap.get(b.category_id) || 'Sin categoría';
-      catCountMap.set(catName, (catCountMap.get(catName) || 0) + 1);
-    });
-    const categoryStats = Array.from(catCountMap.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-
-    // Recently read books (per-user)
-    let recentlyRead: Array<{ title: string; progress: number; lastRead: string }> = [];
-    if (req.userId && isPostgres()) {
-      const p = getPgPool();
-      const recentRows = await p.query(`
-        SELECT b.title, urp.progress, urp.last_read
-        FROM user_reading_progress urp
-        JOIN books b ON b.id = urp.book_id
-        WHERE urp.user_id = $1 AND urp.progress > 0
-        ORDER BY urp.last_read DESC
-        LIMIT 10
-      `, [req.userId]);
-      recentlyRead = recentRows.rows.map((r: any) => ({
-        title: r.title,
-        progress: r.progress,
-        lastRead: r.last_read,
-      }));
-    }
-
     res.json({
       totalBooks,
       totalPages,
       completedBooks,
+      booksInProgress,
       totalPagesRead,
       formatStats,
-      categoryStats,
+      categoryStats: userCategoryStats,
       recentlyRead,
+      leaderboard,
     });
   } catch (err) {
     console.error('Stats error:', err);
