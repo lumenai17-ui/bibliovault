@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
-import { fetchBookText, fetchAiChatHistory, saveAiChatHistory } from '../../services/api';
+import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks } from '../../services/api';
 import type { Book } from '../../types';
 import './AiChat.css';
 
@@ -34,7 +34,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const [contextLoading, setContextLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [webSearchContext, setWebSearchContext] = useState<string>('');
+  const [libraryContext, setLibraryContext] = useState<string>('');
   const [showSearchInput, setShowSearchInput] = useState(false);
+  const [searchMode, setSearchMode] = useState<'web' | 'library'>('web');
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingActions, setPendingActions] = useState<AiAction[]>([]);
   const [sessionTokens, setSessionTokens] = useState(0);
@@ -198,6 +200,68 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     } finally {
       setIsSearching(false);
     }
+  }, [t]);
+
+  // Handle library search
+  const handleLibrarySearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+
+    setIsSearching(true);
+    setShowSearchInput(false);
+
+    const searchMsg: ChatMessage = {
+      role: 'assistant',
+      content: `Buscando "${query}" en tu biblioteca...`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, searchMsg]);
+
+    try {
+      const result = await fetchBooks({ search: query, limit: 5 });
+      
+      if (result.books && result.books.length > 0) {
+        const formatted = result.books.map(b => `- "${b.title}" por ${b.author} (Categoría: ${b.category?.name || 'Varios'})`).join('\n');
+        setLibraryContext(formatted);
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.content.includes(`Buscando "${query}"`)) {
+            updated[updated.length - 1] = {
+              ...last,
+              content: `He encontrado ${result.books.length} libros en la biblioteca relacionados con "${query}".`,
+            };
+          }
+          return updated;
+        });
+      } else {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.content.includes(`Buscando "${query}"`)) {
+            updated[updated.length - 1] = {
+              ...last,
+              content: `No encontré ningún libro en tu biblioteca relacionado con "${query}".`,
+            };
+          }
+          return updated;
+        });
+      }
+    } catch {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last && last.content.includes(`Buscando "${query}"`)) {
+          updated[updated.length - 1] = {
+            ...last,
+            content: 'Ocurrió un error al buscar en la biblioteca.',
+          };
+        }
+        return updated;
+      });
+    } finally {
+      setIsSearching(false);
+    }
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
@@ -289,7 +353,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       },
       abortRef.current.signal,
       webSearchContext || undefined,
-      undefined, // libraryContext
+      libraryContext || undefined,
       i18n.language,
       (usage) => {
         if (usage?.total_tokens) {
@@ -377,6 +441,12 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               <span className="ai-status-label">Web</span>
             </div>
           )}
+          {libraryContext && (
+            <div className="ai-status" title="Contexto de biblioteca cargado">
+              <BookOpen size={10} style={{ color: 'var(--accent-primary)' }} />
+              <span className="ai-status-label">Catálogo</span>
+            </div>
+          )}
           {sessionTokens > 0 && (
             <div className="ai-status" title="Tokens usados">
               <span className="ai-status-label" style={{ color: 'var(--accent-warning)' }}>
@@ -413,24 +483,29 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               )}
             </p>
 
-            {/* Web search input */}
+            {/* Web/Library search input */}
             {showSearchInput && (
               <div className="ai-search-input-bar">
                 <Search size={14} />
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder={t('aiChat.searchPlaceholder')}
+                  placeholder={searchMode === 'web' ? t('aiChat.searchPlaceholder') : 'Buscar en la biblioteca...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
                 />
                 <button
                   className="btn btn-primary btn-icon btn-sm"
-                  onClick={() => { handleWebSearch(searchQuery); setSearchQuery(''); }}
+                  onClick={() => { 
+                    if (searchMode === 'web') handleWebSearch(searchQuery); 
+                    else handleLibrarySearch(searchQuery);
+                    setSearchQuery(''); 
+                  }}
                   disabled={!searchQuery.trim() || isSearching}
+                  title={searchMode === 'web' ? 'Buscar en la Web' : 'Buscar en la Biblioteca'}
                 >
-                  <Globe size={12} />
+                  {searchMode === 'web' ? <Globe size={12} /> : <BookOpen size={12} />}
                 </button>
               </div>
             )}
@@ -440,12 +515,27 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                 <button
                   key={action.label}
                   className={`ai-quick-btn ${action.isWeb ? 'ai-quick-btn-web' : ''}`}
-                  onClick={() => handleQuickAction(action)}
+                  onClick={() => {
+                    if (action.isWeb) {
+                      setSearchMode('web');
+                    }
+                    handleQuickAction(action);
+                  }}
                   disabled={!hermesOnline && !action.isWeb}
                 >
                   {action.label}
                 </button>
               ))}
+              <button
+                className="ai-quick-btn ai-quick-btn-web"
+                style={{ borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+                onClick={() => {
+                  setSearchMode('library');
+                  setShowSearchInput(true);
+                }}
+              >
+                Buscar en Biblioteca
+              </button>
             </div>
           </div>
         ) : (
