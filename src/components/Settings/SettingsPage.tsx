@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   User, CreditCard, Settings, Shield, Save, LogOut, Trash2,
   Check, AlertTriangle, Crown, Eye, EyeOff, Tag, Loader2,
@@ -294,6 +295,7 @@ function MembershipTab() {
 // ── Preferences Tab ──
 
 function PreferencesTab() {
+  const { t, i18n } = useTranslation();
   const [prefs, setPrefs] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -314,10 +316,18 @@ function PreferencesTab() {
 
   return (
     <div className="settings-section">
-      <h3>Preferencias</h3>
+      <h3>{t('settings.prefsTitle')}</h3>
 
       <div className="form-group">
-        <label>Idioma preferido de lectura</label>
+        <label>{t('settings.interfaceLanguage')}</label>
+        <select value={i18n.language.split('-')[0]} onChange={e => i18n.changeLanguage(e.target.value)}>
+          <option value="es">Español</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>{t('settings.readingLanguage')}</label>
         <select value={prefs.language || 'es'} onChange={e => update('language', e.target.value)}>
           <option value="es">Español</option>
           <option value="en">English</option>

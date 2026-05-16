@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   LayoutGrid,
@@ -42,12 +43,12 @@ interface HeaderProps {
   isAdmin?: boolean;
 }
 
-const FORMAT_FILTERS: { id: BookFormat | 'all'; label: string }[] = [
-  { id: 'all', label: 'Todos' },
-  { id: 'epub', label: 'EPUB' },
-  { id: 'pdf', label: 'PDF' },
-  { id: 'doc', label: 'DOC' },
-  { id: 'image', label: 'Imágenes' },
+const FORMAT_FILTERS: { id: BookFormat | 'all'; key: string }[] = [
+  { id: 'all', key: 'header.formatAll' },
+  { id: 'epub', key: 'EPUB' },
+  { id: 'pdf', key: 'PDF' },
+  { id: 'doc', key: 'DOC' },
+  { id: 'image', key: 'header.formatImages' },
 ];
 
 export default function Header({
@@ -62,6 +63,7 @@ export default function Header({
   onRefresh,
   isAdmin = false,
 }: HeaderProps) {
+  const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [enriching, setEnriching] = useState(false);
@@ -164,7 +166,7 @@ export default function Header({
         <input
           ref={searchRef}
           type="text"
-          placeholder="Buscar libros por título, autor, ISBN..."
+          placeholder={t('header.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           id="search-input"
@@ -176,7 +178,7 @@ export default function Header({
         <button
           className={`btn btn-ghost btn-icon tooltip ${showFilters ? 'active' : ''}`}
           onClick={() => setShowFilters(!showFilters)}
-          data-tooltip="Filtros"
+          data-tooltip={t('header.filters')}
         >
           <Filter size={16} />
         </button>
@@ -187,7 +189,7 @@ export default function Header({
             className={`header-filter-chip ${activeFormat === f.id ? 'active' : ''}`}
             onClick={() => onFormatChange(f.id)}
           >
-            {f.label}
+            {f.key.includes('.') ? t(f.key) : f.key}
           </button>
         ))}
       </div>
@@ -200,7 +202,7 @@ export default function Header({
             <span>
               {enrichStatus.processed}/{enrichStatus.total} — {enrichStatus.enriched} ✓
             </span>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelEnrich} title="Cancelar">
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelEnrich} title={t('header.cancel')}>
               <X size={12} />
             </button>
           </div>
@@ -210,7 +212,7 @@ export default function Header({
         {!enriching && enrichStatus?.status === 'done' && enrichStatus.enriched > 0 && (
           <div className="header-enrich-done">
             <CheckCircle2 size={12} />
-            <span>{enrichStatus.enriched} libros enriquecidos</span>
+            <span>{t('header.enrichedCount', { count: enrichStatus.enriched })}</span>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEnrichStatus(null)}>
               <X size={12} />
             </button>
@@ -224,7 +226,7 @@ export default function Header({
             <span>
               🖼️ {coverStatus.processed}/{coverStatus.total} — {coverStatus.extracted} ✓
             </span>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelCovers} title="Cancelar">
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelCovers} title={t('header.cancel')}>
               <X size={12} />
             </button>
           </div>
@@ -234,7 +236,7 @@ export default function Header({
         {!extractingCovers && coverStatus?.status === 'done' && coverStatus.extracted > 0 && (
           <div className="header-enrich-done" style={{ background: 'rgba(168, 85, 247, 0.15)' }}>
             <CheckCircle2 size={12} />
-            <span>🖼️ {coverStatus.extracted} portadas extraídas</span>
+            <span>{t('header.extractedCount', { count: coverStatus.extracted })}</span>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setCoverStatus(null)}>
               <X size={12} />
             </button>
@@ -245,14 +247,14 @@ export default function Header({
           <button
             className={`header-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => onViewModeChange('grid')}
-            title="Vista Grid"
+            title={t('header.viewGrid')}
           >
             <LayoutGrid size={14} />
           </button>
           <button
             className={`header-view-btn ${viewMode === 'list' ? 'active' : ''}`}
             onClick={() => onViewModeChange('list')}
-            title="Vista Lista"
+            title={t('header.viewList')}
           >
             <List size={14} />
           </button>
@@ -270,7 +272,7 @@ export default function Header({
           }}
         >
           <ImageIcon size={14} />
-          {extractingCovers ? 'Extrayendo...' : 'Portadas'}
+          {extractingCovers ? t('header.extracting') : t('header.covers')}
         </button>
 
         {/* Indexing progress banner */}
@@ -280,7 +282,7 @@ export default function Header({
             <span>
               🔍 {indexStatus.processed}/{indexStatus.total} — {indexStatus.indexed} ✓
             </span>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelIndex} title="Cancelar">
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCancelIndex} title={t('header.cancel')}>
               <X size={12} />
             </button>
           </div>
@@ -289,7 +291,7 @@ export default function Header({
         {!indexing && indexStatus?.status === 'done' && indexStatus.indexed > 0 && (
           <div className="header-enrich-done" style={{ background: 'rgba(20, 184, 166, 0.15)' }}>
             <CheckCircle2 size={12} />
-            <span>🔍 {indexStatus.indexed} libros indexados</span>
+            <span>{t('header.indexedCount', { count: indexStatus.indexed })}</span>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setIndexStatus(null)}>
               <X size={12} />
             </button>
@@ -307,7 +309,7 @@ export default function Header({
           }}
         >
           <FileSearch size={14} />
-          {indexing ? 'Indexando...' : 'Indexar'}
+          {indexing ? t('header.indexing') : t('header.index')}
         </button>
 
         <button
@@ -321,7 +323,7 @@ export default function Header({
           }}
         >
           <Sparkles size={14} />
-          {enriching ? 'Enriqueciendo...' : 'Enriquecer'}
+          {enriching ? t('header.enriching') : t('header.enrich')}
         </button>
 
         <button
@@ -330,7 +332,7 @@ export default function Header({
           disabled={isScanning}
         >
           <ScanLine size={14} />
-          {isScanning ? 'Escaneando...' : 'Escanear'}
+          {isScanning ? t('header.scanning') : t('header.scan')}
         </button>
         </>)}
       </div>

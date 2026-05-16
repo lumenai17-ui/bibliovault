@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import './i18n';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar/Sidebar';
 import Header from './components/Header/Header';

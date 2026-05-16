@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Library, Loader2 } from 'lucide-react';
 import './AuthPage.css';
 
@@ -20,6 +21,7 @@ interface AuthPageProps {
 }
 
 export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +35,7 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
     setError('');
 
     if (mode === 'register' && password !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      setError(t('auth.errorPasswordMismatch'));
       return;
     }
 
@@ -54,13 +56,13 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error desconocido.');
+        setError(data.error || t('auth.errorUnknown'));
         return;
       }
 
       onAuthSuccess(data.user);
     } catch (err) {
-      setError('No se pudo conectar con el servidor.');
+      setError(t('auth.errorConnection'));
     } finally {
       setLoading(false);
     }
@@ -80,17 +82,17 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
         </div>
         <p className="auth-subtitle">
           {mode === 'login'
-            ? 'Inicia sesion para acceder a tu biblioteca'
-            : 'Crea tu cuenta para empezar'}
+            ? t('auth.subtitleLogin')
+            : t('auth.subtitleRegister')}
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           {mode === 'register' && (
             <div className="auth-field">
-              <label>Nombre</label>
+              <label>{t('auth.nameLabel')}</label>
               <input
                 type="text"
-                placeholder="Tu nombre"
+                placeholder={t('auth.namePlaceholder')}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 autoComplete="name"
@@ -99,10 +101,10 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
           )}
 
           <div className="auth-field">
-            <label>Email</label>
+            <label>{t('auth.emailLabel')}</label>
             <input
               type="email"
-              placeholder="tu@email.com"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -111,10 +113,10 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
           </div>
 
           <div className="auth-field">
-            <label>Contraseña</label>
+            <label>{t('auth.passwordLabel')}</label>
             <input
               type="password"
-              placeholder="Min. 6 caracteres"
+              placeholder={t('auth.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -125,10 +127,10 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
 
           {mode === 'register' && (
             <div className="auth-field">
-              <label>Confirmar contraseña</label>
+              <label>{t('auth.confirmPasswordLabel')}</label>
               <input
                 type="password"
-                placeholder="Repite tu contraseña"
+                placeholder={t('auth.confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -142,20 +144,20 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
 
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? (
-              <><Loader2 size={16} className="spin" /> Procesando...</>
+              <><Loader2 size={16} className="spin" /> {t('auth.processing')}</>
             ) : mode === 'login' ? (
-              'Iniciar Sesion'
+              t('auth.loginButton')
             ) : (
-              'Crear Cuenta'
+              t('auth.registerButton')
             )}
           </button>
         </form>
 
         <div className="auth-switch">
           {mode === 'login' ? (
-            <>No tienes cuenta? <button onClick={switchMode}>Registrate</button></>
+            <>{t('auth.noAccount')} <button onClick={switchMode}>{t('auth.registerTab')}</button></>
           ) : (
-            <>Ya tienes cuenta? <button onClick={switchMode}>Inicia sesion</button></>
+            <>{t('auth.hasAccount')} <button onClick={switchMode}>{t('auth.loginTab')}</button></>
           )}
         </div>
       </div>

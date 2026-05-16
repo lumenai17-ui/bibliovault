@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Library,
   Heart,
@@ -47,24 +48,25 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Inicio', icon: Home },
-  { id: 'all', label: 'Toda la Biblioteca', icon: Library },
-  { id: 'favorites', label: 'Favoritos', icon: Heart },
-  { id: 'reading', label: 'Leyendo', icon: BookOpen },
-  { id: 'recent', label: 'Recientes', icon: Clock },
-  { id: 'my-books', label: 'Mis Libros', icon: FolderOpen },
-  { id: 'community-books', label: 'Comunidad', icon: Globe },
-  { id: 'community', label: 'Foro', icon: MessageCircle },
+  { id: 'home', key: 'sidebar.home', icon: Home },
+  { id: 'all', key: 'sidebar.allBooks', icon: Library },
+  { id: 'favorites', key: 'sidebar.favorites', icon: Heart },
+  { id: 'reading', key: 'sidebar.reading', icon: BookOpen },
+  { id: 'recent', key: 'sidebar.recent', icon: Clock },
+  { id: 'my-books', key: 'sidebar.myBooks', icon: FolderOpen },
+  { id: 'community-books', key: 'sidebar.communityBooks', icon: Globe },
+  { id: 'community', key: 'sidebar.community', icon: MessageCircle },
 ];
 
 const ADMIN_ITEMS = [
-  { id: 'admin', label: 'Dashboard', icon: BarChart3 },
-  { id: 'admin-users', label: 'Usuarios', icon: Users },
-  { id: 'admin-pending', label: 'Por Aprobar', icon: BookCheck },
-  { id: 'admin-coupons', label: 'Cupones', icon: Ticket },
+  { id: 'admin', key: 'sidebar.dashboard', icon: BarChart3 },
+  { id: 'admin-users', key: 'sidebar.adminUsers', icon: Users },
+  { id: 'admin-pending', key: 'sidebar.adminPending', icon: BookCheck },
+  { id: 'admin-coupons', key: 'sidebar.adminCoupons', icon: Ticket },
 ];
 
 export default function Sidebar({ activeSection, onSectionChange, onUpdateCollections, stats, categories = [], collections = [], currentUser, isOpen, onLogout }: SidebarProps) {
+  const { t } = useTranslation();
   const [showCategories, setShowCategories] = useState(false);
   const [showCollections, setShowCollections] = useState(true);
   const [showUploads, setShowUploads] = useState(false);
@@ -86,7 +88,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
 
       <nav className="sidebar-nav">
         <div className="sidebar-section">
-          <div className="sidebar-section-title">Biblioteca</div>
+          <div className="sidebar-section-title">{t('sidebar.librarySection')}</div>
           {NAV_ITEMS.map((item) => (
             <div
               key={item.id}
@@ -94,7 +96,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
               onClick={() => onSectionChange(item.id)}
             >
               <item.icon />
-              <span>{item.label}</span>
+              <span>{t(item.key)}</span>
               {item.id === 'all' && (
                 <span className="sidebar-item-count">{stats.total.toLocaleString()}</span>
               )}
@@ -116,7 +118,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
             onClick={() => setShowCategories(!showCategories)}
           >
             {showCategories ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            Categorías ({activeCategories.length})
+            {t('sidebar.categoriesSection')} ({activeCategories.length})
           </div>
           {showCategories && (
             <div className="sidebar-categories">
@@ -145,7 +147,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
             onClick={() => setShowCollections(!showCollections)}
           >
             {showCollections ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            Mis Colecciones ({collections.length})
+            {t('sidebar.collectionsSection')} ({collections.length})
           </div>
           {showCollections && (
             <div className="sidebar-categories">
@@ -166,7 +168,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
                     style={{ opacity: 0.5, color: 'var(--text-muted)' }}
                     onClick={async (e) => {
                       e.stopPropagation();
-                      if (confirm(`¿Estás seguro de que deseas eliminar la colección "${col.name}"? Los libros no se borrarán.`)) {
+                      if (confirm(t('sidebar.deleteCollectionConfirm', { name: col.name }))) {
                         try {
                           const { deleteCollection } = await import('../../services/api');
                           await deleteCollection(col.id);
@@ -179,7 +181,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
                         }
                       }
                     }}
-                    title="Eliminar colección"
+                    title={t('common.delete')}
                   >
                     <Trash size={12} />
                   </button>
@@ -191,20 +193,20 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
 
         {/* Tools */}
         <div className="sidebar-section">
-          <div className="sidebar-section-title">Herramientas</div>
+          <div className="sidebar-section-title">{t('sidebar.toolsSection')}</div>
           <div
             className="sidebar-item"
             onClick={() => setShowUploads(true)}
           >
             <CloudUpload />
-            <span>Subir Archivos</span>
+            <span>{t('sidebar.upload')}</span>
           </div>
           <div
             className={`sidebar-item ${activeSection === 'stats' ? 'active' : ''}`}
             onClick={() => onSectionChange('stats')}
           >
             <BarChart3 />
-            <span>Estadísticas</span>
+            <span>{t('sidebar.stats')}</span>
           </div>
         </div>
 
@@ -213,7 +215,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
           <div className="sidebar-section">
             <div className="sidebar-section-title" style={{ color: '#a78bfa' }}>
               <Shield size={12} style={{ marginRight: '4px' }} />
-              Administración
+              {t('sidebar.adminSection')}
             </div>
             {ADMIN_ITEMS.map((item) => (
               <div
@@ -222,7 +224,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
                 onClick={() => onSectionChange(item.id)}
               >
                 <item.icon />
-                <span>{item.label}</span>
+                <span>{t(item.key)}</span>
               </div>
             ))}
           </div>
@@ -233,11 +235,11 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
         <div className="sidebar-stats-grid">
           <div className="sidebar-stat">
             <div className="sidebar-stat-value">{stats.total.toLocaleString()}</div>
-            <div className="sidebar-stat-label">Libros</div>
+            <div className="sidebar-stat-label">{t('sidebar.booksLabel')}</div>
           </div>
           <div className="sidebar-stat">
             <div className="sidebar-stat-value">{stats.categories}</div>
-            <div className="sidebar-stat-label">Categorías</div>
+            <div className="sidebar-stat-label">{t('sidebar.categoriesLabel')}</div>
           </div>
         </div>
       </div>
@@ -250,7 +252,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
               {currentUser.avatar_url ? <img src={currentUser.avatar_url} alt="" /> : <User size={16} />}
             </div>
             <div className="sidebar-user-details">
-              <div className="sidebar-user-name">{currentUser.display_name || 'Usuario'}</div>
+              <div className="sidebar-user-name">{currentUser.display_name || t('sidebar.defaultUser')}</div>
               <div className={`sidebar-user-plan ${currentUser.plan === 'premium' ? 'premium' : 'free'}`}>
                 {currentUser.plan === 'premium' ? '✨ Premium' : 'Free'}
               </div>
@@ -259,7 +261,7 @@ export default function Sidebar({ activeSection, onSectionChange, onUpdateCollec
           </div>
           <button
             className="sidebar-logout-btn"
-            title="Cerrar sesión"
+            title={t('sidebar.logoutBtn')}
             onClick={(e) => { e.stopPropagation(); onLogout?.(); }}
           >
             <LogOut size={14} />
