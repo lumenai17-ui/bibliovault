@@ -242,7 +242,9 @@ app.get('/api/auth/me', async (req, res) => {
     return res.status(401).json({ error: 'SesiÃ³n invÃ¡lida.' });
   }
 
-  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map(e => e.trim().toLowerCase());
+  const defaultAdmins = ['hbouche@hotmail.com'];
+  const envAdmins = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const adminEmails = [...new Set([...defaultAdmins, ...envAdmins])];
   const isAdmin = adminEmails.includes((user as any).email?.toLowerCase());
 
   res.json({ user: { ...user, is_admin: isAdmin } });
@@ -334,7 +336,9 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
   const user = await getUserById(req.userId) as any;
   if (!user) return res.status(401).json({ error: 'user_not_found' });
 
-  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@bibliovault.local').split(',').map(e => e.trim().toLowerCase());
+  const defaultAdmins = ['hbouche@hotmail.com'];
+  const envAdmins = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const adminEmails = [...new Set([...defaultAdmins, ...envAdmins])];
   if (!adminEmails.includes(user.email?.toLowerCase())) {
     return res.status(403).json({ error: 'admin_only' });
   }
