@@ -140,159 +140,27 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     }
   }, [showSearchInput]);
 
-  // Handle web search
-  const handleWebSearch = useCallback(async (query: string) => {
-    if (!query.trim()) return;
-
-    setIsSearching(true);
-    setShowSearchInput(false);
-
-    // Add a system-like message showing the search
-    const searchMsg: ChatMessage = {
-      role: 'assistant',
-      content: t('aiChat.searchingWeb', { query }),
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, searchMsg]);
-
-    try {
-      const result = await searchWebForAi(query);
-
-      if (result.count > 0) {
-        setWebSearchContext(result.formatted);
-
-        // Update the search message with results
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: t('aiChat.searchSuccess', { count: result.count, query }),
-            };
-          }
-          return updated;
-        });
-      } else {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: t('aiChat.searchEmpty', { query }),
-            };
-          }
-          return updated;
-        });
-      }
-    } catch {
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
-          updated[updated.length - 1] = {
-            ...last,
-            content: t('aiChat.searchError'),
-          };
-        }
-        return updated;
-      });
-    } finally {
-      setIsSearching(false);
-    }
-  }, [t]);
-
-  // Handle library search
-  const handleLibrarySearch = useCallback(async (query: string) => {
-    if (!query.trim()) return;
-
-    setIsSearching(true);
-    setShowSearchInput(false);
-
-    const searchMsg: ChatMessage = {
-      role: 'assistant',
-      content: `Buscando "${query}" en tu biblioteca...`,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, searchMsg]);
-
-    try {
-      const result = await fetchBooks({ search: query, limit: 5 });
-      
-      if (result.books && result.books.length > 0) {
-        const formatted = result.books.map(b => `- "${b.title}" por ${b.author} (Categoría: ${b.category?.name || 'Varios'})`).join('\n');
-        setLibraryContext(formatted);
-
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.content.includes(`Buscando "${query}"`)) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: `He encontrado ${result.books.length} libros en la biblioteca relacionados con "${query}".`,
-            };
-          }
-          return updated;
-        });
-      } else {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.content.includes(`Buscando "${query}"`)) {
-            updated[updated.length - 1] = {
-              ...last,
-              content: `No encontré ningún libro en tu biblioteca relacionado con "${query}".`,
-            };
-          }
-          return updated;
-        });
-      }
-    } catch {
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last && last.content.includes(`Buscando "${query}"`)) {
-          updated[updated.length - 1] = {
-            ...last,
-            content: 'Ocurrió un error al buscar en la biblioteca.',
-          };
-        }
-        return updated;
-      });
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
-
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isStreaming) return;
-
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: text.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput('');
+  // Helper for triggering LLM stream
+  const processStream = useCallback(async (
+    messagesToSend: ChatMessage[],
+    overrideWebCtx?: string,
+    overrideLibCtx?: string
+  ) => {
     setIsStreaming(true);
 
-    // Add empty assistant message that will be streamed into
     const assistantMessage: ChatMessage = {
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
     };
-    setMessages([...newMessages, assistantMessage]);
+    const currentMessages = [...messagesToSend, assistantMessage];
+    setMessages(currentMessages);
 
     abortRef.current = new AbortController();
-
     let fullResponse = '';
 
     await streamAiChat(
-      newMessages.map((m) => ({ role: m.role, content: m.content })),
+      messagesToSend.map((m) => ({ role: m.role, content: m.content })),
       book.title,
       book.author,
       pageContext || undefined,
@@ -309,12 +177,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       },
       () => {
         setIsStreaming(false);
-
-        // Parse actions from the complete response
         const { cleanText, actions, followUps } = parseAiActions(fullResponse);
 
-        // Clean up the displayed message (remove action tags)
-        let finalMessages = newMessages;
+        let finalMessages = currentMessages;
         if (actions.length > 0 || followUps.length > 0) {
           setMessages((prev) => {
             const updated = [...prev];
@@ -328,13 +193,12 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
           if (actions.length > 0) setPendingActions(actions);
           if (followUps.length > 0) setSuggestedFollowUps(followUps);
         } else {
-          setMessages((prev) => {
-            finalMessages = prev;
-            return prev;
-          });
+           setMessages((prev) => {
+             finalMessages = prev;
+             return prev;
+           });
         }
         
-        // Save to backend
         setTimeout(() => {
           saveAiChatHistory(book.id, finalMessages).catch(console.error);
         }, 500);
@@ -344,18 +208,15 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last && last.role === 'assistant') {
-            updated[updated.length - 1] = {
-              ...last,
-              content: `⚠️ ${error}`,
-            };
+            updated[updated.length - 1] = { ...last, content: `⚠️ ${error}` };
           }
           return updated;
         });
         setIsStreaming(false);
       },
       abortRef.current.signal,
-      webSearchContext || undefined,
-      libraryContext || undefined,
+      overrideWebCtx !== undefined ? overrideWebCtx : (webSearchContext || undefined),
+      overrideLibCtx !== undefined ? overrideLibCtx : (libraryContext || undefined),
       i18n.language,
       (usage) => {
         if (usage?.total_tokens) {
@@ -363,7 +224,123 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         }
       }
     );
-  }, [messages, isStreaming, book.title, book.author, pageContext, webSearchContext, i18n.language]);
+  }, [book.id, book.title, book.author, pageContext, webSearchContext, libraryContext, i18n.language]);
+
+  // Handle web search
+  const handleWebSearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+
+    setIsSearching(true);
+    setShowSearchInput(false);
+
+    const searchMsg: ChatMessage = {
+      role: 'assistant',
+      content: t('aiChat.searchingWeb', { query }),
+      timestamp: new Date().toISOString(),
+    };
+    let currentMessages = [...messages, searchMsg];
+    setMessages(currentMessages);
+
+    try {
+      const result = await searchWebForAi(query);
+
+      if (result.count > 0) {
+        setWebSearchContext(result.formatted);
+        currentMessages = currentMessages.map(m => 
+          m.timestamp === searchMsg.timestamp ? { ...m, content: t('aiChat.searchSuccess', { count: result.count, query }) } : m
+        );
+        
+        const triggerMsg: ChatMessage = {
+          role: 'user',
+          content: `Acabo de buscar en la web sobre "${query}". Por favor, resume los resultados más importantes o dame una respuesta útil basada en esta información.`,
+          timestamp: new Date().toISOString()
+        };
+        currentMessages = [...currentMessages, triggerMsg];
+        setMessages(currentMessages);
+        
+        await processStream(currentMessages, result.formatted, libraryContext);
+      } else {
+        currentMessages = currentMessages.map(m => 
+          m.timestamp === searchMsg.timestamp ? { ...m, content: t('aiChat.searchEmpty', { query }) } : m
+        );
+        setMessages(currentMessages);
+      }
+    } catch {
+      currentMessages = currentMessages.map(m => 
+        m.timestamp === searchMsg.timestamp ? { ...m, content: t('aiChat.searchError') } : m
+      );
+      setMessages(currentMessages);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [messages, t, libraryContext, processStream]);
+
+  // Handle library search
+  const handleLibrarySearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+
+    setIsSearching(true);
+    setShowSearchInput(false);
+
+    const searchMsg: ChatMessage = {
+      role: 'assistant',
+      content: `Buscando "${query}" en tu biblioteca...`,
+      timestamp: new Date().toISOString(),
+    };
+    let currentMessages = [...messages, searchMsg];
+    setMessages(currentMessages);
+
+    try {
+      const result = await fetchBooks({ search: query, limit: 5 });
+      
+      if (result.books && result.books.length > 0) {
+        const formatted = result.books.map(b => `- "${b.title}" por ${b.author} (Categoría: ${b.category?.name || 'Varios'})`).join('\n');
+        setLibraryContext(formatted);
+
+        currentMessages = currentMessages.map(m => 
+          m.timestamp === searchMsg.timestamp ? { ...m, content: `He encontrado ${result.books.length} libros en la biblioteca relacionados con "${query}".` } : m
+        );
+        
+        const triggerMsg: ChatMessage = {
+          role: 'user',
+          content: `Por favor, analízame estos libros que encontraste en la biblioteca sobre "${query}" y dame una recomendación o resumen corto.`,
+          timestamp: new Date().toISOString()
+        };
+        currentMessages = [...currentMessages, triggerMsg];
+        setMessages(currentMessages);
+
+        await processStream(currentMessages, webSearchContext, formatted);
+      } else {
+        currentMessages = currentMessages.map(m => 
+          m.timestamp === searchMsg.timestamp ? { ...m, content: `No encontré ningún libro en tu biblioteca relacionado con "${query}".` } : m
+        );
+        setMessages(currentMessages);
+      }
+    } catch {
+      currentMessages = currentMessages.map(m => 
+        m.timestamp === searchMsg.timestamp ? { ...m, content: 'Ocurrió un error al buscar en la biblioteca.' } : m
+      );
+      setMessages(currentMessages);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [messages, webSearchContext, processStream]);
+
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || isStreaming) return;
+
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: text.trim(),
+      timestamp: new Date().toISOString(),
+    };
+
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInput('');
+    
+    await processStream(newMessages);
+  }, [messages, isStreaming, processStream]);
 
   const handleStop = () => {
     abortRef.current?.abort();
