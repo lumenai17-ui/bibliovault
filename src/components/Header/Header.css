@@ -294,13 +294,16 @@
   .header-filters {
     order: 3;
     flex: 1;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
 
-  .header-actions {
-    order: 2;
-    margin-left: auto;
+  .header-filters-expanded {
+    position: fixed;
+    top: auto;
+    left: 16px;
+    right: 16px;
+    z-index: 200;
+    max-width: calc(100vw - 32px);
   }
 
   .header-filter-chip {
