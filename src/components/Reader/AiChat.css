@@ -74,6 +74,15 @@
   color: var(--text-primary);
 }
 
+.ai-msg-action-btn.speaking {
+  animation: hermes-speak-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes hermes-speak-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
 .ai-msg-assistant p:last-child {
   margin-bottom: 0;
 }

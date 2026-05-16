@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check } from 'lucide-react';
+import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
 import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks } from '../../services/api';
@@ -42,11 +42,55 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const [suggestedFollowUps, setSuggestedFollowUps] = useState<string[]>([]);
   const [sessionTokens, setSessionTokens] = useState(0);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // TTS: speak or stop a message
+  const handleSpeak = useCallback((text: string, index: number) => {
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Strip markdown formatting for cleaner speech
+    const cleanText = text
+      .replace(/[#*_~`>\-\[\]()!]/g, '')
+      .replace(/\n+/g, '. ')
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = i18n.language === 'en' ? 'en-US' : 'es-MX';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.05;
+
+    // Try to pick a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const langPrefix = i18n.language === 'en' ? 'en' : 'es';
+    const preferred = voices.find(v => v.lang.startsWith(langPrefix) && v.name.toLowerCase().includes('female'))
+      || voices.find(v => v.lang.startsWith(langPrefix))
+      || voices[0];
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  }, [speakingIndex, i18n.language]);
+
+  // Stop TTS when panel closes
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const handleExportPdf = async () => {
     if (!chatContainerRef.current) return;
@@ -526,6 +570,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                     <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
                     {msg.content && !isStreaming && (
                       <div className="ai-msg-actions">
+                        <button className={`ai-msg-action-btn ${speakingIndex === i ? 'speaking' : ''}`} onClick={() => handleSpeak(msg.content, i)} title={speakingIndex === i ? 'Detener' : 'Escuchar'}>
+                          {speakingIndex === i ? <VolumeX size={12} color="var(--accent-warning)" /> : <Volume2 size={12} />}
+                        </button>
                         <button className="ai-msg-action-btn" onClick={() => handleCopyMessage(msg.content, i)} title="Copiar">
                           {copiedIndex === i ? <Check size={12} color="var(--accent-success)" /> : <Copy size={12} />}
                         </button>
