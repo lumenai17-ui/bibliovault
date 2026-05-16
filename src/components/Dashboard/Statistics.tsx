@@ -136,17 +136,17 @@ export default function Statistics() {
       {/* Charts Row — right after KPIs */}
       <div className="dashboard-charts">
         <div className="chart-card">
-          <h3>Formatos que Lees</h3>
-          {stats.formatStats.length === 0 ? (
+          <h3>Progreso de Lectura</h3>
+          {stats.progressBreakdown.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Abre algunos libros para ver tus formatos preferidos
+              Abre algunos libros para ver tu progreso
             </div>
           ) : (
             <div className="chart-wrapper">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats.formatStats}
+                    data={stats.progressBreakdown}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -155,9 +155,15 @@ export default function Statistics() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {stats.formatStats.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
+                    {stats.progressBreakdown.map((entry, index) => {
+                      const colorMap: Record<string, string> = {
+                        'Completados': '#14b8a6',
+                        'Avanzados': '#667eea',
+                        'En Progreso': '#a855f7',
+                        'Recién Empezados': '#f59e0b',
+                      };
+                      return <Cell key={`cell-${index}`} fill={colorMap[entry.name] || PIE_COLORS[index % PIE_COLORS.length]} />;
+                    })}
                   </Pie>
                   <Tooltip
                     contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
@@ -213,7 +219,7 @@ export default function Statistics() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
-              {stats.recentlyRead.slice(0, 5).map((book, i) => {
+              {stats.recentlyRead.map((book, i) => {
                 const pct = Math.round(book.progress * 100);
                 const pagesRead = Math.round((book.pages || 0) * book.progress);
                 const ago = getRelativeTime(new Date(book.lastRead));
@@ -279,7 +285,7 @@ export default function Statistics() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
-              {stats.leaderboard.slice(0, 5).map((user, i) => (
+              {stats.leaderboard.map((user, i) => (
                 <div key={i} style={{
                   background: user.isCurrentUser ? 'rgba(102,126,234,0.1)' : 'rgba(255,255,255,0.03)',
                   borderRadius: 8,

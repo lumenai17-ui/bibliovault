@@ -473,7 +473,7 @@ export interface ExtendedStats {
   completedBooks: number;
   booksInProgress: number;
   totalPagesRead: number;
-  formatStats: Array<{ name: string; value: number }>;
+  progressBreakdown: Array<{ name: string; value: number }>;
   categoryStats: Array<{ name: string; value: number }>;
   recentlyRead: Array<{ title: string; progress: number; lastRead: string; pages: number; format: string }>;
   leaderboard: Array<{ name: string; pagesRead: number; booksRead: number; isCurrentUser: boolean }>;
@@ -489,7 +489,7 @@ export async function fetchExtendedStats(): Promise<ExtendedStats> {
     completedBooks: data.completedBooks ?? 0,
     booksInProgress: data.booksInProgress ?? 0,
     totalPagesRead: data.totalPagesRead ?? 0,
-    formatStats: Array.isArray(data.formatStats) ? data.formatStats : [],
+    progressBreakdown: Array.isArray(data.progressBreakdown) ? data.progressBreakdown : [],
     categoryStats: Array.isArray(data.categoryStats) ? data.categoryStats : [],
     recentlyRead: Array.isArray(data.recentlyRead) ? data.recentlyRead : [],
     leaderboard: Array.isArray(data.leaderboard) ? data.leaderboard : [],
