@@ -474,6 +474,7 @@ export interface ExtendedStats {
   totalPagesRead: number;
   formatStats: Array<{ name: string; value: number }>;
   categoryStats: Array<{ name: string; value: number }>;
+  recentlyRead: Array<{ title: string; progress: number; lastRead: string }>;
 }
 
 export async function fetchExtendedStats(): Promise<ExtendedStats> {
@@ -488,6 +489,7 @@ export async function fetchExtendedStats(): Promise<ExtendedStats> {
     totalPagesRead: data.totalPagesRead ?? 0,
     formatStats: Array.isArray(data.formatStats) ? data.formatStats : [],
     categoryStats: Array.isArray(data.categoryStats) ? data.categoryStats : [],
+    recentlyRead: Array.isArray(data.recentlyRead) ? data.recentlyRead : [],
   };
 }
 

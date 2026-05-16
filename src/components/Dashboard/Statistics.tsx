@@ -27,6 +27,19 @@ import {
 } from 'lucide-react';
 import './Dashboard.css';
 
+function getRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'Ahora mismo';
+  if (diffMins < 60) return `Hace ${diffMins} min`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `Hace ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+  return date.toLocaleDateString();
+}
+
 const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444'];
 
 export default function Statistics() {
@@ -175,6 +188,57 @@ export default function Statistics() {
           </div>
         </div>
       </div>
+
+      {/* Recently Read Section */}
+      {stats.recentlyRead.length > 0 && (
+        <div className="dashboard-recent">
+          <h3 style={{ marginBottom: 16, fontSize: 16, color: 'var(--text-primary)' }}>📖 Lectura Reciente</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {stats.recentlyRead.map((book, i) => {
+              const pct = Math.round(book.progress * 100);
+              const date = new Date(book.lastRead);
+              const ago = getRelativeTime(date);
+              return (
+                <div key={i} style={{
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  border: '1px solid var(--glass-border)',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {book.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{ago}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <div style={{
+                      width: 80, height: 6, borderRadius: 3,
+                      background: 'rgba(255,255,255,0.08)',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${pct}%`, height: '100%', borderRadius: 3,
+                        background: pct >= 99 ? '#14b8a6' : pct > 50 ? '#667eea' : '#a855f7',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: 'right',
+                      color: pct >= 99 ? '#14b8a6' : '#94a3b8',
+                    }}>
+                      {pct >= 99 ? '✓' : `${pct}%`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tools Row */}
       <div className="dashboard-tools">

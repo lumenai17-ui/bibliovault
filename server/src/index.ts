@@ -2243,13 +2243,36 @@ app.get('/api/search/index/stats', async (_req, res) => {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Extended statistics for the Dashboard
-app.get('/api/stats/extended', async (_req, res) => {
+app.get('/api/stats/extended', optionalAuth, async (req, res) => {
   try {
-    const allBooks = await getAllBooks() as Array<Record<string, any>>;
+    const result = await getAllBooks(10000, 0) as { books: Array<Record<string, any>>; total: number };
+    const allBooks = result.books || [];
     
     const totalBooks = allBooks.length;
     const totalPages = allBooks.reduce((sum, b) => sum + (b.pages || 0), 0);
-    const completedBooks = allBooks.filter(b => (b.reading_progress || 0) >= 0.99).length;
+
+    // Per-user reading stats
+    let completedBooks = 0;
+    let totalPagesRead = 0;
+    const readingMap: Record<number, number> = {};
+
+    if (req.userId && isPostgres()) {
+      const p = getPgPool();
+      const progressRows = await p.query(
+        'SELECT book_id, progress FROM user_reading_progress WHERE user_id = $1 AND progress > 0',
+        [req.userId]
+      );
+      for (const row of progressRows.rows) {
+        readingMap[row.book_id] = row.progress;
+      }
+      completedBooks = progressRows.rows.filter((r: any) => r.progress >= 0.99).length;
+      totalPagesRead = Math.round(
+        allBooks.reduce((acc, b) => {
+          const progress = readingMap[b.id] || 0;
+          return acc + ((b.pages || 0) * progress);
+        }, 0)
+      );
+    }
     
     // Books by format
     const formatMap = new Map<string, number>();
@@ -2274,10 +2297,24 @@ app.get('/api/stats/extended', async (_req, res) => {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // Pages read
-    const totalPagesRead = Math.round(
-      allBooks.reduce((acc, b) => acc + ((b.pages || 0) * (b.reading_progress || 0)), 0)
-    );
+    // Recently read books (per-user)
+    let recentlyRead: Array<{ title: string; progress: number; lastRead: string }> = [];
+    if (req.userId && isPostgres()) {
+      const p = getPgPool();
+      const recentRows = await p.query(`
+        SELECT b.title, urp.progress, urp.last_read
+        FROM user_reading_progress urp
+        JOIN books b ON b.id = urp.book_id
+        WHERE urp.user_id = $1 AND urp.progress > 0
+        ORDER BY urp.last_read DESC
+        LIMIT 10
+      `, [req.userId]);
+      recentlyRead = recentRows.rows.map((r: any) => ({
+        title: r.title,
+        progress: r.progress,
+        lastRead: r.last_read,
+      }));
+    }
 
     res.json({
       totalBooks,
@@ -2285,7 +2322,8 @@ app.get('/api/stats/extended', async (_req, res) => {
       completedBooks,
       totalPagesRead,
       formatStats,
-      categoryStats
+      categoryStats,
+      recentlyRead,
     });
   } catch (err) {
     console.error('Stats error:', err);
@@ -2296,7 +2334,8 @@ app.get('/api/stats/extended', async (_req, res) => {
 // Export library as CSV
 app.get('/api/export/csv', async (_req, res) => {
   try {
-    const allBooks = await getAllBooks() as Array<Record<string, any>>;
+    const result = await getAllBooks(10000, 0) as { books: Array<Record<string, any>>; total: number };
+    const allBooks = result.books || [];
     const categories = await getCategories() as Array<Record<string, any>>;
     const catMap = new Map<number, string>();
     categories.forEach(c => catMap.set(c.id, c.name));
