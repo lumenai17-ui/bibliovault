@@ -364,7 +364,19 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     setMessages(currentMessages);
 
     try {
-      const result = await fetchBooks({ search: query, limit: 5 });
+      // First try the full query
+      let result = await fetchBooks({ search: query, limit: 20 });
+      
+      // If no results, try individual keywords (strip common words)
+      if (!result.books || result.books.length === 0) {
+        const stopWords = ['mas', 'más', 'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'en', 'con', 'por', 'para', 'que', 'del', 'al', 'libros', 'libro', 'buscar', 'busca', 'encuentra', 'dame', 'quiero', 'sobre', 'acerca', 'relacionados', 'hay', 'tiene', 'tienes'];
+        const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
+        
+        for (const keyword of keywords) {
+          result = await fetchBooks({ search: keyword, limit: 20 });
+          if (result.books && result.books.length > 0) break;
+        }
+      }
       
       if (result.books && result.books.length > 0) {
         const formatted = result.books.map(b => `- "${b.title}" por ${b.author} (Categoría: ${b.category?.name || 'Varios'})`).join('\n');
@@ -639,15 +651,17 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                     <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
                     {msg.content && !isStreaming && (
                       <div className="ai-msg-actions">
-                        <button className={`ai-msg-action-btn ${speakingIndex === i ? 'speaking' : ''}`} onClick={() => handleSpeak(msg.content, i)}>
-                          {speakingIndex === i ? <><VolumeX size={14} /> Detener</> : <><Volume2 size={14} /> Escuchar</>}
-                        </button>
-                        <button className="ai-msg-action-btn" onClick={() => handleCopyMessage(msg.content, i)}>
-                          {copiedIndex === i ? <><Check size={14} color="var(--accent-success)" /> Copiado</> : <><Copy size={14} /> Copiar</>}
-                        </button>
-                        <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)}>
-                          <Share2 size={14} /> Compartir
-                        </button>
+                        <div className="ai-msg-action-group">
+                          <button className={`ai-msg-action-btn ${speakingIndex === i ? 'active' : ''}`} onClick={() => handleSpeak(msg.content, i)}>
+                            {speakingIndex === i ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                          </button>
+                          <button className={`ai-msg-action-btn ${copiedIndex === i ? 'active success' : ''}`} onClick={() => handleCopyMessage(msg.content, i)}>
+                            {copiedIndex === i ? <Check size={15} /> : <Copy size={15} />}
+                          </button>
+                          <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)}>
+                            <Share2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     )}
                     {!isStreaming && i === messages.length - 1 && suggestedFollowUps.length > 0 && (
