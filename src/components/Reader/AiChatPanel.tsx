@@ -444,7 +444,11 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      handleWebSearch(searchQuery);
+      if (searchMode === 'library') {
+        handleLibrarySearch(searchQuery);
+      } else {
+        handleWebSearch(searchQuery);
+      }
       setSearchQuery('');
     } else if (e.key === 'Escape') {
       setShowSearchInput(false);
