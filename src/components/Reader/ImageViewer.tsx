@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ZoomIn, ZoomOut, Maximize2, RotateCw, AlertCircle } from 'lucide-react';
 
 interface ImageViewerProps {
@@ -7,6 +8,7 @@ interface ImageViewerProps {
 }
 
 export default function ImageViewer({ fileUrl, nightMode }: ImageViewerProps) {
+  const { t } = useTranslation();
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -41,8 +43,8 @@ export default function ImageViewer({ fileUrl, nightMode }: ImageViewerProps) {
           height: '100%', gap: '16px', color: 'var(--text-muted)'
         }}>
           <AlertCircle size={48} style={{ opacity: 0.4 }} />
-          <p style={{ fontSize: '16px' }}>No se pudo cargar la imagen</p>
-          <p style={{ fontSize: '13px', opacity: 0.6 }}>El formato puede no ser compatible o el archivo está dañado.</p>
+          <p style={{ fontSize: '16px' }}>{t('reader.errorImgTitle')}</p>
+          <p style={{ fontSize: '13px', opacity: 0.6 }}>{t('reader.errorImgDesc')}</p>
         </div>
       </div>
     );
@@ -55,20 +57,20 @@ export default function ImageViewer({ fileUrl, nightMode }: ImageViewerProps) {
         display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0',
         justifyContent: 'center', flexShrink: 0
       }}>
-        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomOut} title="Alejar">
+        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomOut} title={t('reader.zoomOut')}>
           <ZoomOut size={16} />
         </button>
         <span style={{ fontSize: '13px', color: 'var(--text-secondary)', minWidth: '50px', textAlign: 'center' }}>
           {Math.round(zoom * 100)}%
         </span>
-        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomIn} title="Acercar">
+        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleZoomIn} title={t('reader.zoomIn')}>
           <ZoomIn size={16} />
         </button>
         <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 4px' }} />
-        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleFit} title="Ajustar">
+        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleFit} title={t('reader.fit')}>
           <Maximize2 size={16} />
         </button>
-        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleRotate} title="Rotar">
+        <button className="btn btn-ghost btn-icon btn-sm" onClick={handleRotate} title={t('reader.rotate')}>
           <RotateCw size={16} />
         </button>
         {loaded && naturalSize.w > 0 && (
@@ -89,7 +91,7 @@ export default function ImageViewer({ fileUrl, nightMode }: ImageViewerProps) {
         <img
           ref={imgRef}
           src={fileUrl}
-          alt="Contenido del libro"
+          alt={t('reader.imgAlt')}
           loading="lazy"
           onLoad={handleLoad}
           onError={() => setError(true)}

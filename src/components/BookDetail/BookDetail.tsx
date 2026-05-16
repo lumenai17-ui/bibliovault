@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   Heart,
@@ -54,6 +55,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function BookDetail({ book, collections = [], onClose, onRead, onToggleFavorite, onUpdate }: BookDetailProps) {
+  const { t } = useTranslation();
   const [summary, setSummary] = useState<string>(book.aiSummary || '');
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [enriching, setEnriching] = useState(false);
@@ -150,7 +152,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
       const result = await generateSummary(book.id, { refresh: true, ocr: forceOcr });
       setSummary(result.summary);
     } catch {
-      setSummary('No se pudo generar el resumen.');
+      setSummary(t('bookDetail.errorSummary'));
     } finally {
       setSummaryLoading(false);
     }
@@ -231,7 +233,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
   };
 
   const displayTitle = editing ? editTitle : (enrichResult?.title || editTitle);
-  const displayAuthor = editing ? editAuthor : (enrichResult?.author || editAuthor || 'Autor desconocido');
+  const displayAuthor = editing ? editAuthor : (enrichResult?.author || editAuthor || t('bookDetail.unknownAuthor'));
 
   return (
     <div className="book-detail-overlay" onClick={onClose}>
@@ -249,20 +251,20 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   className="book-detail-edit-input"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Título del libro"
+                  placeholder={t('bookDetail.editTitle')}
                 />
                 <input
                   className="book-detail-edit-input book-detail-edit-author"
                   value={editAuthor}
                   onChange={(e) => setEditAuthor(e.target.value)}
-                  placeholder="Autor"
+                  placeholder={t('bookDetail.editAuthor')}
                 />
                 <div className="book-detail-edit-actions">
                   <button className="btn btn-primary btn-sm" onClick={handleSaveEdit} disabled={saving}>
-                    <Save size={12} /> {saving ? 'Guardando...' : 'Guardar'}
+                    <Save size={12} /> {saving ? t('bookDetail.saving') : t('bookDetail.save')}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={handleCancelEdit}>
-                    Cancelar
+                    {t('bookDetail.cancel')}
                   </button>
                 </div>
               </div>
@@ -273,7 +275,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   <button
                     className="btn-edit-title"
                     onClick={() => setEditing(true)}
-                    title="Editar título y autor"
+                    title={t('bookDetail.tooltipEdit')}
                   >
                     <Pencil size={12} />
                   </button>
@@ -304,24 +306,24 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
               </div>
               {book.pages > 0 && (
                 <div className="book-detail-stat">
-                  <FileText /> {book.pages} páginas
+                  <FileText /> {book.pages} {t('bookDetail.pages')}
                 </div>
               )}
               <div className="book-detail-stat">
-                <Folder /> {book.category || 'Sin categoría'}
+                <Folder /> {book.category || t('bookDetail.uncategorized')}
               </div>
             </div>
 
             <div className="book-detail-actions" style={{ position: 'relative', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn-read" onClick={() => onRead(book)}>
-                <BookOpen size={16} /> Leer
+                <BookOpen size={16} /> {t('bookDetail.read')}
               </button>
               <button
                 className={`btn-fav ${book.favorite ? 'is-favorite' : ''}`}
                 onClick={() => onToggleFavorite(book)}
               >
                 <Heart size={14} fill={book.favorite ? 'currentColor' : 'none'} />
-                {book.favorite ? 'Favorito' : 'Favorito'}
+                {t('bookDetail.favorite')}
               </button>
 
               <div style={{ position: 'relative' }}>
@@ -330,13 +332,13 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   onClick={() => setShowCollectionsMenu(!showCollectionsMenu)}
                 >
                   <FolderPlus size={14} />
-                  Colecciones {activeCollectionIds.length > 0 && `(${activeCollectionIds.length})`}
+                  {t('bookDetail.collections')} {activeCollectionIds.length > 0 && `(${activeCollectionIds.length})`}
                 </button>
 
                 {showCollectionsMenu && (
                   <div className="collections-popover animate-fade-in">
                     <div className="collections-popover-header">
-                      <h4>Mis Colecciones</h4>
+                      <h4>{t('bookDetail.myCollections')}</h4>
                       <button className="btn-close-detail" style={{ width: 24, height: 24 }} onClick={() => setShowCollectionsMenu(false)}>
                         <X size={12} />
                       </button>
@@ -344,7 +346,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                     
                     <div className="collections-popover-list">
                       {collections.length === 0 ? (
-                        <p className="collections-empty-text">No tienes colecciones aún.</p>
+                        <p className="collections-empty-text">{t('bookDetail.noCollections')}</p>
                       ) : (
                         collections.map(col => (
                           <label key={col.id} className="collection-checkbox">
@@ -362,7 +364,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                     <form className="collection-create-form" onSubmit={handleCreateCollection}>
                       <input 
                         type="text" 
-                        placeholder="Nueva colección..." 
+                        placeholder={t('bookDetail.newCollection')} 
                         value={newCollectionName}
                         onChange={e => setNewCollectionName(e.target.value)}
                         disabled={creatingCollection}
@@ -386,7 +388,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
         <div className="book-detail-body">
           {/* Enrichment Actions */}
           <div className="book-detail-section">
-            <h4><Search size={12} /> Buscar Información</h4>
+            <h4><Search size={12} /> {t('bookDetail.searchInfo')}</h4>
             <div className="book-detail-enrich-actions">
               <button
                 className={`btn-enrich enrich-api ${enrichResult?.found ? 'found' : ''}`}
@@ -394,11 +396,11 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 disabled={enriching}
               >
                 {enriching ? (
-                  <><Loader2 size={12} className="spin" /> Buscando en APIs...</>
+                  <><Loader2 size={12} className="spin" /> {t('bookDetail.searchingApi')}</>
                 ) : enrichResult?.found ? (
-                  <><CheckCircle2 size={12} /> Encontrado</>
+                  <><CheckCircle2 size={12} /> {t('bookDetail.found')}</>
                 ) : (
-                  <><Sparkles size={12} /> Buscar en Open Library / Google</>
+                  <><Sparkles size={12} /> {t('bookDetail.searchWebApi')}</>
                 )}
               </button>
 
@@ -409,9 +411,9 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   disabled={extractingCover}
                 >
                   {extractingCover ? (
-                    <><Loader2 size={12} className="spin" /> Extrayendo...</>
+                    <><Loader2 size={12} className="spin" /> {t('bookDetail.extracting')}</>
                   ) : (
-                    <><ImageIcon size={12} /> Extraer Portada</>
+                    <><ImageIcon size={12} /> {t('bookDetail.extractCover')}</>
                   )}
                 </button>
               )}
@@ -437,24 +439,24 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 disabled={identifying}
               >
                 {identifying ? (
-                  <><Loader2 size={12} className="spin" /> AI leyendo...</>
+                  <><Loader2 size={12} className="spin" /> {t('bookDetail.aiReading')}</>
                 ) : identifyResult?.title ? (
                   <><CheckCircle2 size={12} /> AI: {identifyResult.confidence}</>
                 ) : (
-                  <><Bot size={12} /> AI Leer Título</>
+                  <><Bot size={12} /> {t('bookDetail.aiReadTitle')}</>
                 )}
               </button>
             </div>
 
             {enrichResult && !enrichResult.found && (
               <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: '8px' }}>
-                No se encontró. Puedes editar el título manualmente con el ícono ✏️ y buscar de nuevo.
+                {t('bookDetail.notFoundHint')}
               </div>
             )}
 
             {enrichResult?.found && enrichResult.title !== book.title && (
               <div style={{ fontSize: 'var(--fs-xs)', color: '#48bb78', marginTop: '8px' }}>
-                ✓ Título actualizado. Si no es correcto, haz clic en ✏️ para corregirlo.
+                {t('bookDetail.updatedHint')}
               </div>
             )}
           </div>
@@ -462,13 +464,13 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
           {/* AI Summary */}
           <div className="book-detail-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h4 style={{ margin: 0 }}><Sparkles size={12} /> Resumen AI</h4>
+              <h4 style={{ margin: 0 }}><Sparkles size={12} /> {t('bookDetail.aiSummary')}</h4>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={() => handleGenerateSummary(false)}
                   disabled={summaryLoading}
-                  title="Regenerar sinopsis normal"
+                  title={t('bookDetail.regenNormal')}
                 >
                   <RefreshCw size={12} className={summaryLoading ? 'spin' : ''} />
                 </button>
@@ -476,7 +478,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                   className="btn btn-ghost btn-sm"
                   onClick={() => handleGenerateSummary(true)}
                   disabled={summaryLoading}
-                  title="Forzar lectura con OCR (para PDFs escaneados)"
+                  title={t('bookDetail.regenOcr')}
                 >
                   <Scan size={12} /> OCR
                 </button>
@@ -485,20 +487,20 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
             
             {summaryLoading ? (
               <div className="book-detail-summary-loading">
-                <Loader2 size={14} className="spin" /> Generando resumen con Hermes AI...
+                <Loader2 size={14} className="spin" /> {t('bookDetail.generatingSummary')}
               </div>
             ) : summary ? (
               <div className="book-detail-summary">{summary}</div>
             ) : (
               <div className="book-detail-summary" style={{ color: 'var(--text-muted)' }}>
-                No hay resumen disponible para este formato.
+                {t('bookDetail.noSummaryFormat')}
               </div>
             )}
           </div>
 
           {/* Affiliate / Buy Links */}
           <div className="book-detail-section">
-            <h4><ShoppingCart size={12} /> Comprar este libro</h4>
+            <h4><ShoppingCart size={12} /> {t('bookDetail.buyBook')}</h4>
             {affiliateLinks.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {affiliateLinks.map(link => (
@@ -549,7 +551,7 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
               >
                 <ShoppingCart size={16} style={{ color: '#ff9900' }} />
-                <span style={{ flex: 1 }}>Buscar en Amazon</span>
+                <span style={{ flex: 1 }}>{t('bookDetail.searchAmazon')}</span>
                 <ExternalLink size={14} style={{ color: 'var(--text-muted)' }} />
               </a>
             )}
@@ -557,13 +559,13 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
 
           {/* Community Discussion */}
           <div className="book-detail-section">
-            <h4><MessageCircle size={16} /> Discusión de la Comunidad</h4>
+            <h4><MessageCircle size={16} /> {t('bookDetail.communityDiscussion')}</h4>
             <BookDiscussion bookId={book.id} />
           </div>
 
           {/* File Path */}
           <div className="book-detail-section">
-            <h4>📂 Ubicación</h4>
+            <h4>📂 {t('bookDetail.location')}</h4>
             <div className="book-detail-path">{book.filePath}</div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -29,6 +30,7 @@ export default function PdfReader({
   nightMode,
   pageLayout,
 }: PdfReaderProps) {
+  const { t } = useTranslation();
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -43,8 +45,8 @@ export default function PdfReader({
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF load error:', error);
     setIsLoading(false);
-    setLoadError(error.message || 'Error al cargar PDF');
-  }, []);
+    setLoadError(error.message || t('reader.errorPdf'));
+  }, [t]);
 
   // Pass file as object with credentials for authenticated endpoints
   const fileSource = useMemo(() => ({
@@ -63,7 +65,7 @@ export default function PdfReader({
       {isLoading && (
         <div className="reader-loading">
           <div className="reader-loading-spinner" />
-          <span>Cargando documento...</span>
+          <span>{t('reader.loadingDoc')}</span>
         </div>
       )}
       {loadError && (
@@ -77,7 +79,7 @@ export default function PdfReader({
               color: '#e2e8f0', cursor: 'pointer', fontSize: 13,
             }}
           >
-            Reintentar
+            {t('reader.retry')}
           </button>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
@@ -13,16 +14,18 @@ interface AiChatPanelProps {
   onNavigate?: (action: AiAction) => void;
 }
 
-const QUICK_ACTIONS = [
-  { label: '📝 Resumen', prompt: 'Dame un resumen detallado de este libro basándote en el texto que tienes disponible.' },
-  { label: '🤔 Explica', prompt: 'Explícame los conceptos principales de lo que estoy leyendo de forma clara y sencilla.' },
-  { label: '💭 Filosofar', prompt: 'Hablemos sobre las ideas filosóficas que presenta este texto. ¿Cuáles son las implicaciones más profundas?' },
-  { label: '📊 Reporte', prompt: 'Genera un reporte académico de lo leído: tema central, argumentos principales, fortalezas, debilidades y conclusión.' },
-  { label: '🔗 Relacionar', prompt: '¿Con qué otros libros o corrientes de pensamiento se relaciona este contenido? Explica las conexiones.' },
-  { label: '🌐 Buscar Web', prompt: '' }, // Special action — triggers web search dialog
-];
-
 export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: AiChatPanelProps) {
+  const { t } = useTranslation();
+
+  const QUICK_ACTIONS = [
+    { label: t('aiChat.quickSummaryLabel'), prompt: t('aiChat.quickSummaryPrompt'), isWeb: false },
+    { label: t('aiChat.quickExplainLabel'), prompt: t('aiChat.quickExplainPrompt'), isWeb: false },
+    { label: t('aiChat.quickPhiloLabel'), prompt: t('aiChat.quickPhiloPrompt'), isWeb: false },
+    { label: t('aiChat.quickReportLabel'), prompt: t('aiChat.quickReportPrompt'), isWeb: false },
+    { label: t('aiChat.quickRelateLabel'), prompt: t('aiChat.quickRelatePrompt'), isWeb: false },
+    { label: t('aiChat.quickSearchLabel'), prompt: '', isWeb: true },
+  ];
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -93,7 +96,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     // Add a system-like message showing the search
     const searchMsg: ChatMessage = {
       role: 'assistant',
-      content: `🔍 Buscando en la web: **"${query}"**...`,
+      content: t('aiChat.searchingWeb', { query }),
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, searchMsg]);
@@ -108,10 +111,10 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
-          if (last && last.content.includes('Buscando en la web')) {
+          if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
             updated[updated.length - 1] = {
               ...last,
-              content: `🌐 **${result.count} resultados encontrados** para "${query}".\n\nEl contexto de búsqueda se ha cargado. Ahora puedo responder preguntas usando esta información. ¡Pregúntame lo que quieras!`,
+              content: t('aiChat.searchSuccess', { count: result.count, query }),
             };
           }
           return updated;
@@ -120,10 +123,10 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
-          if (last && last.content.includes('Buscando en la web')) {
+          if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
             updated[updated.length - 1] = {
               ...last,
-              content: `⚠️ No se encontraron resultados para "${query}". Intenta con otros términos.`,
+              content: t('aiChat.searchEmpty', { query }),
             };
           }
           return updated;
@@ -133,10 +136,10 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
-        if (last && last.content.includes('Buscando en la web')) {
+        if (last && last.content.includes(t('aiChat.searchingWeb', { query }).replace('...', ''))) {
           updated[updated.length - 1] = {
             ...last,
-            content: `⚠️ Error al buscar en la web. Verifica tu conexión a internet.`,
+            content: t('aiChat.searchError'),
           };
         }
         return updated;
@@ -252,7 +255,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   };
 
   const handleQuickAction = (action: typeof QUICK_ACTIONS[number]) => {
-    if (action.label === '🌐 Buscar Web') {
+    if (action.isWeb) {
       setShowSearchInput(true);
       setSearchQuery(`${book.title} ${book.author}`.trim());
     } else {
@@ -269,14 +272,14 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
 
   const getActionLabel = (action: AiAction) => {
     switch (action.type) {
-      case 'search': return `🔍 Buscar: "${action.value}"`;
-      case 'category': return `📁 Ir a: ${action.value}`;
-      case 'open': return `📖 Abrir libro #${action.value}`;
+      case 'search': return t('aiChat.actionSearch', { value: action.value });
+      case 'category': return t('aiChat.actionCategory', { value: action.value });
+      case 'open': return t('aiChat.actionOpenBook', { value: action.value });
       case 'navigate':
-        if (action.value === 'library') return '🏠 Ir a Biblioteca';
-        if (action.value === 'favorites') return '❤️ Ir a Favoritos';
-        if (action.value === 'reading') return '📚 Ir a Leyendo';
-        return `🔗 Navegar: ${action.value}`;
+        if (action.value === 'library') return t('aiChat.actionLibrary');
+        if (action.value === 'favorites') return t('aiChat.actionFavorites');
+        if (action.value === 'reading') return t('aiChat.actionReading');
+        return t('aiChat.actionNavigate', { value: action.value });
     }
   };
 
@@ -284,7 +287,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     <div className="reader-ai-panel" onClick={(e) => e.stopPropagation()}>
       {/* Header */}
       <div className="reader-ai-header">
-        <h3><Sparkles size={14} /> Asistente AI</h3>
+        <h3><Sparkles size={14} /> {t('aiChat.title')}</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div className="ai-status">
             <div className={`ai-status-dot ${hermesOnline ? 'online' : 'offline'}`} />
@@ -315,16 +318,16 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         {messages.length === 0 ? (
           <div className="reader-ai-empty">
             <Bot size={48} />
+            <p dangerouslySetInnerHTML={{ __html: t('aiChat.askAbout', { title: book.title }) }} />
             <p>
-              Pregúntame sobre <strong>"{book.title}"</strong>.
               {pageContext ? (
-                <><br /><span style={{ fontSize: '0.85em', color: 'var(--accent-success)' }}>
-                  ✅ Leyendo el contenido de la página {currentPage}
-                </span></>
+                <span style={{ fontSize: '0.85em', color: 'var(--accent-success)' }}>
+                  {t('aiChat.readingPage', { page: currentPage })}
+                </span>
               ) : contextLoading ? (
-                <><br /><span style={{ fontSize: '0.85em' }}>Cargando contexto...</span></>
+                <span style={{ fontSize: '0.85em' }}>{t('aiChat.loadingContext')}</span>
               ) : (
-                <><br /><span style={{ fontSize: '0.85em' }}>Puedo resumir, explicar, filosofar, buscar en web o navegar tu biblioteca.</span></>
+                <span style={{ fontSize: '0.85em' }}>{t('aiChat.canDo')}</span>
               )}
             </p>
 
@@ -335,7 +338,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="¿Qué buscar en la web?"
+                  placeholder={t('aiChat.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -354,9 +357,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.label}
-                  className={`ai-quick-btn ${action.label === '🌐 Buscar Web' ? 'ai-quick-btn-web' : ''}`}
+                  className={`ai-quick-btn ${action.isWeb ? 'ai-quick-btn-web' : ''}`}
                   onClick={() => handleQuickAction(action)}
-                  disabled={!hermesOnline && action.label !== '🌐 Buscar Web'}
+                  disabled={!hermesOnline && !action.isWeb}
                 >
                   {action.label}
                 </button>
@@ -410,7 +413,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="¿Qué buscar en la web?"
+            placeholder={t('aiChat.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
@@ -431,7 +434,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         <button
           className={`btn btn-ghost btn-icon btn-sm ${webSearchContext ? 'ai-web-active' : ''}`}
           onClick={() => setShowSearchInput(!showSearchInput)}
-          title={webSearchContext ? 'Contexto web cargado — click para buscar más' : 'Buscar en la web'}
+          title={webSearchContext ? t('aiChat.tooltipWebLoaded') : t('aiChat.tooltipWebSearch')}
           style={{ flexShrink: 0 }}
         >
           <Globe size={14} />
@@ -440,14 +443,14 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
         <input
           ref={inputRef}
           type="text"
-          placeholder={hermesOnline ? 'Pregunta sobre este libro...' : 'Hermes AI no disponible...'}
+          placeholder={hermesOnline ? t('aiChat.inputPlaceholder') : t('aiChat.inputUnavailable')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={!hermesOnline || isStreaming}
         />
         {isStreaming ? (
-          <button className="btn btn-primary btn-icon btn-sm" onClick={handleStop} title="Detener">
+          <button className="btn btn-primary btn-icon btn-sm" onClick={handleStop} title={t('aiChat.tooltipStop')}>
             <StopCircle size={14} />
           </button>
         ) : (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import './Reader.css';
 
@@ -15,6 +16,7 @@ const PAGE_HEIGHT = 1056; // A4 page height in pixels (at 96dpi)
 const PAGE_WIDTH = 816;   // A4 page width in pixels (at 96dpi)
 
 export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onTotalPages, currentPage = 1 }: HtmlReaderProps) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -26,7 +28,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
     
     fetch(`${import.meta.env.DEV ? 'http://localhost:3001' : ''}/api/books/${bookId}/html`)
       .then(res => {
-        if (!res.ok) throw new Error('No se pudo cargar el documento');
+        if (!res.ok) throw new Error(t('reader.errorDoc'));
         return res.text();
       })
       .then(data => {
@@ -84,7 +86,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
   if (error) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ef4444' }}>
-        <p>Error: {error}</p>
+        <p>{t('reader.errorPrefix', { error })}</p>
       </div>
     );
   }
@@ -93,7 +95,7 @@ export default function HtmlReader({ bookId, scale, nightMode, onPageChange, onT
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
         <Loader2 className="spinner" size={24} style={{ marginRight: '8px' }} />
-        <span>Procesando documento...</span>
+        <span>{t('reader.processing')}</span>
       </div>
     );
   }

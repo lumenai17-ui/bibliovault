@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ZoomIn,
@@ -42,14 +43,15 @@ interface UnifiedReaderProps {
   onNavigate?: (action: AiAction) => void;
 }
 
-const THEME_CONFIG: Record<ReaderTheme, { label: string; icon: string; filterCSS: string; bgClass: string }> = {
-  default: { label: 'Normal', icon: '☀️', filterCSS: '', bgClass: '' },
-  night: { label: 'Noche', icon: '🌙', filterCSS: 'invert(0.88) hue-rotate(180deg)', bgClass: 'reader-night' },
-  sepia: { label: 'Sepia', icon: '📜', filterCSS: 'sepia(0.35) brightness(0.95) contrast(1.05)', bgClass: 'reader-sepia' },
-  paper: { label: 'Papel', icon: '📄', filterCSS: 'brightness(1.1) contrast(0.95)', bgClass: 'reader-paper' },
+const THEME_CONFIG: Record<ReaderTheme, { labelKey: string; icon: string; filterCSS: string; bgClass: string }> = {
+  default: { labelKey: 'reader.themeNormal', icon: '☀️', filterCSS: '', bgClass: '' },
+  night: { labelKey: 'reader.themeNight', icon: '🌙', filterCSS: 'invert(0.88) hue-rotate(180deg)', bgClass: 'reader-night' },
+  sepia: { labelKey: 'reader.themeSepia', icon: '📜', filterCSS: 'sepia(0.35) brightness(0.95) contrast(1.05)', bgClass: 'reader-sepia' },
+  paper: { labelKey: 'reader.themePaper', icon: '📄', filterCSS: 'brightness(1.1) contrast(0.95)', bgClass: 'reader-paper' },
 };
 
 export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedReaderProps) {
+  const { t } = useTranslation();
   const hasRestoredRef = useRef(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -320,7 +322,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
       {/* Toolbar */}
       <div className="reader-toolbar">
         <button className="reader-toolbar-back" onClick={handleClose}>
-          <ArrowLeft size={16} /> Biblioteca
+          <ArrowLeft size={16} /> {t('reader.backToLibrary')}
         </button>
 
         <div className="reader-toolbar-title">
@@ -345,14 +347,14 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               <button
                 className={`btn-icon ${pageLayout === 'single' ? 'active' : ''}`}
                 onClick={() => setPageLayout('single')}
-                title="Una página"
+                title={t('reader.singlePage')}
               >
                 <BookOpen size={14} />
               </button>
               <button
                 className={`btn-icon ${pageLayout === 'double' ? 'active' : ''}`}
                 onClick={() => setPageLayout('double')}
-                title="Dos páginas"
+                title={t('reader.doublePage')}
               >
                 <Columns2 size={14} />
               </button>
@@ -361,13 +363,13 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
 
           {/* Group 2: Zoom */}
           <div className="reader-toolbar-group">
-            <button className="btn-icon" onClick={handleZoomOut} title="Alejar">
+            <button className="btn-icon" onClick={handleZoomOut} title={t('reader.zoomOut')}>
               <ZoomOut size={14} />
             </button>
             <span style={{ minWidth: 38, textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
               {Math.round(scale * 100)}%
             </span>
-            <button className="btn-icon" onClick={handleZoomIn} title="Acercar">
+            <button className="btn-icon" onClick={handleZoomIn} title={t('reader.zoomIn')}>
               <ZoomIn size={14} />
             </button>
           </div>
@@ -379,20 +381,20 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               <button
                 className={`btn-icon ${showThemePicker ? 'active' : ''}`}
                 onClick={() => setShowThemePicker(!showThemePicker)}
-                title={`Tema: ${themeConfig.label}`}
+                title={t('reader.themeLabel', { theme: t(themeConfig.labelKey) })}
               >
                 <Palette size={14} />
               </button>
               {showThemePicker && (
                 <div className="reader-theme-picker">
-                  {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((t) => (
+                  {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((themeKey) => (
                     <button
-                      key={t}
-                      className={`reader-theme-option ${t === theme ? 'active' : ''}`}
-                      onClick={() => { setTheme(t); setShowThemePicker(false); }}
+                      key={themeKey}
+                      className={`reader-theme-option ${themeKey === theme ? 'active' : ''}`}
+                      onClick={() => { setTheme(themeKey); setShowThemePicker(false); }}
                     >
-                      <span>{THEME_CONFIG[t].icon}</span>
-                      <span>{THEME_CONFIG[t].label}</span>
+                      <span>{THEME_CONFIG[themeKey].icon}</span>
+                      <span>{t(THEME_CONFIG[themeKey].labelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -403,7 +405,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             <button
               className={`btn-icon ${isCurrentPageBookmarked ? 'reader-bookmarked' : ''}`}
               onClick={handleToggleBookmark}
-              title={isCurrentPageBookmarked ? 'Quitar marcador' : 'Agregar marcador (B)'}
+              title={isCurrentPageBookmarked ? t('reader.removeBookmark') : t('reader.addBookmark')}
             >
               {isCurrentPageBookmarked ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
             </button>
@@ -413,7 +415,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               <button
                 className={`btn-icon ${showBookmarks ? 'active' : ''}`}
                 onClick={() => setShowBookmarks(!showBookmarks)}
-                title={`Marcadores (${bookmarks.length})`}
+                title={t('reader.bookmarksCount', { count: bookmarks.length })}
               >
                 <List size={14} />
                 {bookmarks.length > 0 && <span className="reader-bookmark-count">{bookmarks.length}</span>}
@@ -422,7 +424,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               {showBookmarks && (
                 <div className="reader-bookmarks-panel">
                   <div className="reader-bookmarks-header">
-                    <h4>📑 Marcadores</h4>
+                    <h4>{t('reader.bookmarksTitle')}</h4>
                     <button className="btn-icon" onClick={() => setShowBookmarks(false)}>
                       <X size={12} />
                     </button>
@@ -430,7 +432,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
                   {bookmarks.length === 0 ? (
                     <div className="reader-bookmarks-empty">
                       <Bookmark size={24} />
-                      <p>Sin marcadores aún.<br />Presiona <strong>B</strong> para marcar una página.</p>
+                      <p dangerouslySetInnerHTML={{ __html: t('reader.bookmarksEmpty') }} />
                     </div>
                   ) : (
                     <div className="reader-bookmarks-list">
@@ -469,11 +471,11 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
                 setShowSearch(!showSearch);
                 if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 100);
               }}
-              title="Buscar en libro (Ctrl+F)"
+              title={t('reader.searchTooltip')}
             >
               <Search size={14} />
             </button>
-            <button className="btn-icon" onClick={handleFullscreen} title="Pantalla completa">
+            <button className="btn-icon" onClick={handleFullscreen} title={t('reader.fullscreen')}>
               <Maximize size={14} />
             </button>
           </div>
@@ -516,7 +518,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               ref={searchInputRef}
               type="text"
               className="reader-search-input"
-              placeholder="Buscar en este libro..."
+              placeholder={t('reader.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={async (e) => {
@@ -532,7 +534,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               }}
             />
             <span className="reader-search-hint">
-              {isSearching ? 'Buscando...' : searchResults.length > 0 ? `${searchResults.length} resultados` : 'Enter para buscar'}
+              {isSearching ? t('reader.searching') : searchResults.length > 0 ? t('reader.searchResults', { count: searchResults.length }) : t('reader.searchEnter')}
             </span>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setShowSearch(false)}>
               <X size={12} />
@@ -609,13 +611,13 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
           </button>
 
           <div className="reader-nav-page">
-            <span>{pageLayout === 'double' ? 'Páginas' : 'Página'}</span>
+            <span>{pageLayout === 'double' ? t('reader.navPages') : t('reader.navPage')}</span>
             <input
               type="text"
               value={pageInput}
               onChange={(e) => handlePageInput(e.target.value)}
             />
-            <span>de {totalPages}</span>
+            <span>{t('reader.navOf', { total: totalPages })}</span>
           </div>
 
           <button
@@ -650,7 +652,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
       {showMobileMenu && (
         <div className="reader-bottom-sheet">
           <div className="reader-sheet-handle" />
-          <p className="reader-sheet-title">Herramientas</p>
+          <p className="reader-sheet-title">{t('reader.mobileTools')}</p>
 
           {/* Zoom Row */}
           <div className="reader-sheet-zoom">
@@ -662,14 +664,14 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
           {/* Theme Row (conditional) */}
           {mobileSubView === 'themes' && (
             <div className="reader-sheet-themes">
-              {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((t) => (
+              {(Object.keys(THEME_CONFIG) as ReaderTheme[]).map((themeKey) => (
                 <button
-                  key={t}
-                  className={`reader-sheet-theme-btn ${t === theme ? 'active' : ''}`}
-                  onClick={() => { setTheme(t); setMobileSubView('none'); }}
+                  key={themeKey}
+                  className={`reader-sheet-theme-btn ${themeKey === theme ? 'active' : ''}`}
+                  onClick={() => { setTheme(themeKey); setMobileSubView('none'); }}
                 >
-                  <span className="theme-icon">{THEME_CONFIG[t].icon}</span>
-                  <span>{THEME_CONFIG[t].label}</span>
+                  <span className="theme-icon">{THEME_CONFIG[themeKey].icon}</span>
+                  <span>{t(THEME_CONFIG[themeKey].labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -680,7 +682,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             <div className="reader-sheet-bookmarks">
               {bookmarks.length === 0 ? (
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 16 }}>
-                  Sin marcadores aún. Usa el botón "Marcar" para agregar uno.
+                  {t('reader.mobileBookmarksEmpty')}
                 </p>
               ) : (
                 bookmarks.map((bm) => (
@@ -739,7 +741,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               >
                 {pageLayout === 'single' ? <Columns2 size={20} /> : <BookOpen size={20} />}
                 <span className="sheet-btn-label">
-                  {pageLayout === 'single' ? 'Doble' : 'Simple'}
+                  {pageLayout === 'single' ? t('reader.mobileDouble') : t('reader.mobileSingle')}
                 </span>
               </button>
             )}
@@ -749,7 +751,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               onClick={() => setMobileSubView(mobileSubView === 'themes' ? 'none' : 'themes')}
             >
               <Palette size={20} />
-              <span className="sheet-btn-label">Tema</span>
+              <span className="sheet-btn-label">{t('reader.mobileTheme')}</span>
             </button>
 
             <button
@@ -758,7 +760,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             >
               {isCurrentPageBookmarked ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
               <span className="sheet-btn-label">
-                {isCurrentPageBookmarked ? 'Marcado' : 'Marcar'}
+                {isCurrentPageBookmarked ? t('reader.mobileBookmarked') : t('reader.mobileBookmark')}
               </span>
             </button>
 
@@ -767,7 +769,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               onClick={() => setMobileSubView(mobileSubView === 'bookmarks' ? 'none' : 'bookmarks')}
             >
               <List size={20} />
-              <span className="sheet-btn-label">Lista ({bookmarks.length})</span>
+              <span className="sheet-btn-label">{t('reader.mobileList', { count: bookmarks.length })}</span>
             </button>
 
             <button
@@ -779,12 +781,12 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               }}
             >
               <Search size={20} />
-              <span className="sheet-btn-label">Buscar</span>
+              <span className="sheet-btn-label">{t('reader.mobileSearch')}</span>
             </button>
 
             <button className="reader-sheet-btn" onClick={() => { handleFullscreen(); setShowMobileMenu(false); }}>
               <Maximize size={20} />
-              <span className="sheet-btn-label">Completa</span>
+              <span className="sheet-btn-label">{t('reader.mobileFull')}</span>
             </button>
 
             <button
@@ -794,7 +796,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               }}
             >
               <Volume2 size={20} />
-              <span className="sheet-btn-label">Narrar</span>
+              <span className="sheet-btn-label">{t('reader.mobileNarrate')}</span>
             </button>
 
             <button
