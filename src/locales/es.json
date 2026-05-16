@@ -574,6 +574,16 @@
     "timeD": "hace {{count}}d"
   },
   "categories": {
+    "goodMorning": "Buenos días",
+    "goodAfternoon": "Buenas tardes",
+    "goodEvening": "Buenas noches",
+    "statsTotalBooks": "{{count}} Libros",
+    "statsCategories": "{{count}} Categorías",
+    "statsReading": "{{count}} Leyendo",
+    "myCollections": "Mis Colecciones",
+    "exploreCategories": "Explorar Categorías",
+    "bookCount_one": "1 libro",
+    "bookCount_other": "{{count}} libros",
     "Ficción": "Ficción",
     "No Ficción": "No Ficción",
     "Ocultismo": "Ocultismo",

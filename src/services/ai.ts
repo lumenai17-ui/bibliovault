@@ -63,6 +63,7 @@ export async function streamAiChat(
   signal?: AbortSignal,
   webSearchResults?: string,
   libraryContext?: string,
+  userLanguage?: string,
 ): Promise<void> {
   try {
     const response = await fetch(`${API_BASE}/ai/chat`, {
@@ -75,6 +76,7 @@ export async function streamAiChat(
         pageContext,
         webSearchResults,
         libraryContext,
+        userLanguage,
       }),
       signal,
     });

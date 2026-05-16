@@ -59,7 +59,12 @@ function buildSystemPrompt(
   pageContext?: string,
   webSearchResults?: string,
   libraryContext?: string,
+  userLanguage?: string,
 ): string {
+  const languageDirective = userLanguage === 'en' 
+    ? '- IMPORTANTE: El usuario ha seleccionado el idioma INGLÉS. DEBES responder a TODO en inglés (English).'
+    : '- Responde en el mismo idioma que use el usuario';
+
   let prompt = `Eres BiblioVault AI, un asistente inteligente integrado en una biblioteca digital personal. Estás operando dentro de una aplicación de lectura llamada BiblioVault.
 
 📖 LIBRO ACTUAL: "${bookTitle}"${bookAuthor ? ` — Autor: ${bookAuthor}` : ''}
@@ -71,7 +76,7 @@ function buildSystemPrompt(
 - Si el texto de la página se incluye abajo, ÚSALO como base para tus respuestas
 - Si NO tienes el texto de la página, usa tu conocimiento general sobre el libro/tema
 - Puedes resumir, explicar conceptos, filosofar, generar reportes, comparar con otros libros
-- Responde en el mismo idioma que use el usuario
+${languageDirective}
 - Sé profundo pero accesible, usa ejemplos cuando sea útil
 - Si no conoces algo, dilo honestamente
 - Formatea tus respuestas con Markdown (títulos, listas, **negritas**, etc.)
@@ -123,13 +128,14 @@ REGLAS DE ACCIONES:
 
 /** Stream chat completion from LLM (Groq or Hermes) */
 export async function streamChat(req: Request, res: Response) {
-  const { messages, bookTitle, bookAuthor, pageContext, webSearchResults, libraryContext } = req.body as {
+  const { messages, bookTitle, bookAuthor, pageContext, webSearchResults, libraryContext, userLanguage } = req.body as {
     messages: ChatMessage[];
     bookTitle?: string;
     bookAuthor?: string;
     pageContext?: string;
     webSearchResults?: string;
     libraryContext?: string;
+    userLanguage?: string;
   };
 
   if (!messages || !Array.isArray(messages)) {
@@ -143,6 +149,7 @@ export async function streamChat(req: Request, res: Response) {
     pageContext,
     webSearchResults,
     libraryContext,
+    userLanguage,
   );
 
   const fullMessages: ChatMessage[] = [

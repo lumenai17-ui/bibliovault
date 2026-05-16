@@ -15,7 +15,7 @@ interface AiChatPanelProps {
 }
 
 export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: AiChatPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const QUICK_ACTIONS = [
     { label: t('aiChat.quickSummaryLabel'), prompt: t('aiChat.quickSummaryPrompt'), isWeb: false },
@@ -226,8 +226,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       },
       abortRef.current.signal,
       webSearchContext || undefined,
+      i18n.language
     );
-  }, [messages, isStreaming, book.title, book.author, pageContext, webSearchContext]);
+  }, [messages, isStreaming, book.title, book.author, pageContext, webSearchContext, i18n.language]);
 
   const handleStop = () => {
     abortRef.current?.abort();

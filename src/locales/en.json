@@ -574,6 +574,16 @@
     "timeD": "{{count}}d ago"
   },
   "categories": {
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "statsTotalBooks": "{{count}} Books",
+    "statsCategories": "{{count}} Categories",
+    "statsReading": "{{count}} Reading",
+    "myCollections": "My Collections",
+    "exploreCategories": "Explore Categories",
+    "bookCount_one": "1 book",
+    "bookCount_other": "{{count}} books",
     "Ficción": "Fiction",
     "No Ficción": "Non-Fiction",
     "Ocultismo": "Occultism",
