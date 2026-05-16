@@ -2057,13 +2057,17 @@ async function uploadCoverToCloudAndGetUrl(bookId: number, localCoverPath: strin
       const coverBuffer = readFileSync(localCoverPath);
       const coverFilename = `${bookId}_pdf.jpg`;
       
-      await supabase.storage.from('covers').upload(coverFilename, coverBuffer, {
+      const { data, error } = await supabase.storage.from('covers').upload(coverFilename, coverBuffer, {
         contentType: 'image/jpeg',
         upsert: true,
       });
       
-      finalCoverPath = `${supabaseUrl}/storage/v1/object/public/covers/${coverFilename}`;
-      console.log(`📸 Cover uploaded to Supabase: ${coverFilename}`);
+      if (error) {
+        console.error('❌ Supabase upload returned error:', error);
+      } else {
+        finalCoverPath = `${supabaseUrl}/storage/v1/object/public/covers/${coverFilename}`;
+        console.log(`📸 Cover uploaded to Supabase: ${coverFilename}`);
+      }
     } catch (uploadErr) {
       console.error('Supabase cover upload failed, using local path:', uploadErr);
     }
@@ -2071,6 +2075,31 @@ async function uploadCoverToCloudAndGetUrl(bookId: number, localCoverPath: strin
 
   return { finalCoverPath, r2CoverKey };
 }
+
+app.get('/api/covers/test-supabase', async (_req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return res.json({ success: false, error: 'Supabase credentials missing from .env' });
+  }
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase.storage.from('covers').upload('test.txt', 'test content', {
+      upsert: true
+    });
+    
+    if (error) {
+      return res.json({ success: false, error: error.message || error });
+    }
+    
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message || err });
+  }
+});
 
 // Extract PDF first page as cover image
 app.post('/api/books/:id/extract-cover', async (req, res) => {
