@@ -19,6 +19,7 @@
     "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.4.1",
+    "react-reader": "^2.0.15",
     "react-router-dom": "^7.15.0",
     "recharts": "^3.8.1"
   },

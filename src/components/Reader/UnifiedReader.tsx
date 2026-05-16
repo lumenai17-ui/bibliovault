@@ -27,6 +27,7 @@ import {
 import PdfReader, { type PageLayout } from './PdfReader';
 import ImageViewer from './ImageViewer';
 import HtmlReader from './HtmlReader';
+import EpubReader from './EpubReader';
 import AiChatPanel from './AiChatPanel';
 import TtsControls from './TtsControls';
 import type { Book } from '../../types';
@@ -283,6 +284,23 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
 
     if (book.format === 'doc' || book.format === 'docx' || fileUrl.endsWith('.doc') || fileUrl.endsWith('.docx')) {
       return <HtmlReader bookId={book.id} scale={scale} nightMode={nightMode} />;
+    }
+
+    if (book.format === 'epub' || fileUrl.endsWith('.epub')) {
+      return (
+        <EpubReader 
+          fileUrl={fileUrl} 
+          scale={scale} 
+          nightMode={nightMode}
+          onPageChange={(p) => {
+            setCurrentPage(p);
+            setPageInput(String(p));
+          }}
+          onTotalPages={(t) => {
+            setTotalPages(t);
+          }}
+        />
+      );
     }
 
     return (
