@@ -2005,6 +2005,67 @@ app.post('/api/enrich/cancel', async (_req, res) => {
   res.json({ message: 'Cancelled' });
 });
 
+// Helper to upload an extracted cover to R2 and Supabase
+async function uploadCoverToCloudAndGetUrl(bookId: number, localCoverPath: string): Promise<{ finalCoverPath: string, r2CoverKey: string }> {
+  let finalCoverPath = localCoverPath;
+  let r2CoverKey = '';
+
+  if (!existsSync(localCoverPath)) return { finalCoverPath, r2CoverKey };
+
+  // Upload to R2 if configured (primary — persists across restarts)
+  if (isR2Configured) {
+    try {
+      const { PutObjectCommand, S3Client } = await import('@aws-sdk/client-s3');
+      const s3 = new S3Client({
+        region: 'auto',
+        endpoint: process.env.R2_ENDPOINT!,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        },
+      });
+      const ext = localCoverPath.split('.').pop()?.toLowerCase() || 'jpg';
+      r2CoverKey = `covers/${bookId}.${ext}`;
+      const coverBuffer = readFileSync(localCoverPath);
+      await s3.send(new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET || 'bibliovault-books',
+        Key: r2CoverKey,
+        Body: coverBuffer,
+        ContentType: 'image/jpeg',
+      }));
+      console.log(`📦 Cover uploaded to R2: ${r2CoverKey}`);
+    } catch (r2Err) {
+      console.error('R2 cover upload failed:', r2Err);
+      r2CoverKey = '';
+    }
+  }
+
+  // Also upload to Supabase Storage (legacy fallback)
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const coverBuffer = readFileSync(localCoverPath);
+      const coverFilename = `${bookId}_pdf.jpg`;
+      
+      await supabase.storage.from('covers').upload(coverFilename, coverBuffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+      
+      finalCoverPath = `${supabaseUrl}/storage/v1/object/public/covers/${coverFilename}`;
+      console.log(`📸 Cover uploaded to Supabase: ${coverFilename}`);
+    } catch (uploadErr) {
+      console.error('Supabase cover upload failed, using local path:', uploadErr);
+    }
+  }
+
+  return { finalCoverPath, r2CoverKey };
+}
+
 // Extract PDF first page as cover image
 app.post('/api/books/:id/extract-cover', async (req, res) => {
   const bookId = parseInt(req.params.id);
@@ -2023,60 +2084,7 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
     const coverPath = await extractPdfCover(filePath, bookId);
 
     if (coverPath && existsSync(coverPath)) {
-      let finalCoverPath = coverPath;
-      let r2CoverKey = '';
-
-      // Upload to R2 if configured (primary — persists across restarts)
-      if (isR2Configured) {
-        try {
-          const { PutObjectCommand } = await import('@aws-sdk/client-s3');
-          const { S3Client } = await import('@aws-sdk/client-s3');
-          const s3 = new S3Client({
-            region: 'auto',
-            endpoint: process.env.R2_ENDPOINT!,
-            credentials: {
-              accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-              secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-            },
-          });
-          const ext = coverPath.split('.').pop()?.toLowerCase() || 'jpg';
-          r2CoverKey = `covers/${bookId}.${ext}`;
-          const coverBuffer = readFileSync(coverPath);
-          await s3.send(new PutObjectCommand({
-            Bucket: process.env.R2_BUCKET || 'bibliovault-books',
-            Key: r2CoverKey,
-            Body: coverBuffer,
-            ContentType: 'image/jpeg',
-          }));
-          console.log(`📦 Cover uploaded to R2: ${r2CoverKey}`);
-        } catch (r2Err) {
-          console.error('R2 cover upload failed:', r2Err);
-          r2CoverKey = '';
-        }
-      }
-
-      // Also upload to Supabase Storage (legacy fallback)
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-      
-      if (supabaseUrl && supabaseKey) {
-        try {
-          const { createClient } = await import('@supabase/supabase-js');
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          const coverBuffer = readFileSync(coverPath);
-          const coverFilename = `${bookId}_pdf.jpg`;
-          
-          await supabase.storage.from('covers').upload(coverFilename, coverBuffer, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
-          
-          finalCoverPath = `${supabaseUrl}/storage/v1/object/public/covers/${coverFilename}`;
-          console.log(`📸 Cover uploaded to Supabase: ${coverFilename}`);
-        } catch (uploadErr) {
-          console.error('Supabase cover upload failed, using local path:', uploadErr);
-        }
-      }
+      const { finalCoverPath, r2CoverKey } = await uploadCoverToCloudAndGetUrl(bookId, coverPath);
 
       const updateData: any = {
         cover_path: finalCoverPath,
@@ -2109,10 +2117,16 @@ app.post('/api/covers/batch', async (_req, res) => {
 
   // Start in background
   runBatchCoverExtraction(books, async (bookId, coverPath, source) => {
-    await updateBook(bookId, {
-      cover_path: coverPath,
+    // Make sure we upload to cloud so it persists across Render restarts
+    const { finalCoverPath, r2CoverKey } = await uploadCoverToCloudAndGetUrl(bookId, coverPath);
+    
+    const updateData: any = {
+      cover_path: finalCoverPath,
       cover_source: source,
-    } as any);
+    };
+    if (r2CoverKey) updateData.r2_cover_key = r2CoverKey;
+
+    await updateBook(bookId, updateData);
   });
 
   res.json({ message: 'Batch cover extraction started', total: books.length });
