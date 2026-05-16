@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import './Admin.css';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
@@ -21,6 +22,7 @@ interface Category {
 }
 
 export default function AdminPending() {
+  const { t } = useTranslation();
   const [books, setBooks] = useState<PendingBook[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,30 +86,30 @@ export default function AdminPending() {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Libros Subidos por Usuarios</h2>
-        <span className="admin-badge">{books.length} libros</span>
+        <h2>{t('admin.pendingBooks')}</h2>
+        <span className="admin-badge">{t('admin.pendingCount', { count: books.length })}</span>
       </div>
 
       {loading ? (
-        <div className="admin-empty"><div className="empty-icon">⏳</div>Cargando...</div>
+        <div className="admin-empty"><div className="empty-icon">⏳</div>{t('admin.loadingPending')}</div>
       ) : books.length === 0 ? (
         <div className="admin-empty">
           <div className="empty-icon">✅</div>
-          No hay libros subidos por usuarios
+          {t('admin.noPending')}
         </div>
       ) : (
         <div className="admin-table-container">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Título</th>
-                <th>Formato</th>
-                <th>Subido por</th>
-                <th>Tamaño</th>
-                <th>Estado</th>
-                <th>Fecha</th>
-                <th>Categoría</th>
-                <th>Acciones</th>
+                <th>{t('admin.colTitle')}</th>
+                <th>{t('admin.colFormat')}</th>
+                <th>{t('admin.colUploader')}</th>
+                <th>{t('admin.colSize')}</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Category</th>
+                <th>{t('admin.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -138,7 +140,7 @@ export default function AdminPending() {
                       background: b.visibility === 'pending' ? 'rgba(251,191,36,0.2)' : 'rgba(100,116,139,0.2)',
                       color: b.visibility === 'pending' ? '#fbbf24' : '#94a3b8',
                     }}>
-                      {b.visibility === 'pending' ? '⏳ Pendiente' : '🔒 Privado'}
+                      {b.visibility === 'pending' ? `⏳ ${t('admin.pending')}` : '🔒 Private'}
                     </span>
                   </td>
                   <td style={{ fontSize: '12px', color: '#64748b' }}>{new Date(b.date_added).toLocaleDateString()}</td>
@@ -153,16 +155,19 @@ export default function AdminPending() {
                       style={{ padding: '4px 8px', fontSize: '11px', maxWidth: '140px' }}
                     >
                       <option value="">— Seleccionar —</option>
+                      <option value="">— {t('admin.selectCategory')} —</option>
                       {categories.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </td>
-                  <td>
-                    <div className="admin-actions">
-                      <button className="admin-btn approve" onClick={() => handleApprove(b.id)} title="Aprobar y publicar">✅</button>
-                      <button className="admin-btn reject" onClick={() => handleReject(b.id)} title="Rechazar">❌</button>
-                    </div>
+                  <td className="admin-actions">
+                    <button className="btn-admin-action" onClick={() => handleApprove(b.id)} title={t('admin.actionApprove')}>
+                      ✅
+                    </button>
+                    <button className="btn-admin-action btn-danger" onClick={() => handleReject(b.id)} title={t('admin.actionReject')}>
+                      ❌
+                    </button>
                   </td>
                 </tr>
               ))}

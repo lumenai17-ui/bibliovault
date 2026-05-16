@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, X, FileText, Trash2, CloudUpload } from 'lucide-react';
 import './UploadPanel.css';
 
@@ -26,6 +27,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function UploadPanel({ onClose }: UploadPanelProps) {
+  const { t } = useTranslation();
   const [uploads, setUploads] = useState<UserUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -71,13 +73,13 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
           } else {
             try {
               const errData = JSON.parse(xhr.responseText);
-              reject(new Error(errData.error || 'Error al subir'));
+              reject(new Error(errData.error || t('uploadPanel.uploadingError')));
             } catch {
-              reject(new Error('Error al subir archivo'));
+              reject(new Error(t('uploadPanel.uploadingError')));
             }
           }
         };
-        xhr.onerror = () => reject(new Error('Error de conexión'));
+        xhr.onerror = () => reject(new Error(t('uploadPanel.connectionError')));
         xhr.open('POST', `${API_BASE}/uploads`);
         xhr.withCredentials = true;
         xhr.send(formData);
@@ -85,7 +87,7 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
 
       loadUploads();
     } catch (err: any) {
-      setError(err.message || 'Error al subir archivo.');
+      setError(err.message || t('uploadPanel.uploadingError'));
     } finally {
       setUploading(false);
       setProgress(0);
@@ -93,7 +95,7 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este archivo?')) return;
+    if (!confirm(t('uploadPanel.confirmDelete'))) return;
     
     try {
       const res = await fetch(`${API_BASE}/uploads/${id}`, {
@@ -137,9 +139,9 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
   };
 
   const getVisibilityBadge = (v?: string) => {
-    if (v === 'public') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34,197,94,0.2)', color: '#4ade80' }}>✅ Público</span>;
-    if (v === 'pending') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ En revisión</span>;
-    return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(100,116,139,0.2)', color: '#94a3b8' }}>🔒 Privado</span>;
+    if (v === 'public') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34,197,94,0.2)', color: '#4ade80' }}>✅ {t('myBooks.statusPublic', { defaultValue: 'Público' }).replace('✅ ', '')}</span>;
+    if (v === 'pending') return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ {t('myBooks.statusPending', { defaultValue: 'En revisión' }).replace('⏳ ', '')}</span>;
+    return <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(100,116,139,0.2)', color: '#94a3b8' }}>🔒 {t('myBooks.statusPrivate', { defaultValue: 'Privado' }).replace('🔒 ', '')}</span>;
   };
 
   return (
@@ -147,7 +149,7 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
       <div className="upload-panel-overlay" onClick={onClose} />
       <div className="upload-panel">
         <div className="upload-panel-header">
-          <h2><CloudUpload size={20} /> Mis Archivos</h2>
+          <h2><CloudUpload size={20} /> {t('uploadPanel.title')}</h2>
           <button className="upload-panel-close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -163,9 +165,9 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
         >
           <Upload size={32} />
           <p>
-            <span className="accent">Haz clic</span> o arrastra un archivo aquí
+            <span className="accent">{t('uploadPanel.dropHint1')}</span> {t('uploadPanel.dropHint2')}
           </p>
-          <p className="upload-formats">PDF, EPUB, DOC, DOCX — Máx. 100 MB</p>
+          <p className="upload-formats">{t('uploadPanel.formats')}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -191,12 +193,12 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
         {/* File list */}
         <div className="upload-list">
           <div className="upload-list-title">
-            Archivos subidos ({uploads.length})
+            {t('uploadPanel.uploadedFiles')} ({uploads.length})
           </div>
 
           {uploads.length === 0 ? (
             <div className="upload-empty">
-              No has subido archivos todavía
+              {t('uploadPanel.empty')}
             </div>
           ) : (
             uploads.map((upload) => (
@@ -216,7 +218,7 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
                     <button
                       className="upload-item-delete"
                       onClick={() => handleShare(upload)}
-                      title="Compartir con la comunidad"
+                      title={t('uploadPanel.share')}
                       style={{ color: '#60a5fa' }}
                     >
                       📤
@@ -225,7 +227,7 @@ export default function UploadPanel({ onClose }: UploadPanelProps) {
                   <button
                     className="upload-item-delete"
                     onClick={() => handleDelete(upload.id)}
-                    title="Eliminar"
+                    title={t('uploadPanel.delete')}
                   >
                     <Trash2 size={16} />
                   </button>

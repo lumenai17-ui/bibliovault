@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Crown, Check, Loader2, ShieldCheck, BookOpen, Sparkles, Headphones, MessageSquare, Gift } from 'lucide-react';
 import './SubscriptionPage.css';
 
@@ -26,6 +27,7 @@ interface SubStatus {
 }
 
 export default function SubscriptionPage({ userEmail, userName, onSubscribed }: SubscriptionPageProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<SubStatus | null>(null);
   const [error, setError] = useState('');
@@ -96,15 +98,15 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
             onSubscribed();
           } else {
             const err = await res.json();
-            setError(err.error || 'Error al activar suscripción');
+            setError(err.error || t('subscription.activateError'));
           }
         } catch {
-          setError('Error de conexión al activar suscripción');
+          setError(t('subscription.activateConnectionError'));
         }
       },
       onError: (err: any) => {
         console.error('PayPal error:', err);
-        setError('Error en el proceso de pago. Intenta de nuevo.');
+        setError(t('subscription.paypalError'));
       },
     }).render(paypalRef.current);
   };
@@ -123,13 +125,13 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setCouponSuccess(data.message || '¡Cupón activado!');
+        setCouponSuccess(data.message || t('subscription.couponSuccess'));
         setTimeout(() => onSubscribed(), 1500);
       } else {
-        setError(data.error || 'Cupón inválido');
+        setError(data.error || t('subscription.couponInvalid'));
       }
     } catch {
-      setError('Error de conexión');
+      setError(t('subscription.connectionError'));
     } finally {
       setCouponLoading(false);
     }
@@ -151,28 +153,28 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
         <div className="sub-header">
           <Crown className="sub-crown" />
           <h1>Lectura Arcana</h1>
-          <p className="sub-greeting">Bienvenido, {userName || userEmail.split('@')[0]}</p>
-          <p className="sub-tagline">Tu biblioteca digital inteligente te espera</p>
+          <p className="sub-greeting">{t('subscription.welcome', { name: userName || userEmail.split('@')[0] })}</p>
+          <p className="sub-tagline">{t('subscription.tagline')}</p>
         </div>
 
         <div className="sub-card">
           <div className="sub-price-tag">
-            <span className="sub-trial">7 días gratis</span>
+            <span className="sub-trial">{t('subscription.trial')}</span>
             <div className="sub-price">
               <span className="sub-currency">$</span>
               <span className="sub-amount">12</span>
               <span className="sub-cents">.99</span>
-              <span className="sub-period">/mes</span>
+              <span className="sub-period">{t('subscription.month')}</span>
             </div>
           </div>
 
           <ul className="sub-features">
-            <li><BookOpen size={16} /> <span>Biblioteca completa — 1,400+ libros</span></li>
-            <li><Sparkles size={16} /> <span>Hermes AI — Resúmenes y análisis inteligentes</span></li>
-            <li><MessageSquare size={16} /> <span>Chat con AI sobre cualquier libro</span></li>
-            <li><Headphones size={16} /> <span>Narración AI — Escucha tus libros</span></li>
-            <li><ShieldCheck size={16} /> <span>Acceso ilimitado — Sin restricciones</span></li>
-            <li><Check size={16} /> <span>Cancela cuando quieras</span></li>
+            <li><BookOpen size={16} /> <span>{t('subscription.featureLibrary')}</span></li>
+            <li><Sparkles size={16} /> <span>{t('subscription.featureAI')}</span></li>
+            <li><MessageSquare size={16} /> <span>{t('subscription.featureChat')}</span></li>
+            <li><Headphones size={16} /> <span>{t('subscription.featureAudio')}</span></li>
+            <li><ShieldCheck size={16} /> <span>{t('subscription.featureAccess')}</span></li>
+            <li><Check size={16} /> <span>{t('subscription.featureCancel')}</span></li>
           </ul>
 
           {error && <div className="sub-error">{error}</div>}
@@ -192,21 +194,20 @@ export default function SubscriptionPage({ userEmail, userName, onSubscribed }: 
               <Gift size={16} />
               <input
                 type="text"
-                placeholder="Código de cupón"
+                placeholder={t('subscription.couponPlaceholder')}
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                 onKeyDown={(e) => e.key === 'Enter' && handleCoupon()}
                 maxLength={20}
               />
               <button onClick={handleCoupon} disabled={couponLoading || !couponCode.trim()}>
-                {couponLoading ? <Loader2 size={14} className="spin" /> : 'Aplicar'}
+                {couponLoading ? <Loader2 size={14} className="spin" /> : t('subscription.apply')}
               </button>
             </div>
           </div>
 
           <p className="sub-disclaimer">
-            Después del período de prueba se cobra $12.99 USD/mes.
-            Puedes cancelar en cualquier momento.
+            {t('subscription.disclaimer')}
           </p>
         </div>
       </div>

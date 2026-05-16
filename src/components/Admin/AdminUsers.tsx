@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import './Admin.css';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
@@ -17,6 +18,7 @@ interface AdminUser {
 }
 
 export default function AdminUsers() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -90,14 +92,14 @@ export default function AdminUsers() {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Gestión de Usuarios</h2>
-        <span className="admin-badge">{filtered.length} usuarios</span>
+        <h2>{t('admin.userManagement')}</h2>
+        <span className="admin-badge">{t('admin.usersCount', { count: filtered.length })}</span>
       </div>
 
       <div className="admin-toolbar">
         <input
           className="admin-search"
-          placeholder="Buscar por email o nombre..."
+          placeholder={t('admin.searchUser')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && loadUsers(search)}
@@ -108,11 +110,11 @@ export default function AdminUsers() {
           <option value="premium">Premium</option>
           <option value="enterprise">Enterprise</option>
         </select>
-        <button className="admin-btn primary" onClick={() => loadUsers(search)}>Buscar</button>
+        <button className="admin-btn primary" onClick={() => loadUsers(search)}>{t('common.search')}</button>
       </div>
 
       {loading ? (
-        <div className="admin-empty"><div className="empty-icon">⏳</div>Cargando...</div>
+        <div className="admin-empty"><div className="empty-icon">⏳</div>{t('admin.loading')}</div>
       ) : (
         <div className="admin-table-container">
           <table className="admin-table">
@@ -120,13 +122,13 @@ export default function AdminUsers() {
               <tr>
                 <th>Email</th>
                 <th>Nombre</th>
-                <th>Plan</th>
+                <th>{t('admin.colPlan')}</th>
                 <th>Suscripción</th>
                 <th>PayPal</th>
                 <th>Vence</th>
-                <th>Registrado</th>
-                <th>Uploads</th>
-                <th>Acciones</th>
+                <th>{t('admin.colJoined')}</th>
+                <th>{t('admin.uploads')}</th>
+                <th>{t('admin.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -172,8 +174,8 @@ export default function AdminUsers() {
                     <div className="admin-actions">
                       {editingUser === u.id ? (
                         <>
-                          <button className="admin-btn approve" onClick={() => saveEdit(u.id)} title="Guardar">💾</button>
-                          <button className="admin-btn" onClick={() => setEditingUser(null)} title="Cancelar">✖</button>
+                          <button className="admin-btn approve" onClick={() => saveEdit(u.id)} title={t('common.save')}>💾</button>
+                          <button className="admin-btn" onClick={() => setEditingUser(null)} title={t('common.cancel')}>✖</button>
                         </>
                       ) : (
                         <>
@@ -194,9 +196,9 @@ export default function AdminUsers() {
                             onChange={e => setGrantDays(prev => ({ ...prev, [u.id]: e.target.value }))}
                             style={{ width: '50px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,15,25,0.8)', color: '#e2e8f0', fontSize: '11px' }}
                           />
-                          <button className="admin-btn approve" onClick={() => grantAccess(u.id)} title="Dar días premium">🎟️</button>
-                          <button className="admin-btn" onClick={() => startEdit(u)} title="Editar">✏️</button>
-                          <button className="admin-btn reject" onClick={() => deleteUser(u.id, u.email)} title="Eliminar usuario">🗑️</button>
+                          <button className="admin-btn approve" onClick={() => grantAccess(u.id)} title="Premium">🎟️</button>
+                          <button className="admin-btn" onClick={() => startEdit(u)} title="Edit">✏️</button>
+                          <button className="admin-btn reject" onClick={() => deleteUser(u.id, u.email)} title={t('admin.deleteUser')}>🗑️</button>
                         </>
                       )}
                     </div>

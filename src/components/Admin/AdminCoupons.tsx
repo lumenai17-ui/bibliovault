@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import './Admin.css';
 
 const API = import.meta.env.DEV ? 'http://localhost:3001' : '';
@@ -9,6 +10,7 @@ interface Coupon {
 }
 
 export default function AdminCoupons() {
+  const { t } = useTranslation();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
@@ -30,31 +32,31 @@ export default function AdminCoupons() {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h2>Cupones Activos</h2>
-        <span className="admin-badge">{coupons.length} cupones</span>
+        <h2>{t('admin.activeCoupons')}</h2>
+        <span className="admin-badge">{t('admin.couponsCount', { count: coupons.length })}</span>
       </div>
 
       <div style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px', lineHeight: 1.5 }}>
-        Los cupones se configuran en <code style={{ color: '#c4b5fd', background: 'rgba(167,139,250,0.1)', padding: '2px 6px', borderRadius: '4px' }}>COUPON_CODES</code> en Render.
-        <br />Formato: <code style={{ color: '#c4b5fd', background: 'rgba(167,139,250,0.1)', padding: '2px 6px', borderRadius: '4px' }}>CODIGO:DIAS,OTRO:DIAS</code>
+        {t('admin.couponsDesc1')} <code style={{ color: '#c4b5fd', background: 'rgba(167,139,250,0.1)', padding: '2px 6px', borderRadius: '4px' }}>COUPON_CODES</code> {t('admin.couponsDesc2')}
+        <br />{t('admin.couponsFormat')} <code style={{ color: '#c4b5fd', background: 'rgba(167,139,250,0.1)', padding: '2px 6px', borderRadius: '4px' }}>CODIGO:DIAS,OTRO:DIAS</code>
       </div>
 
       {loading ? (
-        <div className="admin-empty"><div className="empty-icon">⏳</div>Cargando...</div>
+        <div className="admin-empty"><div className="empty-icon">⏳</div>{t('admin.loading')}</div>
       ) : coupons.length === 0 ? (
         <div className="admin-empty">
           <div className="empty-icon">🎟️</div>
-          No hay cupones configurados.<br />
-          Agrega <code>COUPON_CODES</code> en las variables de entorno de Render.
+          {t('admin.noCoupons')}<br />
+          {t('admin.addCouponsHint')}
         </div>
       ) : (
         <div className="coupon-grid">
           {coupons.map(c => (
             <div key={c.code} className="coupon-card">
               <div className="coupon-code">{c.code}</div>
-              <div className="coupon-days">{c.days} días de Premium</div>
+              <div className="coupon-days">{t('admin.daysOfPremium', { days: c.days })}</div>
               <button className="coupon-copy" onClick={() => copyCode(c.code)}>
-                {copied === c.code ? '✅ Copiado!' : '📋 Copiar código'}
+                {copied === c.code ? t('admin.copied') : t('admin.copyCode')}
               </button>
             </div>
           ))}

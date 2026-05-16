@@ -26,7 +26,7 @@
 
 | Fase | Descripcion | Estado |
 |------|-------------|--------|
-| 17 | Internacionalizacion Portal (ES + EN) | En progreso |
+| 17 | Internacionalizacion Portal (ES + EN) | Done |
 
 ---
 
