@@ -79,6 +79,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  position: relative;
 }
 
 .header-filter-chip {
@@ -107,6 +108,52 @@
   background: rgba(102, 126, 234, 0.15);
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+}
+
+.header-filters-expanded {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 100;
+  min-width: 250px;
+}
+
+.header-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header-filter-label {
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.header-filter-select {
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  outline: none;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.header-filter-select:focus {
+  border-color: var(--accent-primary);
 }
 
 .header-actions {

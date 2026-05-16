@@ -122,6 +122,9 @@ export async function fetchBooks(params: {
   favorite?: boolean;
   search?: string;
   collection_id?: number;
+  language?: string;
+  minPages?: number;
+  maxPages?: number;
 } = {}): Promise<{ books: ApiBook[]; total: number }> {
   const qs = new URLSearchParams();
   if (params.limit) qs.set('limit', String(params.limit));
@@ -131,6 +134,9 @@ export async function fetchBooks(params: {
   if (params.favorite) qs.set('favorite', 'true');
   if (params.search) qs.set('search', params.search);
   if (params.collection_id) qs.set('collection_id', String(params.collection_id));
+  if (params.language && params.language !== 'all') qs.set('language', params.language);
+  if (params.minPages !== undefined) qs.set('minPages', String(params.minPages));
+  if (params.maxPages !== undefined) qs.set('maxPages', String(params.maxPages));
 
   const res = await fetchWithRetry(`${API_BASE}/books?${qs}`);
   return res.json();

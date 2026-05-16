@@ -99,6 +99,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeFormat, setActiveFormat] = useState<BookFormat | 'all'>('all');
+  const [activeLanguage, setActiveLanguage] = useState<string>('all');
+  const [activeLength, setActiveLength] = useState<string>('all'); // all, short, medium, long
   const [books, setBooks] = useState<Book[]>([]);
   const [totalBooks, setTotalBooks] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +132,17 @@ export default function App() {
       const params: Parameters<typeof fetchBooks>[0] = { limit: 2000 };
 
       if (activeFormat !== 'all') params.format = activeFormat;
+      if (activeLanguage !== 'all') params.language = activeLanguage;
+      
+      if (activeLength === 'short') {
+        params.maxPages = 50;
+      } else if (activeLength === 'medium') {
+        params.minPages = 50;
+        params.maxPages = 300;
+      } else if (activeLength === 'long') {
+        params.minPages = 300;
+      }
+
       if (searchQuery.trim()) params.search = searchQuery.trim();
       // Don't send favorite filter to server anymore — we filter client-side
       if (activeSection.startsWith('cat-')) {
@@ -177,7 +190,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeSection, activeFormat, searchQuery, currentUser]);
+  }, [activeSection, activeFormat, activeLanguage, activeLength, searchQuery, currentUser]);
 
   // Load stats, categories, and collections
   const loadMeta = useCallback(async () => {
@@ -392,6 +405,10 @@ export default function App() {
           onViewModeChange={setViewMode}
           activeFormat={activeFormat}
           onFormatChange={setActiveFormat}
+          activeLanguage={activeLanguage}
+          onLanguageChange={setActiveLanguage}
+          activeLength={activeLength}
+          onLengthChange={setActiveLength}
           onScan={handleScan}
           isScanning={isScanning}
           onRefresh={loadBooks}

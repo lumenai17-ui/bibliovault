@@ -325,6 +325,9 @@ export function getAllBooks(limit = 2000, offset = 0, filters?: {
   favorite?: boolean;
   search?: string;
   collection_id?: number;
+  language?: string;
+  minPages?: number;
+  maxPages?: number;
 }) {
   const db = getDb();
   let where = 'WHERE 1=1';
@@ -344,6 +347,18 @@ export function getAllBooks(limit = 2000, offset = 0, filters?: {
   if (filters?.search) {
     where += ' AND (b.title LIKE @search OR b.author LIKE @search OR b.folder_category LIKE @search)';
     params.search = `%${filters.search}%`;
+  }
+  if (filters?.language && filters.language !== 'all') {
+    where += ' AND b.language = @language';
+    params.language = filters.language;
+  }
+  if (filters?.minPages !== undefined) {
+    where += ' AND b.pages >= @minPages';
+    params.minPages = filters.minPages;
+  }
+  if (filters?.maxPages !== undefined) {
+    where += ' AND b.pages <= @maxPages';
+    params.maxPages = filters.maxPages;
   }
   if (filters?.collection_id) {
     where += ' AND bc.collection_id = @collection_id';

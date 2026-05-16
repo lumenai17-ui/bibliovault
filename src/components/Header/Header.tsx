@@ -37,6 +37,10 @@ interface HeaderProps {
   onViewModeChange: (mode: ViewMode) => void;
   activeFormat: BookFormat | 'all';
   onFormatChange: (format: BookFormat | 'all') => void;
+  activeLanguage: string;
+  onLanguageChange: (language: string) => void;
+  activeLength: string;
+  onLengthChange: (length: string) => void;
   onScan: () => void;
   isScanning: boolean;
   onRefresh?: () => void;
@@ -51,6 +55,19 @@ const FORMAT_FILTERS: { id: BookFormat | 'all'; key: string }[] = [
   { id: 'image', key: 'header.formatImages' },
 ];
 
+const LANGUAGE_FILTERS = [
+  { id: 'all', label: 'Todos los Idiomas' },
+  { id: 'es', label: 'Español' },
+  { id: 'en', label: 'Inglés' },
+];
+
+const LENGTH_FILTERS = [
+  { id: 'all', label: 'Cualquier extensión' },
+  { id: 'short', label: 'Corto (< 50 págs)' },
+  { id: 'medium', label: 'Medio (50 - 300 págs)' },
+  { id: 'long', label: 'Largo (> 300 págs)' },
+];
+
 export default function Header({
   searchQuery,
   onSearchChange,
@@ -58,6 +75,10 @@ export default function Header({
   onViewModeChange,
   activeFormat,
   onFormatChange,
+  activeLanguage,
+  onLanguageChange,
+  activeLength,
+  onLengthChange,
   onScan,
   isScanning,
   onRefresh,
@@ -183,15 +204,51 @@ export default function Header({
           <Filter size={16} />
         </button>
 
-        {showFilters && FORMAT_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            className={`header-filter-chip ${activeFormat === f.id ? 'active' : ''}`}
-            onClick={() => onFormatChange(f.id)}
-          >
-            {f.key.includes('.') ? t(f.key) : f.key}
-          </button>
-        ))}
+        {showFilters && (
+          <div className="header-filters-expanded">
+            {/* Formats */}
+            <div className="header-filter-group">
+              <span className="header-filter-label">Formato:</span>
+              {FORMAT_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  className={`header-filter-chip ${activeFormat === f.id ? 'active' : ''}`}
+                  onClick={() => onFormatChange(f.id)}
+                >
+                  {f.key.includes('.') ? t(f.key) : f.key}
+                </button>
+              ))}
+            </div>
+
+            {/* Language */}
+            <div className="header-filter-group">
+              <span className="header-filter-label">Idioma:</span>
+              <select 
+                className="header-filter-select"
+                value={activeLanguage}
+                onChange={(e) => onLanguageChange(e.target.value)}
+              >
+                {LANGUAGE_FILTERS.map(f => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Length */}
+            <div className="header-filter-group">
+              <span className="header-filter-label">Extensión:</span>
+              <select 
+                className="header-filter-select"
+                value={activeLength}
+                onChange={(e) => onLengthChange(e.target.value)}
+              >
+                {LENGTH_FILTERS.map(f => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="header-actions">

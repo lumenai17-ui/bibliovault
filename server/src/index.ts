@@ -690,8 +690,14 @@ app.get('/api/books', optionalAuth, async (req, res) => {
   const favorite = req.query.favorite === 'true' ? true : undefined;
   const search = req.query.search as string | undefined;
   const collection_id = req.query.collection_id ? parseInt(req.query.collection_id as string) : undefined;
+  const language = req.query.language as string | undefined;
+  const minPages = req.query.minPages ? parseInt(req.query.minPages as string) : undefined;
+  const maxPages = req.query.maxPages ? parseInt(req.query.maxPages as string) : undefined;
 
-  const result = await getAllBooks(limit, offset, { format, category_id, favorite, search, collection_id, userId: req.userId || undefined });
+  const result = await getAllBooks(limit, offset, { 
+    format, category_id, favorite, search, collection_id, userId: req.userId || undefined,
+    language, minPages, maxPages
+  });
   res.json(result);
 });
 
