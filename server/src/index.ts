@@ -2262,6 +2262,7 @@ app.get('/api/stats/extended', optionalAuth, async (req, res) => {
 
     let recentlyRead: Array<{ title: string; progress: number; lastRead: string; pages: number; format: string }> = [];
     let userCategoryStats: Array<{ name: string; value: number }> = [];
+    let userFormatStats: Array<{ name: string; value: number }> = [];
     let leaderboard: Array<{ name: string; pagesRead: number; booksRead: number; isCurrentUser: boolean }> = [];
 
     if (isPostgres()) {
@@ -2310,8 +2311,20 @@ app.get('/api/stats/extended', optionalAuth, async (req, res) => {
           ORDER BY cnt DESC
           LIMIT 5
         `, [req.userId]);
+        const userFmtRows = await p.query(`
+          SELECT UPPER(b.format) as name, COUNT(*) as cnt
+          FROM user_reading_progress urp
+          JOIN books b ON b.id = urp.book_id
+          WHERE urp.user_id = $1 AND urp.progress > 0
+          GROUP BY b.format
+          ORDER BY cnt DESC
+        `, [req.userId]);
         userCategoryStats = userCatRows.rows.map((r: any) => ({
           name: r.name,
+          value: parseInt(r.cnt),
+        }));
+        userFormatStats = userFmtRows.rows.map((r: any) => ({
+          name: r.name || 'OTRO',
           value: parseInt(r.cnt),
         }));
       }
@@ -2338,20 +2351,13 @@ app.get('/api/stats/extended', optionalAuth, async (req, res) => {
       }));
     }
 
-    const formatMap = new Map<string, number>();
-    allBooks.forEach(b => {
-      const fmt = b.format || 'unknown';
-      formatMap.set(fmt, (formatMap.get(fmt) || 0) + 1);
-    });
-    const formatStats = Array.from(formatMap.entries()).map(([name, value]) => ({ name, value }));
-
     res.json({
       totalBooks,
       totalPages,
       completedBooks,
       booksInProgress,
       totalPagesRead,
-      formatStats,
+      formatStats: userFormatStats,
       categoryStats: userCategoryStats,
       recentlyRead,
       leaderboard,

@@ -24,6 +24,8 @@ import {
   Trophy,
   Flame,
   Loader2,
+  BookMarked,
+  Crown,
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -41,7 +43,7 @@ function getRelativeTime(date: Date): string {
 }
 
 const PIE_COLORS = ['#667eea', '#a855f7', '#14b8a6', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'];
-const MEDAL_EMOJIS = ['🥇', '🥈', '🥉'];
+const MEDAL_COLORS = ['#f59e0b', '#94a3b8', '#cd7f32'];
 
 export default function Statistics() {
   const [stats, setStats] = useState<ExtendedStats | null>(null);
@@ -74,7 +76,7 @@ export default function Statistics() {
           <h1>Dashboard & Estadísticas</h1>
         </div>
         <div className="dashboard-error" style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <p style={{ fontSize: '18px', marginBottom: '8px' }}>⚠️ No se pudieron cargar las estadísticas</p>
+          <p style={{ fontSize: '18px', marginBottom: '8px' }}>No se pudieron cargar las estadísticas</p>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{error || 'Intenta recargar la página'}</p>
         </div>
       </div>
@@ -131,152 +133,41 @@ export default function Statistics() {
         </div>
       </div>
 
-      {/* Main Content: 2 columns */}
-      <div className="dashboard-charts">
-        {/* Left: Recently Read */}
-        <div className="chart-card" style={{ minHeight: 320 }}>
-          <h3>📖 Lectura Reciente</h3>
-          {stats.recentlyRead.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Aún no has abierto ningún libro
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-              {stats.recentlyRead.map((book, i) => {
-                const pct = Math.round(book.progress * 100);
-                const pagesRead = Math.round((book.pages || 0) * book.progress);
-                const date = new Date(book.lastRead);
-                const ago = getRelativeTime(date);
-                return (
-                  <div key={i} style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    borderRadius: 8,
-                    padding: '10px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    border: '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 6,
-                      background: pct >= 99 ? 'rgba(20,184,166,0.15)' : 'rgba(102,126,234,0.15)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 14, flexShrink: 0,
-                    }}>
-                      {pct >= 99 ? '✅' : '📖'}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {book.title}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {ago} · {pagesRead}/{book.pages} págs · {book.format.toUpperCase()}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <div style={{
-                        width: 60, height: 5, borderRadius: 3,
-                        background: 'rgba(255,255,255,0.08)',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          width: `${pct}%`, height: '100%', borderRadius: 3,
-                          background: pct >= 99 ? '#14b8a6' : pct > 50 ? '#667eea' : '#a855f7',
-                        }} />
-                      </div>
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, minWidth: 30, textAlign: 'right',
-                        color: pct >= 99 ? '#14b8a6' : '#94a3b8',
-                      }}>
-                        {pct}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right: Leaderboard */}
-        <div className="chart-card" style={{ minHeight: 320 }}>
-          <h3><Trophy size={16} style={{ marginRight: 6, verticalAlign: -2 }} />Ranking de Lectores</h3>
-          {stats.leaderboard.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
-              Nadie ha leído aún — ¡sé el primero!
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-              {stats.leaderboard.map((user, i) => (
-                <div key={i} style={{
-                  background: user.isCurrentUser ? 'rgba(102,126,234,0.1)' : 'rgba(255,255,255,0.03)',
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  border: user.isCurrentUser ? '1px solid rgba(102,126,234,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <span style={{ fontSize: 18, width: 28, textAlign: 'center', flexShrink: 0 }}>
-                    {i < 3 ? MEDAL_EMOJIS[i] : <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>#{i + 1}</span>}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontWeight: user.isCurrentUser ? 600 : 500,
-                      fontSize: 13,
-                      color: user.isCurrentUser ? '#818cf8' : 'var(--text-primary)',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {user.name} {user.isCurrentUser && '(tú)'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-                      {user.booksRead} libro{user.booksRead !== 1 ? 's' : ''} leído{user.booksRead !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                  <div style={{
-                    fontSize: 14, fontWeight: 700,
-                    color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#cd7f32' : '#64748b',
-                    flexShrink: 0,
-                  }}>
-                    {user.pagesRead.toLocaleString()}
-                    <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 2 }}>págs</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Second Row: Charts */}
+      {/* Charts Row — right after KPIs */}
       <div className="dashboard-charts">
         <div className="chart-card">
-          <h3>Distribución por Formato</h3>
-          <div className="chart-wrapper">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stats.formatStats}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {stats.formatStats.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
-                  itemStyle={{ color: 'var(--text-primary)' }}
-                />
-                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: 'var(--text-primary)' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <h3>Formatos que Lees</h3>
+          {stats.formatStats.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Abre algunos libros para ver tus formatos preferidos
+            </div>
+          ) : (
+            <div className="chart-wrapper">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.formatStats}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {stats.formatStats.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-primary)' }}
+                    itemStyle={{ color: 'var(--text-primary)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: 'var(--text-primary)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         <div className="chart-card">
@@ -306,6 +197,131 @@ export default function Statistics() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Second Row: Recently Read + Leaderboard (5 max, scrollable) */}
+      <div className="dashboard-charts">
+        {/* Recently Read */}
+        <div className="chart-card" style={{ minHeight: 280 }}>
+          <h3><BookMarked size={15} style={{ marginRight: 6, verticalAlign: -2 }} />Lectura Reciente</h3>
+          {stats.recentlyRead.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Aún no has abierto ningún libro
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
+              {stats.recentlyRead.slice(0, 5).map((book, i) => {
+                const pct = Math.round(book.progress * 100);
+                const pagesRead = Math.round((book.pages || 0) * book.progress);
+                const ago = getRelativeTime(new Date(book.lastRead));
+                return (
+                  <div key={i} style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 8,
+                    padding: '9px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 6,
+                      background: pct >= 99 ? 'rgba(20,184,166,0.15)' : 'rgba(102,126,234,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      {pct >= 99
+                        ? <CheckCircle size={14} color="#14b8a6" />
+                        : <BookOpen size={14} color="#667eea" />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {book.title}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                        {ago} · {pagesRead}/{book.pages} págs · {book.format.toUpperCase()}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                      <div style={{
+                        width: 50, height: 4, borderRadius: 2,
+                        background: 'rgba(255,255,255,0.08)',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${pct}%`, height: '100%', borderRadius: 2,
+                          background: pct >= 99 ? '#14b8a6' : pct > 50 ? '#667eea' : '#a855f7',
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 600, minWidth: 28, textAlign: 'right',
+                        color: pct >= 99 ? '#14b8a6' : '#94a3b8',
+                      }}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Leaderboard */}
+        <div className="chart-card" style={{ minHeight: 280 }}>
+          <h3><Trophy size={15} style={{ marginRight: 6, verticalAlign: -2 }} />Ranking de Lectores</h3>
+          {stats.leaderboard.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%', color: 'var(--text-muted)', fontSize: 14 }}>
+              Nadie ha leído aún — sé el primero
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
+              {stats.leaderboard.slice(0, 5).map((user, i) => (
+                <div key={i} style={{
+                  background: user.isCurrentUser ? 'rgba(102,126,234,0.1)' : 'rgba(255,255,255,0.03)',
+                  borderRadius: 8,
+                  padding: '9px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  border: user.isCurrentUser ? '1px solid rgba(102,126,234,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 6,
+                    background: i < 3 ? `rgba(${i === 0 ? '245,158,11' : i === 1 ? '148,163,184' : '205,127,50'},0.15)` : 'rgba(100,116,139,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {i < 3
+                      ? <Crown size={14} color={MEDAL_COLORS[i]} />
+                      : <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>#{i + 1}</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: user.isCurrentUser ? 600 : 500,
+                      fontSize: 12.5,
+                      color: user.isCurrentUser ? '#818cf8' : 'var(--text-primary)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {user.name} {user.isCurrentUser && '(tú)'}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                      {user.booksRead} libro{user.booksRead !== 1 ? 's' : ''} leído{user.booksRead !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: i < 3 ? MEDAL_COLORS[i] : '#64748b',
+                    flexShrink: 0,
+                  }}>
+                    {user.pagesRead.toLocaleString()}
+                    <span style={{ fontSize: 9.5, fontWeight: 400, marginLeft: 2, opacity: 0.7 }}>págs</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
