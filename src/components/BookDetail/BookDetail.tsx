@@ -563,11 +563,8 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
             <BookDiscussion bookId={book.id} />
           </div>
 
-          {/* File Info */}
-          <div className="book-detail-section">
-            <h4>📂 {t('bookDetail.location')}</h4>
-            <div className="book-detail-path">{book.fileName || book.filePath?.split(/[/\\]/).pop() || '—'}</div>
-          </div>
+
+
         </div>
       </div>
     </div>

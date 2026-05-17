@@ -37,6 +37,7 @@ import {
 } from './services/api';
 import type { AiAction } from './services/ai';
 import type { Collection } from './types';
+import SectionHeader from './components/common/SectionHeader';
 
 /** Map API book to frontend Book type */
 function mapBook(b: ApiBook): Book {
@@ -449,48 +450,71 @@ export default function App() {
               stats={stats}
             />
           ) : activeSection === 'stats' ? (
-            <Statistics />
+            <>
+              <SectionHeader title="Estadísticas" onBack={() => setActiveSection('home')} />
+              <Statistics />
+            </>
           ) : activeSection === 'community' ? (
             <CommunityExplorer onNavigateBack={() => setActiveSection('home')} />
           ) : activeSection === 'settings' && currentUser ? (
-            <SettingsPage
-              currentUser={currentUser}
-              onUserUpdate={(u) => setCurrentUser(u)}
-              onLogout={async () => {
-                const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
-                await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
-                setCurrentUser(null);
-              }}
-            />
+            <>
+              <SectionHeader title="Configuración" onBack={() => setActiveSection('home')} />
+              <SettingsPage
+                currentUser={currentUser}
+                onUserUpdate={(u) => setCurrentUser(u)}
+                onLogout={async () => {
+                  const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
+                  await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+                  setCurrentUser(null);
+                }}
+              />
+            </>
           ) : activeSection === 'admin' ? (
-            <AdminDashboard />
+            <>
+              <SectionHeader title="Admin Dashboard" onBack={() => setActiveSection('home')} />
+              <AdminDashboard />
+            </>
           ) : activeSection === 'admin-users' ? (
-            <AdminUsers />
+            <>
+              <SectionHeader title="Usuarios" onBack={() => setActiveSection('admin')} />
+              <AdminUsers />
+            </>
           ) : activeSection === 'admin-pending' ? (
-            <AdminPending />
+            <>
+              <SectionHeader title="Pendientes" onBack={() => setActiveSection('admin')} />
+              <AdminPending />
+            </>
           ) : activeSection === 'admin-coupons' ? (
-            <AdminCoupons />
+            <>
+              <SectionHeader title="Cupones" onBack={() => setActiveSection('admin')} />
+              <AdminCoupons />
+            </>
           ) : activeSection === 'my-books' ? (
-            <MyBooks onReadBook={async (id) => {
-              try {
-                const fresh = await fetchBook(id);
-                setDetailBook(mapBook(fresh));
-              } catch {
-                // Fallback: try from local state
-                const local = books.find(b => b.id === id);
-                if (local) setDetailBook(local);
-              }
-            }} />
+            <>
+              <SectionHeader title="Mis Libros" onBack={() => setActiveSection('home')} />
+              <MyBooks onReadBook={async (id) => {
+                try {
+                  const fresh = await fetchBook(id);
+                  setDetailBook(mapBook(fresh));
+                } catch {
+                  const local = books.find(b => b.id === id);
+                  if (local) setDetailBook(local);
+                }
+              }} />
+            </>
           ) : activeSection === 'community-books' ? (
-            <CommunityBooks onReadBook={async (id) => {
-              try {
-                const fresh = await fetchBook(id);
-                setDetailBook(mapBook(fresh));
-              } catch {
-                const local = books.find(b => b.id === id);
-                if (local) setDetailBook(local);
-              }
-            }} />
+            <>
+              <SectionHeader title="Libros de la Comunidad" onBack={() => setActiveSection('home')} />
+              <CommunityBooks onReadBook={async (id) => {
+                try {
+                  const fresh = await fetchBook(id);
+                  setDetailBook(mapBook(fresh));
+                } catch {
+                  const local = books.find(b => b.id === id);
+                  if (local) setDetailBook(local);
+                }
+              }} />
+            </>
           ) : (
             <LibraryGrid
               books={books}
