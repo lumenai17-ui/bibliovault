@@ -122,7 +122,6 @@ body {
   color: var(--text-primary);
   background: var(--bg-primary);
   line-height: 1.6;
-  overflow: hidden;
   min-height: 100vh;
 }
 
