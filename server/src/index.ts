@@ -992,7 +992,7 @@ app.get('/api/books/:id/file', async (req, res) => {
 
   const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
 
-  // ── DOC/DOCX: Convert to PDF via LibreOffice before serving ──
+  // ── DOC/DOCX: Convert to PDF via pdf-lib (pure JS) ──
   if (ext === 'doc' || ext === 'docx') {
     const resolvedDoc = await resolveFilePath(filePath, bookId);
     if (!resolvedDoc) return res.status(404).json({ error: 'DOC file not accessible' });
@@ -1004,7 +1004,7 @@ app.get('/api/books/:id/file', async (req, res) => {
       res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.sendFile(pdfPath);
     }
-    return res.status(500).json({ error: 'No se pudo convertir el documento. LibreOffice puede no estar disponible.' });
+    return res.status(500).json({ error: 'No se pudo convertir el documento.' });
   }
 
   // 1. Try local file first (dev mode)

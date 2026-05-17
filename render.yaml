@@ -1,9 +1,10 @@
 services:
   - type: web
     name: bibliovault-ai
-    runtime: docker
+    runtime: node
     plan: starter
-    dockerfilePath: ./Dockerfile
+    buildCommand: npm install && npm run build && cd server && npm install
+    startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
         value: production
