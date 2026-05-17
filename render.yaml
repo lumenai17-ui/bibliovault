@@ -1,10 +1,9 @@
 services:
   - type: web
     name: bibliovault-ai
-    runtime: node
+    runtime: docker
     plan: starter
-    buildCommand: apt-get update && apt-get install -y --no-install-recommends libreoffice-writer-nogui && npm install && npm run build && cd server && npm install
-    startCommand: cd server && npm start
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
