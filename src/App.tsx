@@ -51,6 +51,7 @@ function mapBook(b: ApiBook): Book {
     format: (['epub', 'pdf', 'doc', 'image'].includes(b.format) ? b.format : 'pdf') as BookFormat,
     contentType: b.content_type as Book['contentType'],
     filePath: b.file_path,
+    fileName: b.file_name,
     fileSize: b.file_size,
     coverPath: b.cover_path || '',
     category: b.category_name || b.folder_category || '',

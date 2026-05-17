@@ -579,12 +579,19 @@ export async function fetchCommunities(limit = 50): Promise<Community[]> {
 }
 
 export async function fetchMyCommunities(): Promise<Community[]> {
-  const res = await fetch(`${API_BASE}/communities/mine`, { credentials: 'include' });
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/communities/mine`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchCommunity(slug: string): Promise<Community> {
   const res = await fetch(`${API_BASE}/communities/${slug}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`Community not found: ${res.status}`);
   return res.json();
 }
 

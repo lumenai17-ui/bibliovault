@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users, Plus, MessageCircle, Clock, TrendingUp, ChevronUp, ChevronDown,
@@ -15,11 +15,61 @@ import {
 } from '../../services/api';
 import './Community.css';
 
+// ── Error Boundary to prevent full-app crash ──
+class CommunityErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: '' };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  componentDidCatch(error: Error) {
+    console.error('Community crash caught:', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>Error en Comunidad</h3>
+          <p style={{ fontSize: 13, marginBottom: 16 }}>{this.state.error}</p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: '' })}
+            style={{
+              padding: '8px 20px', border: 'none', borderRadius: 8,
+              background: 'var(--gradient-primary)', color: 'white',
+              cursor: 'pointer', fontSize: 13
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/** Safely normalize a community object from the API */
+function safeCommunity(c: any): Community {
+  return {
+    ...c,
+    member_count: Number(c.member_count) || 0,
+    thread_count: Number(c.thread_count) || 0,
+    creator_name: c.creator_name || '',
+    user_role: c.user_role || c.role || null,
+    description: c.description || '',
+    type: c.type || 'public',
+  };
+}
+
+function safeArray<T>(val: unknown): T[] {
+  return Array.isArray(val) ? val : [];
+}
+
 // ── Forum Hub (main page with 4 tabs) ──
 
 type ForumTab = 'activity' | 'books' | 'communities' | 'official';
 
-export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?: () => void }) {
+function CommunityExplorerInner({ onNavigateBack }: { onNavigateBack?: () => void }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ForumTab>('activity');
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -36,18 +86,27 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [all, mine, books, official, recent] = await Promise.all([
+      const [allRaw, mineRaw, booksRaw, officialRaw, recentRaw] = await Promise.all([
         fetchCommunities(50).catch(() => []),
         fetchMyCommunities().catch(() => []),
         fetchBookCommunities(50).catch(() => []),
         fetchOfficialCommunities().catch(() => []),
         fetchRecentThreads(30).catch(() => []),
       ]);
-      setCommunities((all || []).filter((c: Community) => c.type !== 'official' && !c.book_id));
-      setMyCommunities(mine || []);
-      setBookForums(books || []);
-      setOfficialForums(official || []);
-      setRecentThreads(recent || []);
+      const all = safeArray<Community>(allRaw).map(safeCommunity);
+      const mine = safeArray<Community>(mineRaw).map(safeCommunity);
+      const books = safeArray<Community>(booksRaw).map(safeCommunity);
+      const official = safeArray<Community>(officialRaw).map(safeCommunity);
+      const recent = safeArray<GlobalThread>(recentRaw).map(t => ({
+        ...t,
+        reply_count: Number(t.reply_count) || 0,
+        upvotes: Number(t.upvotes) || 0,
+      }));
+      setCommunities(all.filter((c: Community) => c.type !== 'official' && !c.book_id));
+      setMyCommunities(mine);
+      setBookForums(books);
+      setOfficialForums(official);
+      setRecentThreads(recent);
     } catch (err) {
       console.error('Failed to load forum data:', err);
     } finally {
@@ -204,6 +263,15 @@ export default function CommunityExplorer({ onNavigateBack }: { onNavigateBack?:
         </>
       )}
     </div>
+  );
+}
+
+// ── Default Export (wrapped in error boundary) ──
+export default function CommunityExplorer(props: { onNavigateBack?: () => void }) {
+  return (
+    <CommunityErrorBoundary>
+      <CommunityExplorerInner {...props} />
+    </CommunityErrorBoundary>
   );
 }
 
@@ -715,8 +783,10 @@ function CreateCommunityModal({
 // ── Utility ──
 
 function timeAgo(dateStr: string, t: any): string {
+  if (!dateStr) return '';
   const now = Date.now();
   const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return '';
   const diff = Math.floor((now - then) / 1000);
   if (diff < 60) return t('community.timeMoment', { defaultValue: 'hace un momento' });
   if (diff < 3600) return t('community.timeM', { count: Math.floor(diff / 60) });

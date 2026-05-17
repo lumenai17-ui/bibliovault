@@ -18,6 +18,7 @@ export interface Book {
   format: BookFormat;
   contentType: ContentType;
   filePath: string;
+  fileName: string;
   fileSize: number;
   coverPath: string;
   category: string;

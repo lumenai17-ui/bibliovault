@@ -340,6 +340,7 @@ export async function initPgSchema(): Promise<void> {
     ALTER TABLE books ADD COLUMN IF NOT EXISTS uploaded_by TEXT;
     ALTER TABLE books ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'public';
     ALTER TABLE books ADD COLUMN IF NOT EXISTS r2_file_key TEXT;
+    ALTER TABLE books ADD COLUMN IF NOT EXISTS r2_cover_key TEXT;
   `).catch(() => {});
   await p.query(`
     CREATE INDEX IF NOT EXISTS idx_books_uploaded_by ON books(uploaded_by);
