@@ -369,6 +369,16 @@ export async function initPgSchema(): Promise<void> {
     FROM user_uploads uu
     WHERE books.id = uu.book_id AND books.uploaded_by IS NULL AND uu.book_id IS NOT NULL
   `).catch(() => {});
+
+  // Emergency cleanup: clear invalid r2_cover_key values set by buggy auto-repair (2026-05-17)
+  // These pointed to R2 objects that don't exist, causing NoSuchKey errors for all covers
+  const cleaned = await p.query(`
+    UPDATE books SET r2_cover_key = NULL
+    WHERE r2_cover_key IS NOT NULL
+  `).catch(() => ({ rowCount: 0 }));
+  if (cleaned && (cleaned as any).rowCount > 0) {
+    console.log(`🧹 Cleaned ${(cleaned as any).rowCount} invalid r2_cover_key entries`);
+  }
 }
 
 // ══════════════════════════════════════
