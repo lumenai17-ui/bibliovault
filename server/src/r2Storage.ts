@@ -83,4 +83,18 @@ export async function getR2Url(key: string, expiresIn = 3600): Promise<string | 
   }
 }
 
+/**
+ * Check if an object exists in R2 (uses HeadObject — lightweight).
+ */
+export async function r2ObjectExists(key: string): Promise<boolean> {
+  if (!s3 || !key) return false;
+  try {
+    const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
+    await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export { isR2Configured, R2_BUCKET };

@@ -48,7 +48,7 @@ import { enrichBook, runBatchEnrichment, getBatchState, cancelBatchEnrichment, r
 import { extractPdfCover, extractEpubCover, extractImageCover, runBatchCoverExtraction, getCoverBatchState, cancelCoverBatchJob, resetCoverBatchState } from './pdfCoverExtractor.js';
 import { identifyTitleFromPdf } from './aiTitleIdentifier.js';
 import { searchWeb, formatSearchResults } from './webSearch.js';
-import { getR2Stream, getR2Url, isR2Configured } from './r2Storage.js';
+import { getR2Stream, getR2Url, r2ObjectExists, isR2Configured } from './r2Storage.js';
 import {
   initFtsSchema,
   searchFullText,
@@ -1101,13 +1101,16 @@ app.get('/api/books/:id/cover', async (req, res) => {
   if (isR2Configured && !r2CoverKey) {
     for (const ext of ['jpg', 'png']) {
       const standardKey = `covers/${bookId}.${ext}`;
-      const url = await getR2Url(standardKey);
-      if (url) {
-        // Auto-repair: save the r2_cover_key to DB so next request is instant
-        await updateBook(bookId, { r2_cover_key: standardKey } as any).catch(() => {});
-        console.log(`🔧 Auto-repaired r2_cover_key for book ${bookId}: ${standardKey}`);
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.redirect(url);
+      const exists = await r2ObjectExists(standardKey);
+      if (exists) {
+        const url = await getR2Url(standardKey);
+        if (url) {
+          // Auto-repair: save the r2_cover_key to DB so next request is instant
+          await updateBook(bookId, { r2_cover_key: standardKey } as any).catch(() => {});
+          console.log(`🔧 Auto-repaired r2_cover_key for book ${bookId}: ${standardKey}`);
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          return res.redirect(url);
+        }
       }
     }
   }
