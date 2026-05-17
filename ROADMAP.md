@@ -107,3 +107,62 @@
 | 4 | Ecosistema UGC (foros, afiliados, subidas) | 📋 Pendiente |
 | 5 | YouTube Funnel (audiolibros, canal) | 📋 Pendiente |
 | 6 | Lanzamiento (auth, pagos, beta, SEO) | 📋 Pendiente |
+
+---
+
+## 📖 White Label Reader — Producto Nuevo
+
+> Lector universal de biblioteca personal. El usuario carga sus propios libros (PDF, EPUB, DOC).
+> Multiplataforma: móvil, tablet, desktop. Sin contenido incluido — solo el motor de lectura.
+
+### Concepto de Producto
+
+| Aspecto | BiblioVault AI | White Label Reader |
+|---------|---------------|-------------------|
+| **Contenido** | Biblioteca curada de 1,400+ libros esotéricos | Vacío — el usuario trae sus libros |
+| **Público** | Nicho esotérico | General — cualquier lector |
+| **Backend** | Servidor centralizado (Render + R2) | Local-first (archivos en dispositivo) |
+| **AI** | Hermes AI (Groq) | Opcional / premium |
+| **Marca** | Lectura Arcana | Nombre independiente (configurable) |
+| **Modelo** | Suscripción $12.99/mes | Freemium (gratis + premium) o pago único |
+
+### Arquitectura: Qué se reutiliza
+
+| Componente BiblioVault | Se reutiliza? | Adaptación |
+|-----------------------|---------------|------------|
+| `PdfReader` + pdf.js | ✅ Tal cual | Core del producto |
+| `EpubReader` + epub.js | ✅ Tal cual | Core del producto |
+| `docConverter` (DOC→PDF) | ✅ Tal cual | Core del producto |
+| TTS (Web Speech API) | ✅ Tal cual | Feature gratuita |
+| Tema nocturno / escala | ✅ Tal cual | Core UX |
+| Doble página / layout | ✅ Tal cual | Core UX |
+| Bookmarks + progreso | ✅ Con adaptación | IndexedDB local en vez de PostgreSQL |
+| Scanner de biblioteca | ⚠️ Rediseñar | Input de archivos / drag-and-drop en vez de scan de carpetas |
+| Hermes AI | ⚠️ Opcional | Feature premium — requiere API key |
+| Covers / metadata | ⚠️ Simplificar | Extracción local on-device |
+| Auth / PayPal | ❌ No se usa | Producto standalone |
+| Admin panel | ❌ No se usa | No hay admin |
+| Comunidad | ❌ No se usa | No hay social |
+
+### Fases de Desarrollo
+
+| Fase | Descripción | Esfuerzo |
+|------|-------------|----------|
+| WL-1 | Extraer componentes reader a paquete independiente | 2-3 días |
+| WL-2 | UI shell: file picker, biblioteca local, grid de libros | 2-3 días |
+| WL-3 | Persistencia local (IndexedDB: libros, bookmarks, progreso) | 1-2 días |
+| WL-4 | PWA (installable, offline, responsive) | 1 día |
+| WL-5 | Capacitor wrapper (APK + IPA para tiendas) | 2-3 días |
+| WL-6 | Theming white-label (colores, logo, nombre configurables) | 1 día |
+| WL-7 | Premium features (AI chat, TTS avanzado, sync cloud) | 3-5 días |
+| **Total** | | **~2-3 semanas** |
+
+### Stack Técnico
+
+```
+Frontend: React + Vite (mismo que BiblioVault)
+Storage:  IndexedDB (OPFS para archivos grandes)
+Package:  PWA + Capacitor (Android/iOS)
+Backend:  Ninguno (local-first) — opcional para sync/AI
+```
+
