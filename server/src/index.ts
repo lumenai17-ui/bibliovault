@@ -2213,8 +2213,11 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
       coverPath = await extractEpubCover(filePath, bookId);
       source = 'epub';
     } else if (book.format === 'doc' || book.format === 'docx') {
-      const { extractDocCover } = await import('./pdfCoverExtractor.js');
-      coverPath = await extractDocCover(filePath, bookId);
+      // Convert DOC to PDF first, then extract cover from the PDF
+      const pdfPath = await convertDocToPdf(filePath, bookId);
+      if (pdfPath) {
+        coverPath = await extractPdfCover(pdfPath, bookId);
+      }
       source = 'doc';
     }
 
