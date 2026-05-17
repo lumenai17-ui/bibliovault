@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import PdfReader, { type PageLayout } from './PdfReader';
 import ImageViewer from './ImageViewer';
-import HtmlReader from './HtmlReader';
 import EpubReader from './EpubReader';
 import AiChatPanel from './AiChatPanel';
 import TtsControls from './TtsControls';
@@ -284,9 +283,8 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
       return <ImageViewer fileUrl={fileUrl} nightMode={nightMode} />;
     }
 
-    if (book.format === 'doc' || book.format === 'docx' || fileUrl.endsWith('.doc') || fileUrl.endsWith('.docx')) {
-      return <HtmlReader bookId={book.id} scale={scale} nightMode={nightMode} pageLayout={pageLayout} currentPage={currentPage} onPageChange={(p) => { setCurrentPage(p); setPageInput(String(p)); }} onTotalPages={(t) => { setTotalPages(t); }} />;
-    }
+    // DOC/DOCX: Backend converts to PDF via LibreOffice, so PdfReader handles them
+    // (falls through to the default PdfReader below)
 
     if (book.format === 'epub' || fileUrl.endsWith('.epub')) {
       return (

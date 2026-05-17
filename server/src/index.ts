@@ -855,40 +855,11 @@ app.get('/api/user/reading-map', async (req, res) => {
 });
 
 // â”€â”€ Extract HTML from DOC/DOCX for Web Reader â”€â”€
-import mammoth from 'mammoth';
-import WordExtractor from 'word-extractor';
+// ── DOC/DOCX → PDF Conversion (LibreOffice headless) ──
+import { convertDocToPdf, isLibreOfficeAvailable } from './docConverter.js';
 
-app.get('/api/books/:id/html', async (req, res) => {
-  const book = await getBookById(parseInt(req.params.id)) as Record<string, unknown> | undefined;
-  if (!book) return res.status(404).json({ error: 'Book not found' });
-  const origPath = book.file_path as string;
-  const filePath = await resolveFilePath(origPath, parseInt(req.params.id));
-  if (!filePath) return res.status(404).json({ error: 'File not found' });
-
-  const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
-  
-  try {
-    if (ext === 'docx') {
-      const result = await mammoth.convertToHtml({ path: filePath });
-      return res.send(result.value);
-    } else if (ext === 'doc') {
-      const extractor = new WordExtractor();
-      const extracted = await extractor.extract(filePath);
-      const text = extracted.getBody();
-      // Simple text to HTML paragraphs conversion
-      const html = text.split(/\n\s*\n/)
-        .filter(p => p.trim().length > 0)
-        .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
-        .join('');
-      return res.send(html);
-    } else {
-      return res.status(400).json({ error: 'Not a DOC or DOCX file' });
-    }
-  } catch (err) {
-    console.error('Error extracting HTML from doc:', err);
-    res.status(500).json({ error: 'Failed to extract document' });
-  }
-});
+// Check LibreOffice availability at startup
+isLibreOfficeAvailable();
 
 // ── Serve book files for the reader ──
 const TUNNEL_URL = process.env.TUNNEL_URL || ''; // e.g. https://xyz.trycloudflare.com
@@ -1019,9 +990,25 @@ app.get('/api/books/:id/file', async (req, res) => {
   if (!book) return res.status(404).json({ error: 'Book not found' });
   const filePath = book.file_path as string;
 
+  const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+
+  // ── DOC/DOCX: Convert to PDF via LibreOffice before serving ──
+  if (ext === 'doc' || ext === 'docx') {
+    const resolvedDoc = await resolveFilePath(filePath, bookId);
+    if (!resolvedDoc) return res.status(404).json({ error: 'DOC file not accessible' });
+
+    const pdfPath = await convertDocToPdf(resolvedDoc, bookId);
+    if (pdfPath && existsSync(pdfPath)) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${(book.file_name as string || 'document').replace(/\.[^.]+$/, '.pdf')}"`);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(pdfPath);
+    }
+    return res.status(500).json({ error: 'No se pudo convertir el documento. LibreOffice puede no estar disponible.' });
+  }
+
   // 1. Try local file first (dev mode)
   if (existsSync(filePath)) {
-    const ext = (filePath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
     const mimeMap: Record<string, string> = {
       pdf: 'application/pdf', epub: 'application/epub+zip',
       doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

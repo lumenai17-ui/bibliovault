@@ -3,7 +3,7 @@ services:
     name: bibliovault-ai
     runtime: node
     plan: starter
-    buildCommand: npm install && npm run build && cd server && npm install
+    buildCommand: apt-get update && apt-get install -y --no-install-recommends libreoffice-writer-nogui && npm install && npm run build && cd server && npm install
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
