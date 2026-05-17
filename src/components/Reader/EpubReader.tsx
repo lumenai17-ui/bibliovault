@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ReactReader, ReactReaderStyle } from 'react-reader';
+import type { PageLayout } from './PdfReader';
 
 interface EpubReaderProps {
   fileUrl: string;
@@ -7,11 +8,11 @@ interface EpubReaderProps {
   nightMode: boolean;
   onLocationChanged?: (location: string) => void;
   initialLocation?: string;
-  initialLocation?: string;
   currentPage?: number;
   onPageChange?: (page: number) => void;
   onTotalPages?: (total: number) => void;
   onTextExtracted?: (text: string) => void;
+  pageLayout?: PageLayout;
 }
 
 export default function EpubReader({ 
@@ -23,7 +24,8 @@ export default function EpubReader({
   currentPage,
   onPageChange,
   onTotalPages,
-  onTextExtracted
+  onTextExtracted,
+  pageLayout = 'single',
 }: EpubReaderProps) {
   const [location, setLocation] = useState<string | number>(initialLocation || 0);
   const [bookData, setBookData] = useState<ArrayBuffer | null>(null);
@@ -110,6 +112,7 @@ export default function EpubReader({
     }
   }, [currentPage]);
 
+  // Apply scale and theme
   useEffect(() => {
     if (renditionRef.current) {
       try {
@@ -125,21 +128,63 @@ export default function EpubReader({
     }
   }, [scale, nightMode]);
 
+  // Apply spread mode when pageLayout changes
+  useEffect(() => {
+    if (renditionRef.current) {
+      try {
+        renditionRef.current.spread(pageLayout === 'double' ? 'always' : 'none');
+      } catch (e) {
+        console.error('Error applying spread mode:', e);
+      }
+    }
+  }, [pageLayout]);
+
+  const bgColor = nightMode ? '#1a1a2e' : '#ffffff';
+  const textColor = nightMode ? '#e2e8f0' : '#0f172a';
+
   const customStyle = {
     ...ReactReaderStyle,
+    container: {
+      ...ReactReaderStyle.container,
+      overflow: 'hidden',
+    },
     readerArea: {
       ...ReactReaderStyle.readerArea,
-      backgroundColor: 'transparent',
+      backgroundColor: nightMode ? '#0f0f23' : '#e8e8e8',
+      transition: 'background-color 0.3s ease',
+    },
+    reader: {
+      ...ReactReaderStyle.reader,
+      backgroundColor: bgColor,
+      boxShadow: nightMode
+        ? '0 4px 24px rgba(0, 0, 0, 0.5)'
+        : '0 4px 12px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1)',
+      borderRadius: '4px',
+      margin: '12px auto',
+      maxWidth: '900px',
+      padding: '0',
     },
     tocArea: {
       ...ReactReaderStyle.tocArea,
       background: nightMode ? '#1e293b' : '#ffffff',
-      color: nightMode ? '#f8fafc' : '#0f172a',
+      color: textColor,
     },
     tocButtonExpanded: {
       ...ReactReaderStyle.tocButtonExpanded,
       background: nightMode ? '#334155' : '#f1f5f9',
-    }
+    },
+    tocButton: {
+      ...ReactReaderStyle.tocButton,
+      color: nightMode ? '#94a3b8' : '#475569',
+    },
+    arrow: {
+      ...ReactReaderStyle.arrow,
+      color: nightMode ? '#94a3b8' : '#475569',
+    },
+    arrowHover: {
+      ...ReactReaderStyle.arrowHover,
+      color: nightMode ? '#e2e8f0' : '#0f172a',
+    },
   };
 
   if (error) {
@@ -167,19 +212,37 @@ export default function EpubReader({
         locationChanged={locationChanged}
         readerStyles={customStyle}
         tocChanged={(toc) => { tocRef.current = toc; }}
+        epubOptions={{
+          flow: 'paginated',
+          spread: pageLayout === 'double' ? 'always' : 'none',
+        }}
         getRendition={(rendition) => {
           renditionRef.current = rendition;
           
           rendition.themes.register('night', {
-            body: { background: 'transparent !important', color: '#f8fafc !important' },
+            body: { 
+              background: `${bgColor} !important`, 
+              color: '#e2e8f0 !important',
+              'font-family': "'Georgia', 'Times New Roman', serif !important",
+              'line-height': '1.75 !important',
+              padding: '20px !important',
+            },
+            'p': { 'text-align': 'justify !important' },
             a: { color: '#a855f7 !important' },
-            'h1, h2, h3, h4, h5, h6': { color: '#f8fafc !important' }
+            'h1, h2, h3, h4, h5, h6': { color: '#e2e8f0 !important' },
           });
           
           rendition.themes.register('light', {
-            body: { background: 'transparent !important', color: '#0f172a !important' },
+            body: { 
+              background: '#ffffff !important', 
+              color: '#0f172a !important',
+              'font-family': "'Georgia', 'Times New Roman', serif !important",
+              'line-height': '1.75 !important',
+              padding: '20px !important',
+            },
+            'p': { 'text-align': 'justify !important' },
             a: { color: '#7c3aed !important' },
-            'h1, h2, h3, h4, h5, h6': { color: '#0f172a !important' }
+            'h1, h2, h3, h4, h5, h6': { color: '#0f172a !important' },
           });
           
           rendition.themes.fontSize(`${Math.max(80, scale * 100)}%`);
@@ -202,10 +265,10 @@ export default function EpubReader({
             }
           }).catch((err: any) => console.error("Error generating locations", err));
 
-          // Add epubjs pagination if requested
-          rendition.on('relocated', (loc: any) => {
-             // You can capture additional info here
-          });
+          // Apply spread based on initial layout
+          try {
+            rendition.spread(pageLayout === 'double' ? 'always' : 'none');
+          } catch (e) {}
         }}
       />
     </div>

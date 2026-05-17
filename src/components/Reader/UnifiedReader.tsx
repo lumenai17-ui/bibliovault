@@ -285,7 +285,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
     }
 
     if (book.format === 'doc' || book.format === 'docx' || fileUrl.endsWith('.doc') || fileUrl.endsWith('.docx')) {
-      return <HtmlReader bookId={book.id} scale={scale} nightMode={nightMode} />;
+      return <HtmlReader bookId={book.id} scale={scale} nightMode={nightMode} pageLayout={pageLayout} currentPage={currentPage} onPageChange={(p) => { setCurrentPage(p); setPageInput(String(p)); }} onTotalPages={(t) => { setTotalPages(t); }} />;
     }
 
     if (book.format === 'epub' || fileUrl.endsWith('.epub')) {
@@ -295,6 +295,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
           scale={scale} 
           nightMode={nightMode}
           currentPage={currentPage}
+          pageLayout={pageLayout}
           onPageChange={(p) => {
             setCurrentPage(p);
             setPageInput(String(p));

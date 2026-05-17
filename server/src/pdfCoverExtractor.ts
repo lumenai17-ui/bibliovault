@@ -346,6 +346,9 @@ export async function runBatchCoverExtraction(
       } else if (book.format === 'epub') {
         coverPath = await extractEpubCover(book.file_path, book.id);
         source = 'epub';
+      } else if (book.format === 'doc' || book.format === 'docx') {
+        coverPath = await extractDocCover(book.file_path, book.id);
+        source = 'doc';
       } else if (book.format === 'image') {
         coverPath = await extractImageCover(book.file_path, book.id);
         source = 'image';

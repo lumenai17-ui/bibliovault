@@ -42,7 +42,7 @@ import {
 } from './db.js';
 import { scanLibrary, type ScanProgress } from './scanner.js';
 import { streamChat, checkHermesHealth, llmComplete, streamOrganizerChat } from './hermes.js';
-import { extractPdfText, extractBookExcerpt, isPdfTextBased } from './textExtractor.js';
+import { extractPdfText, extractDocText, extractEpubText, extractBookExcerpt, isPdfTextBased } from './textExtractor.js';
 import { generateCover, COVERS_DIR } from './coverGenerator.js';
 import { enrichBook, runBatchEnrichment, getBatchState, cancelBatchEnrichment, resetBatchState } from './metadataEnricher.js';
 import { extractPdfCover, extractEpubCover, extractImageCover, runBatchCoverExtraction, getCoverBatchState, cancelCoverBatchJob, resetCoverBatchState } from './pdfCoverExtractor.js';
@@ -1155,7 +1155,16 @@ app.get('/api/books/:id/text', async (req, res) => {
   const startPage = req.query.start ? parseInt(req.query.start as string) : undefined;
   const endPage = req.query.end ? parseInt(req.query.end as string) : undefined;
 
-  const result = await extractPdfText(filePath, startPage, endPage);
+  // Route by format
+  const ext = (origPath.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+  let result;
+  if (ext === 'doc' || ext === 'docx') {
+    result = await extractDocText(filePath, startPage, endPage);
+  } else if (ext === 'epub') {
+    result = await extractEpubText(filePath, startPage, endPage);
+  } else {
+    result = await extractPdfText(filePath, startPage, endPage);
+  }
   res.json(result);
 });
 
@@ -2198,8 +2207,8 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
   const book = await getBookById(bookId) as Record<string, unknown> | undefined;
   if (!book) return res.status(404).json({ error: 'Book not found' });
 
-  if (book.format !== 'pdf' && book.format !== 'epub') {
-    return res.status(400).json({ error: 'Only PDF and EPUB books supported for cover extraction' });
+  if (book.format !== 'pdf' && book.format !== 'epub' && book.format !== 'doc' && book.format !== 'docx') {
+    return res.status(400).json({ error: 'Only PDF, EPUB, and DOC books supported for cover extraction' });
   }
 
   try {
@@ -2216,6 +2225,10 @@ app.post('/api/books/:id/extract-cover', async (req, res) => {
     } else if (book.format === 'epub') {
       coverPath = await extractEpubCover(filePath, bookId);
       source = 'epub';
+    } else if (book.format === 'doc' || book.format === 'docx') {
+      const { extractDocCover } = await import('./pdfCoverExtractor.js');
+      coverPath = await extractDocCover(filePath, bookId);
+      source = 'doc';
     }
 
     if (coverPath && existsSync(coverPath)) {
