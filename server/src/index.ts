@@ -1097,24 +1097,6 @@ app.get('/api/books/:id/cover', async (req, res) => {
     }
   }
 
-  // 1b. Fallback: try standard R2 key pattern when r2_cover_key is missing from DB
-  if (isR2Configured && !r2CoverKey) {
-    for (const ext of ['jpg', 'png']) {
-      const standardKey = `covers/${bookId}.${ext}`;
-      const exists = await r2ObjectExists(standardKey);
-      if (exists) {
-        const url = await getR2Url(standardKey);
-        if (url) {
-          // Auto-repair: save the r2_cover_key to DB so next request is instant
-          await updateBook(bookId, { r2_cover_key: standardKey } as any).catch(() => {});
-          console.log(`🔧 Auto-repaired r2_cover_key for book ${bookId}: ${standardKey}`);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          return res.redirect(url);
-        }
-      }
-    }
-  }
-
   // 2. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)
   const coverPath = book.cover_path as string;
   if (coverPath && coverPath.startsWith('http')) {
