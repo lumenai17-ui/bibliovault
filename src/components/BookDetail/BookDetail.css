@@ -515,18 +515,39 @@
   font-size: var(--fs-sm);
 }
 
-.book-detail-path {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  word-break: break-all;
-  background: var(--bg-tertiary);
-  padding: var(--space-sm);
-  border-radius: var(--radius-sm);
-  font-family: monospace;
+/* ── Back Bar (mobile prominent back) ── */
+.book-detail-back-bar {
+  display: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+}
+
+.book-detail-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--accent-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  padding: 6px 0;
+  transition: color 0.15s;
+}
+
+.book-detail-back-btn:hover {
+  color: var(--accent-primary-hover);
 }
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
+  .book-detail-back-bar {
+    display: block;
+  }
+
   .book-detail-overlay {
     padding: 0;
     align-items: stretch;

@@ -22,6 +22,7 @@ import {
   ShoppingCart,
   ExternalLink,
   MessageCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import type { Book, Collection } from '../../types';
 import { BookDiscussion } from '../Community/BookDiscussion';
@@ -238,6 +239,13 @@ export default function BookDetail({ book, collections = [], onClose, onRead, on
   return (
     <div className="book-detail-overlay" onClick={onClose}>
       <div className="book-detail-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Mobile back bar */}
+        <div className="book-detail-back-bar">
+          <button className="book-detail-back-btn" onClick={onClose}>
+            <ArrowLeft size={18} />
+            <span>{t('reader.backToLibrary')}</span>
+          </button>
+        </div>
         {/* Header */}
         <div className="book-detail-header">
           <div className="book-detail-cover">
