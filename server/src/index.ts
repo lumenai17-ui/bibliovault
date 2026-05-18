@@ -1969,6 +1969,7 @@ app.post('/api/admin/sync-covers', requireAuth, requireAdmin, async (_req, res) 
   try {
     const p = getPgPool();
     const { uploadFileToR2 } = await import('./uploadStorage.js');
+    const { extname } = await import('path');
     
     // Find books with local cover but no R2 key
     const result = await p.query(`

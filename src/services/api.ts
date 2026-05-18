@@ -94,6 +94,7 @@ export interface ApiCategory {
   parent_id: number | null;
   ai_suggested: number;
   book_count: number;
+  cover_book_ids?: number[];
 }
 
 export interface ScanStatus {

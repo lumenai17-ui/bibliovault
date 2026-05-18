@@ -581,7 +581,17 @@ export async function pgUpdateBook(id: number, updates: Partial<BookRow>) {
 export async function pgGetCategories() {
   const p = getPgPool();
   const res = await p.query(`
-    SELECT c.*, COUNT(b.id) as book_count
+    SELECT c.*, 
+           COUNT(b.id) as book_count,
+           (
+             SELECT array_agg(id) 
+             FROM (
+               SELECT id FROM books b2 
+               WHERE b2.category_id = c.id AND (b2.cover_path IS NOT NULL OR b2.r2_cover_key IS NOT NULL) 
+               AND (b2.cover_source IS NULL OR b2.cover_source != 'svg')
+               LIMIT 3
+             ) sub
+           ) as cover_book_ids
     FROM categories c
     LEFT JOIN books b ON b.category_id = c.id
     GROUP BY c.id

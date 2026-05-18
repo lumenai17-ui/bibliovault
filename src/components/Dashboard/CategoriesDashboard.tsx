@@ -42,32 +42,16 @@ const getCoverUrl = (bookId: number) => `${import.meta.env.DEV ? 'http://localho
 export default function CategoriesDashboard({ categories, collections, books, onSelectSection, userName, stats }: CategoriesDashboardProps) {
   const { t } = useTranslation();
   
-  // Pre-calculate 3 sample books with REAL covers per category (skip SVG placeholders)
+  // Use the cover_book_ids provided by the backend to avoid relying on the limited local books array
   const categoryFanCovers = useMemo(() => {
-    const map = new Map<number, number[]>(); // cat_id -> [book_id, book_id, book_id]
+    const map = new Map<number, number[]>();
     for (const cat of categories) {
-      const catBooks = books.filter(b => 
-        (b.category === cat.name) && 
-        b.coverPath && 
-        !b.coverPath.endsWith('.svg') &&
-        (b.coverPath.includes('supabase') || b.coverPath.includes('.jpg') || b.coverPath.includes('.png'))
-      );
-      // Take up to 3 books with real covers
-      const selected = catBooks.slice(0, 3).map(b => b.id);
-      // If we don't have 3 real covers, fill with any book that has a coverPath
-      if (selected.length < 3) {
-        const fallbacks = books.filter(b => 
-          b.category === cat.name && b.coverPath && !selected.includes(b.id)
-        );
-        for (const fb of fallbacks) {
-          if (selected.length >= 3) break;
-          selected.push(fb.id);
-        }
+      if (cat.cover_book_ids && cat.cover_book_ids.length > 0) {
+        map.set(cat.id, cat.cover_book_ids.slice(0, 3));
       }
-      if (selected.length > 0) map.set(cat.id, selected);
     }
     return map;
-  }, [categories, books]);
+  }, [categories]);
 
   // Time-based greeting
   const hour = new Date().getHours();
