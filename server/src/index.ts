@@ -1985,14 +1985,14 @@ app.post('/api/admin/sync-covers', requireAuth, requireAdmin, async (_req, res) 
       if (existsSync(row.cover_path)) {
         const ext = extname(row.cover_path).toLowerCase();
         const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
-        const r2Key = \`covers/\${row.id}\${ext}\`;
+        const r2Key = `covers/${row.id}${ext}`;
         
         const success = await uploadFileToR2(row.cover_path, r2Key, mime);
         if (success) {
           await p.query('UPDATE books SET r2_cover_key = $1 WHERE id = $2', [r2Key, row.id]);
           synced++;
         } else {
-          errors.push(\`Failed to upload cover for book \${row.id}\`);
+          errors.push(`Failed to upload cover for book ${row.id}`);
         }
       }
     }
