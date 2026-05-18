@@ -547,15 +547,27 @@ app.post('/api/subscription/redeem-coupon', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Cupón inválido o expirado' });
     }
 
-    // Grant access
+    const prefs = user.preferences ? (typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences) : {};
+    const usedCoupons = prefs.usedCoupons || [];
+    if (usedCoupons.includes(code.toUpperCase())) {
+      return res.status(400).json({ error: 'Ya has utilizado este cupón.' });
+    }
+    
+    usedCoupons.push(code.toUpperCase());
+
+    // Grant access (extend from current if active, otherwise from now)
     const endDate = new Date();
+    if (user.subscription_end && new Date(user.subscription_end) > endDate) {
+      endDate.setTime(new Date(user.subscription_end).getTime());
+    }
     endDate.setDate(endDate.getDate() + daysToGrant);
 
     await updateUser(user.id, {
       plan: 'premium',
       subscription_status: 'active',
-      subscription_start: new Date().toISOString(),
+      subscription_start: user.subscription_start || new Date().toISOString(),
       subscription_end: endDate.toISOString(),
+      preferences: JSON.stringify({ ...prefs, usedCoupons })
     } as any);
 
     console.log(`🎟️ Coupon ${code} redeemed by ${user.email} — ${daysToGrant} days granted`);
@@ -586,8 +598,8 @@ app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }), asyn
     if (!subscriptionId) return res.sendStatus(200);
 
     // Find user by subscription_id
-    const db = (await import('./database.js')).getDb();
-    const user = db.prepare('SELECT * FROM users WHERE subscription_id = ?').get(subscriptionId) as any;
+    const { getUserBySubscriptionId } = await import('./db.js');
+    const user = await getUserBySubscriptionId(subscriptionId) as any;
     if (!user) {
       console.log(`💳 Webhook: No user found for subscription ${subscriptionId}`);
       return res.sendStatus(200);
@@ -596,15 +608,21 @@ app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }), asyn
     switch (event.event_type) {
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
       case 'BILLING.SUBSCRIPTION.RENEWED': {
-        // Extend access by 30 days from now
-        const newEnd = new Date();
-        newEnd.setDate(newEnd.getDate() + 30);
-        await updateUser(user.id, {
-          plan: 'premium',
-          subscription_status: 'active',
-          subscription_end: newEnd.toISOString(),
-        } as any);
-        console.log(`💳 Subscription renewed for ${user.email} → ${newEnd.toISOString()}`);
+        try {
+          const { getSubscriptionDetails } = await import('./paypal.js');
+          const details = await getSubscriptionDetails(subscriptionId);
+          if (details?.billing_info?.next_billing_time) {
+            const newEnd = new Date(details.billing_info.next_billing_time);
+            await updateUser(user.id, {
+              plan: 'premium',
+              subscription_status: 'active',
+              subscription_end: newEnd.toISOString(),
+            } as any);
+            console.log(`💳 Subscription renewed for ${user.email} → ${newEnd.toISOString()}`);
+          }
+        } catch (e) {
+          console.error('Failed to sync paypal idempotency', e);
+        }
         break;
       }
       case 'BILLING.SUBSCRIPTION.CANCELLED':
@@ -1247,20 +1265,20 @@ app.post('/api/collections', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
   // Create with user_id directly — no second UPDATE needed
-  const id = createCollection(name, description, color, req.userId || null);
+  const id = await createCollection(name, description, color, req.userId || null);
   res.json({ id, name, description, color });
 });
 
 app.put('/api/collections/:id', optionalAuth, async (req, res) => {
   const { name, description, color } = req.body;
   // Only updates if owned by this user or legacy (NULL)
-  updateCollection(parseInt(req.params.id), name, description, color, req.userId || null);
+  await updateCollectionDb(parseInt(req.params.id), name, description, color, req.userId || null);
   res.json({ success: true });
 });
 
 app.delete('/api/collections/:id', optionalAuth, async (req, res) => {
   // Only deletes if owned by this user or legacy (NULL)
-  deleteCollection(parseInt(req.params.id), req.userId || null);
+  await deleteCollectionDb(parseInt(req.params.id), req.userId || null);
   res.json({ success: true });
 });
 
@@ -1736,8 +1754,18 @@ app.post('/api/uploads', requireAuth, async (req, res) => {
       const r2Key = `uploads/${req.userId}/${uniqueId}.${ext}`;
       const contentType = getMimeType(`.${ext}`);
 
-      // Upload to R2
-      const uploaded = await uploadFileToR2(req.file.buffer, r2Key, contentType);
+      // Upload to R2 via stream from temp file
+      const uploaded = await uploadFileToR2(req.file.path, r2Key, contentType);
+      
+      // Cleanup temp file
+      try {
+        if (existsSync(req.file.path)) {
+          unlinkSync(req.file.path);
+        }
+      } catch (cleanupErr) {
+        console.error('Failed to cleanup temp upload file:', cleanupErr);
+      }
+
       if (!uploaded) {
         return res.status(500).json({ error: 'Error al subir archivo al almacenamiento.' });
       }

@@ -644,35 +644,50 @@ export async function pgGetUnenrichedBooks(limit = 2000) {
 
 // ── Collections ──
 
-export async function pgGetCollections() {
+export async function pgGetCollections(userId?: string | null) {
   const p = getPgPool();
-  const res = await p.query(`
+  let query = `
     SELECT c.*, COUNT(bc.book_id) as book_count
     FROM collections c
     LEFT JOIN book_collections bc ON bc.collection_id = c.id
-    GROUP BY c.id
-    ORDER BY c.name ASC
-  `);
+  `;
+  const params: any[] = [];
+  
+  if (userId) {
+    query += ` WHERE c.user_id = $1 OR c.user_id IS NULL`;
+    params.push(userId);
+  } else {
+    query += ` WHERE c.user_id IS NULL`;
+  }
+  
+  query += ` GROUP BY c.id ORDER BY c.name ASC`;
+  const res = await p.query(query, params);
   return res.rows;
 }
 
-export async function pgCreateCollection(name: string, description = '', color = '#667eea') {
+export async function pgCreateCollection(name: string, description = '', color = '#667eea', userId?: string | null) {
   const p = getPgPool();
   const res = await p.query(
-    'INSERT INTO collections (name, description, color) VALUES ($1, $2, $3) RETURNING id',
-    [name, description, color],
+    'INSERT INTO collections (name, description, color, user_id) VALUES ($1, $2, $3, $4) RETURNING id',
+    [name, description, color, userId || null],
   );
   return res.rows[0].id;
 }
 
-export async function pgUpdateCollection(id: number, name: string, description: string, color: string) {
+export async function pgUpdateCollection(id: number, name: string, description: string, color: string, userId?: string | null) {
   const p = getPgPool();
-  return p.query('UPDATE collections SET name = $1, description = $2, color = $3 WHERE id = $4', [name, description, color, id]);
+  if (userId) {
+    return p.query('UPDATE collections SET name = $1, description = $2, color = $3 WHERE id = $4 AND user_id = $5', [name, description, color, id, userId]);
+  }
+  return p.query('UPDATE collections SET name = $1, description = $2, color = $3 WHERE id = $4 AND user_id IS NULL', [name, description, color, id]);
 }
 
-export async function pgDeleteCollection(id: number) {
+export async function pgDeleteCollection(id: number, userId?: string | null) {
   const p = getPgPool();
-  return p.query('DELETE FROM collections WHERE id = $1', [id]);
+  if (userId) {
+    return p.query('DELETE FROM collections WHERE id = $1 AND user_id = $2', [id, userId]);
+  }
+  return p.query('DELETE FROM collections WHERE id = $1 AND user_id IS NULL', [id]);
 }
 
 export async function pgAddBookToCollection(bookId: number, collectionId: number) {
@@ -685,14 +700,22 @@ export async function pgRemoveBookFromCollection(bookId: number, collectionId: n
   return p.query('DELETE FROM book_collections WHERE book_id = $1 AND collection_id = $2', [bookId, collectionId]);
 }
 
-export async function pgGetBookCollections(bookId: number) {
+export async function pgGetBookCollections(bookId: number, userId?: string | null) {
   const p = getPgPool();
-  const res = await p.query(`
+  let query = `
     SELECT c.*
     FROM collections c
     JOIN book_collections bc ON bc.collection_id = c.id
     WHERE bc.book_id = $1
-  `, [bookId]);
+  `;
+  const params: any[] = [bookId];
+  if (userId) {
+    query += ` AND (c.user_id = $2 OR c.user_id IS NULL)`;
+    params.push(userId);
+  } else {
+    query += ` AND c.user_id IS NULL`;
+  }
+  const res = await p.query(query, params);
   return res.rows;
 }
 
@@ -707,7 +730,13 @@ export async function pgGetUserById(id: string) {
 export async function pgGetUserByEmail(email: string) {
   const p = getPgPool();
   const res = await p.query('SELECT * FROM users WHERE email = $1', [email]);
-  return res.rows[0] || undefined;
+  return res.rows[0];
+}
+
+export async function pgGetUserBySubscriptionId(subId: string) {
+  const p = getPgPool();
+  const res = await p.query('SELECT * FROM users WHERE paypal_subscription_id = $1', [subId]);
+  return res.rows[0];
 }
 
 export async function pgCreateUser(id: string, email: string, passwordHash: string, displayName: string) {

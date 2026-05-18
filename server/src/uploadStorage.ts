@@ -7,6 +7,8 @@
 
 import multer from 'multer';
 import { extname } from 'path';
+import { tmpdir } from 'os';
+import { createReadStream } from 'fs';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 // ── Configuration ──
@@ -51,7 +53,13 @@ const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
 };
 
 export const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: tmpdir(),
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
+    }
+  }),
   fileFilter,
   limits: { fileSize: MAX_FILE_SIZE },
 });
@@ -59,7 +67,7 @@ export const upload = multer({
 // ── R2 Upload/Delete ──
 
 export async function uploadFileToR2(
-  buffer: Buffer,
+  filePath: string,
   r2Key: string,
   contentType: string
 ): Promise<boolean> {
@@ -69,10 +77,12 @@ export async function uploadFileToR2(
     return false;
   }
   
+  const fileStream = createReadStream(filePath);
+
   await s3.send(new PutObjectCommand({
     Bucket: R2_BUCKET,
     Key: r2Key,
-    Body: buffer,
+    Body: fileStream,
     ContentType: contentType,
   }));
   

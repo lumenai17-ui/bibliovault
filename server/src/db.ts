@@ -176,40 +176,43 @@ export async function getUnenrichedBooks(limit?: number) {
 //  Collection Operations
 // ══════════════════════════════════════
 
-export async function getCollections() {
+export async function getCollections(userId?: string | null) {
   if (USE_PG) {
     const pg = await getPg();
-    return pg.pgGetCollections();
+    return pg.pgGetCollections(userId);
   }
   const s = await getSqlite();
-  return s.getCollections();
+  return s.getCollections(userId);
 }
 
-export async function createCollection(name: string, description?: string, color?: string) {
+export async function createCollection(name: string, description?: string, color?: string, userId?: string | null) {
   if (USE_PG) {
     const pg = await getPg();
-    return pg.pgCreateCollection(name, description, color);
+    return pg.pgCreateCollection(name, description, color, userId);
   }
   const s = await getSqlite();
-  return s.createCollection(name, description, color);
+  // @ts-ignore
+  return s.createCollection(name, description, color, userId);
 }
 
-export async function updateCollection(id: number, name: string, description: string, color: string) {
+export async function updateCollection(id: number, name: string, description: string, color: string, userId?: string | null) {
   if (USE_PG) {
     const pg = await getPg();
-    return pg.pgUpdateCollection(id, name, description, color);
+    return pg.pgUpdateCollection(id, name, description, color, userId);
   }
   const s = await getSqlite();
-  return s.updateCollection(id, name, description, color);
+  // @ts-ignore
+  return s.updateCollection(id, name, description, color, userId);
 }
 
-export async function deleteCollection(id: number) {
+export async function deleteCollection(id: number, userId?: string | null) {
   if (USE_PG) {
     const pg = await getPg();
-    return pg.pgDeleteCollection(id);
+    return pg.pgDeleteCollection(id, userId);
   }
   const s = await getSqlite();
-  return s.deleteCollection(id);
+  // @ts-ignore
+  return s.deleteCollection(id, userId);
 }
 
 export async function addBookToCollection(bookId: number, collectionId: number) {
@@ -230,13 +233,14 @@ export async function removeBookFromCollection(bookId: number, collectionId: num
   return s.removeBookFromCollection(bookId, collectionId);
 }
 
-export async function getBookCollections(bookId: number) {
+export async function getBookCollections(bookId: number, userId?: string | null) {
   if (USE_PG) {
     const pg = await getPg();
-    return pg.pgGetBookCollections(bookId);
+    return pg.pgGetBookCollections(bookId, userId);
   }
   const s = await getSqlite();
-  return s.getBookCollections(bookId);
+  // @ts-ignore
+  return s.getBookCollections(bookId, userId);
 }
 
 // ══════════════════════════════════════
@@ -259,6 +263,16 @@ export async function getUserByEmail(email: string) {
   }
   const s = await getSqlite();
   return s.getUserByEmail(email);
+}
+
+export async function getUserBySubscriptionId(subId: string) {
+  if (USE_PG) {
+    const pg = await getPg();
+    return pg.pgGetUserBySubscriptionId(subId);
+  }
+  const s = await getSqlite();
+  // @ts-ignore
+  return s.getDb().prepare('SELECT * FROM users WHERE subscription_id = ?').get(subId);
 }
 
 export async function createUser(id: string, email: string, passwordHash: string, displayName: string) {

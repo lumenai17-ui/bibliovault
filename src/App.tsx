@@ -4,7 +4,7 @@ import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar/Sidebar';
 import Header from './components/Header/Header';
 import LibraryGrid from './components/Library/LibraryGrid';
-import UnifiedReader from './components/Reader/UnifiedReader';
+import { Suspense, lazy } from 'react';
 import BookDetail from './components/BookDetail/BookDetail';
 import Statistics from './components/Dashboard/Statistics';
 import CategoriesDashboard from './components/Dashboard/CategoriesDashboard';
@@ -12,10 +12,12 @@ import AuthPage, { type AuthUser } from './components/Auth/AuthPage';
 import SubscriptionPage from './components/Subscription/SubscriptionPage';
 import CommunityExplorer from './components/Community/CommunityExplorer';
 import SettingsPage from './components/Settings/SettingsPage';
-import AdminDashboard from './components/Admin/AdminDashboard';
-import AdminUsers from './components/Admin/AdminUsers';
-import AdminPending from './components/Admin/AdminPending';
-import AdminCoupons from './components/Admin/AdminCoupons';
+
+const UnifiedReader = lazy(() => import('./components/Reader/UnifiedReader'));
+const AdminDashboard = lazy(() => import('./components/Admin/AdminDashboard'));
+const AdminUsers = lazy(() => import('./components/Admin/AdminUsers'));
+const AdminPending = lazy(() => import('./components/Admin/AdminPending'));
+const AdminCoupons = lazy(() => import('./components/Admin/AdminCoupons'));
 import MyBooks from './components/Library/MyBooks';
 import CommunityBooks from './components/Library/CommunityBooks';
 import type { Book, ViewMode, BookFormat } from './types';
@@ -355,14 +357,16 @@ export default function App() {
   // If a book is open in the reader, show the reader overlay
   if (activeBook) {
     return (
-      <UnifiedReader
-        book={activeBook}
-        onClose={() => {
-          setActiveBook(null);
-          loadBooks(); // Refresh to show updated progress
-        }}
-        onNavigate={handleAiNavigate}
-      />
+      <Suspense fallback={<div style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'var(--text-muted)'}}>Cargando Lector...</div>}>
+        <UnifiedReader
+          book={activeBook}
+          onClose={() => {
+            setActiveBook(null);
+            loadBooks(); // Refresh to show updated progress
+          }}
+          onNavigate={handleAiNavigate}
+        />
+      </Suspense>
     );
   }
 
@@ -472,25 +476,25 @@ export default function App() {
               />
             </>
           ) : activeSection === 'admin' ? (
-            <>
+            <Suspense fallback={<div>Cargando...</div>}>
               <SectionHeader title="Admin Dashboard" onBack={() => setActiveSection('home')} />
               <AdminDashboard />
-            </>
+            </Suspense>
           ) : activeSection === 'admin-users' ? (
-            <>
+            <Suspense fallback={<div>Cargando...</div>}>
               <SectionHeader title="Usuarios" onBack={() => setActiveSection('admin')} />
               <AdminUsers />
-            </>
+            </Suspense>
           ) : activeSection === 'admin-pending' ? (
-            <>
+            <Suspense fallback={<div>Cargando...</div>}>
               <SectionHeader title="Pendientes" onBack={() => setActiveSection('admin')} />
               <AdminPending />
-            </>
+            </Suspense>
           ) : activeSection === 'admin-coupons' ? (
-            <>
+            <Suspense fallback={<div>Cargando...</div>}>
               <SectionHeader title="Cupones" onBack={() => setActiveSection('admin')} />
               <AdminCoupons />
-            </>
+            </Suspense>
           ) : activeSection === 'my-books' ? (
             <>
               <SectionHeader title="Mis Libros" onBack={() => setActiveSection('home')} />
