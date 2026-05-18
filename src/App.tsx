@@ -38,6 +38,7 @@ import {
 import type { AiAction } from './services/ai';
 import type { Collection } from './types';
 import SectionHeader from './components/common/SectionHeader';
+import { useHashRouter } from './hooks/useHashRouter';
 
 /** Map API book to frontend Book type */
 function mapBook(b: ApiBook): Book {
@@ -97,7 +98,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
 
-  const [activeSection, setActiveSection] = useState('home');
+  const [activeSection, setActiveSection] = useHashRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeFormat, setActiveFormat] = useState<BookFormat | 'all'>('all');
@@ -465,6 +466,7 @@ export default function App() {
                 onLogout={async () => {
                   const base = import.meta.env.DEV ? 'http://localhost:3001' : '';
                   await fetch(`${base}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+                  setActiveSection('home');
                   setCurrentUser(null);
                 }}
               />
