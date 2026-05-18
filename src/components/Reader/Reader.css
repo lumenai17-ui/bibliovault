@@ -1235,8 +1235,7 @@
   }
 
   .reader-tts-mobile .tts-panel {
-    position: relative;
-    top: 0;
+    position: static;
     width: 100%;
     margin-top: 8px;
     box-shadow: none;

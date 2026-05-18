@@ -101,23 +101,27 @@ export default function TtsControls({
     });
   }, []);
 
-  // Load voices
   useEffect(() => {
+    let hasSetDefault = false;
     const loadVoices = () => {
-      const v = speechSynthesis.getVoices();
+      const v = window.speechSynthesis.getVoices();
       if (v.length > 0) {
         setVoices(v);
-        // If no voice selected yet, find a Spanish one
-        if (!settings.voiceName) {
-          const esVoice = v.find((voice) => voice.lang.startsWith('es'));
-          if (esVoice) updateSettings({ voiceName: esVoice.name });
-          else updateSettings({ voiceName: v[0]?.name || '' });
-        }
+        setSettings((prev) => {
+          if (!prev.voiceName && !hasSetDefault) {
+            hasSetDefault = true;
+            const esVoice = v.find((voice) => voice.lang.startsWith('es'));
+            const next = { ...prev, voiceName: esVoice ? esVoice.name : (v[0]?.name || '') };
+            saveSettings(next);
+            return next;
+          }
+          return prev;
+        });
       }
     };
     loadVoices();
-    speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { speechSynthesis.onvoiceschanged = null; };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
   // Stop on unmount
@@ -301,7 +305,7 @@ export default function TtsControls({
   const activeVoice = voices.find((v) => v.name === settings.voiceName);
 
   return (
-    <div className="tts-wrapper" style={{ position: 'relative' }}>
+    <div className="tts-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
       {/* Floating TTS Bar */}
       <div className={`tts-bar ${isPlaying || isPaused ? 'tts-bar-active' : ''}`}>
         {/* Play/Pause button */}
