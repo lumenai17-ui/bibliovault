@@ -674,10 +674,9 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
       )}
 
       {/* Bottom Sheet */}
-      {showMobileMenu && (
-        <div className="reader-bottom-sheet">
-          <div className="reader-sheet-handle" />
-          <p className="reader-sheet-title">{t('reader.mobileTools')}</p>
+      <div className={`reader-bottom-sheet ${showMobileMenu ? 'open' : ''}`}>
+        <div className="reader-sheet-handle" />
+        <p className="reader-sheet-title">{t('reader.mobileTools')}</p>
 
           {/* Zoom Row */}
           <div className="reader-sheet-zoom">
@@ -734,8 +733,8 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
             </div>
           )}
 
-          {/* TTS Mobile Controls (conditional) */}
-          {mobileSubView === 'tts' && (
+          {/* TTS Mobile Controls (conditional display) */}
+          <div style={{ display: mobileSubView === 'tts' ? 'block' : 'none' }}>
             <div className="reader-tts-mobile">
               <TtsControls
                 text={pageText || `${book.title}. Página ${currentPage}`}
@@ -755,7 +754,7 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
                 }}
               />
             </div>
-          )}
+          </div>
 
           {/* Tool Grid */}
           <div className="reader-sheet-grid">
@@ -829,11 +828,10 @@ export default function UnifiedReader({ book, onClose, onNavigate }: UnifiedRead
               onClick={() => { setShowAiPanel(!showAiPanel); setShowMobileMenu(false); }}
             >
               <Bot size={20} />
-              <span className="sheet-btn-label">Hermes</span>
+              <span className="sheet-btn-label">Hermes AI</span>
             </button>
           </div>
         </div>
-      )}
     </div>
   );
 }

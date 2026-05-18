@@ -1079,14 +1079,19 @@
     border-radius: 20px 20px 0 0;
     z-index: 51;
     padding: 8px 16px 24px;
-    animation: sheetSlideUp 300ms var(--ease-spring);
     max-height: 70vh;
     overflow-y: auto;
+    /* CSS transition for hiding/showing instead of unmounting */
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 300ms var(--ease-spring), opacity 300ms var(--ease-spring);
   }
 
-  @keyframes sheetSlideUp {
-    from { transform: translateY(100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+  .reader-bottom-sheet.open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* Handle bar */

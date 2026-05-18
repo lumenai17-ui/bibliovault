@@ -71,6 +71,26 @@ export default function TtsControls({
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const isAutoAdvancing = useRef(false);
   const shouldStop = useRef(false);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Setup silent audio and media session for background playback on mobile
+  useEffect(() => {
+    // 1-second silent WAV base64
+    const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    audio.loop = true;
+    silentAudioRef.current = audio;
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Narración IA',
+        artist: 'BiblioVault TTS',
+      });
+    }
+
+    return () => {
+      audio.pause();
+    };
+  }, []);
 
   // Persist settings
   const updateSettings = useCallback((patch: Partial<TtsSettings>) => {
@@ -139,6 +159,14 @@ export default function TtsControls({
   );
 
   const handlePlay = useCallback(async () => {
+    if (silentAudioRef.current && silentAudioRef.current.paused) {
+      silentAudioRef.current.play().catch(() => {});
+    }
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'playing';
+    }
+
     if (isPaused) {
       speechSynthesis.resume();
       setIsPaused(false);
@@ -216,6 +244,9 @@ export default function TtsControls({
     speechSynthesis.pause();
     setIsPlaying(false);
     setIsPaused(true);
+    
+    if (silentAudioRef.current) silentAudioRef.current.pause();
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   }, []);
 
   const handleStop = useCallback(() => {
@@ -224,12 +255,33 @@ export default function TtsControls({
     setIsPlaying(false);
     setIsPaused(false);
     isAutoAdvancing.current = false;
+    
+    if (silentAudioRef.current) silentAudioRef.current.pause();
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
   }, []);
 
   const handleSkip = useCallback(() => {
     // Skip current page narration → will trigger auto-advance
     speechSynthesis.cancel();
   }, []);
+
+  // Bind Media Session handlers once dependencies are ready
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', handlePlay);
+      navigator.mediaSession.setActionHandler('pause', handlePause);
+      navigator.mediaSession.setActionHandler('stop', handleStop);
+      navigator.mediaSession.setActionHandler('nexttrack', handleSkip);
+    }
+    return () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('stop', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      }
+    };
+  }, [handlePlay, handlePause, handleStop, handleSkip]);
 
   if (!('speechSynthesis' in window)) {
     return null;
