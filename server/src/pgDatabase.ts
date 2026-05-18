@@ -468,6 +468,7 @@ export async function pgGetAllBooks(limit = 2000, offset = 0, filters?: {
   language?: string;
   minPages?: number;
   maxPages?: number;
+  section?: string;
 }) {
   const p = getPgPool();
   let where = 'WHERE 1=1';
@@ -509,6 +510,14 @@ export async function pgGetAllBooks(limit = 2000, offset = 0, filters?: {
   if (filters?.maxPages !== undefined) {
     where += ` AND b.pages <= $${paramIndex++}`;
     params.push(filters.maxPages);
+  }
+
+  if (filters?.section === 'favorites' && filters.userId) {
+    where += ` AND EXISTS (SELECT 1 FROM user_favorites uf WHERE uf.book_id = b.id AND uf.user_id = $${paramIndex++})`;
+    params.push(filters.userId);
+  } else if (filters?.section === 'reading' && filters.userId) {
+    where += ` AND EXISTS (SELECT 1 FROM user_reading_progress urp WHERE urp.book_id = b.id AND urp.user_id = $${paramIndex++} AND urp.progress > 0 AND urp.progress < 100)`;
+    params.push(filters.userId);
   }
 
   const joinCollections = filters?.collection_id

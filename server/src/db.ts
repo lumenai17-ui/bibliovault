@@ -63,6 +63,7 @@ export function isPostgres(): boolean {
 
 export async function getAllBooks(limit?: number, offset?: number, filters?: {
   format?: string; category_id?: number; favorite?: boolean; search?: string; collection_id?: number; userId?: string;
+  language?: string; minPages?: number; maxPages?: number; section?: string;
 }) {
   if (USE_PG) {
     const pg = await getPg();

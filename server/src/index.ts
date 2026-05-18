@@ -725,10 +725,11 @@ app.get('/api/books', optionalAuth, async (req, res) => {
   const language = req.query.language as string | undefined;
   const minPages = req.query.minPages ? parseInt(req.query.minPages as string) : undefined;
   const maxPages = req.query.maxPages ? parseInt(req.query.maxPages as string) : undefined;
+  const section = req.query.section as string | undefined;
 
   const result = await getAllBooks(limit, offset, { 
     format, category_id, favorite, search, collection_id, userId: req.userId || undefined,
-    language, minPages, maxPages
+    language, minPages, maxPages, section
   });
   res.json(result);
 });
@@ -1961,6 +1962,45 @@ app.get('/api/admin/books/pending', requireAuth, requireAdmin, async (_req, res)
   } catch (err) {
     console.error('Admin pending books error:', err);
     res.status(500).json({ error: 'Error al obtener libros pendientes.' });
+  }
+});
+
+app.post('/api/admin/sync-covers', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const p = getPgPool();
+    const { uploadFileToR2 } = await import('./uploadStorage.js');
+    
+    // Find books with local cover but no R2 key
+    const result = await p.query(`
+      SELECT id, cover_path FROM books 
+      WHERE cover_path IS NOT NULL 
+      AND r2_cover_key IS NULL 
+      AND cover_path NOT LIKE 'http%'
+    `);
+    
+    let synced = 0;
+    const errors: string[] = [];
+
+    for (const row of result.rows) {
+      if (existsSync(row.cover_path)) {
+        const ext = extname(row.cover_path).toLowerCase();
+        const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+        const r2Key = \`covers/\${row.id}\${ext}\`;
+        
+        const success = await uploadFileToR2(row.cover_path, r2Key, mime);
+        if (success) {
+          await p.query('UPDATE books SET r2_cover_key = $1 WHERE id = $2', [r2Key, row.id]);
+          synced++;
+        } else {
+          errors.push(\`Failed to upload cover for book \${row.id}\`);
+        }
+      }
+    }
+    
+    res.json({ success: true, synced, total: result.rows.length, errors });
+  } catch (err: any) {
+    console.error('Sync covers error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

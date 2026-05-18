@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const { t } = useTranslation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/api/admin/dashboard`, { credentials: 'include' })
@@ -40,11 +41,34 @@ export default function AdminDashboard() {
     { icon: '💰', value: `$${data.estimatedRevenue.toFixed(2)}`, label: t('admin.revenue'), cls: 'revenue' },
   ];
 
+  const handleSyncCovers = async () => {
+    if (!confirm('¿Estás seguro de que deseas sincronizar todas las portadas locales con R2? Esto puede tardar varios minutos dependiendo de la cantidad.')) return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`${API}/api/admin/sync-covers`, { method: 'POST', credentials: 'include' });
+      const result = await res.json();
+      if (res.ok) {
+        alert(`¡Sincronización completada!\nPortadas subidas: ${result.synced}/${result.total}`);
+      } else {
+        alert(`Error: ${result.error}`);
+      }
+    } catch (err) {
+      alert('Error de conexión');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="admin-panel">
       <div className="admin-header">
         <h2>{t('admin.dashboardTitle')}</h2>
-        <span className="admin-badge">ADMIN</span>
+        <div>
+          <button className="btn btn-secondary" onClick={handleSyncCovers} disabled={syncing}>
+            {syncing ? 'Sincronizando...' : 'Sincronizar Portadas a R2'}
+          </button>
+          <span className="admin-badge" style={{marginLeft: 10}}>ADMIN</span>
+        </div>
       </div>
 
       <div className="admin-stats-grid">

@@ -16,6 +16,8 @@ interface LibraryGridProps {
   onScan: () => void;
   showBack?: boolean;
   onBack?: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 const PAGE_SIZE = 48; // Load 48 books at a time (6 columns × 8 rows)
@@ -31,6 +33,8 @@ export default function LibraryGrid({
   onScan,
   showBack = false,
   onBack,
+  hasMore = false,
+  onLoadMore,
 }: LibraryGridProps) {
   const { t } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -44,12 +48,16 @@ export default function LibraryGrid({
   // Infinite scroll with IntersectionObserver
   useEffect(() => {
     const el = loadMoreRef.current;
-    if (!el || visibleCount >= books.length) return;
+    if (!el) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, books.length));
+          if (visibleCount < books.length) {
+            setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, books.length));
+          } else if (hasMore && onLoadMore) {
+            onLoadMore();
+          }
         }
       },
       { rootMargin: '300px' }
@@ -57,7 +65,7 @@ export default function LibraryGrid({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [visibleCount, books.length]);
+  }, [visibleCount, books.length, hasMore, onLoadMore]);
 
   const visibleBooks = books.slice(0, visibleCount);
 
@@ -156,7 +164,7 @@ export default function LibraryGrid({
         ))}
       </div>
       {/* Load more trigger */}
-      {visibleCount < books.length && (
+      {(visibleCount < books.length || hasMore) && (
         <div ref={loadMoreRef} className="library-load-more">
           <div className="skeleton" style={{ width: 200, height: 20, margin: '20px auto' }} />
         </div>

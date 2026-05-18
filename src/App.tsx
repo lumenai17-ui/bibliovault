@@ -108,6 +108,8 @@ export default function App() {
   const [activeLength, setActiveLength] = useState<string>('all'); // all, short, medium, long
   const [books, setBooks] = useState<Book[]>([]);
   const [totalBooks, setTotalBooks] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
@@ -129,12 +131,19 @@ export default function App() {
       .finally(() => setAuthChecking(false));
   }, []);
 
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(true);
+  }, [searchQuery, activeFormat, activeLanguage, activeLength, activeSection]);
+
   // Load books from API
-  const loadBooks = useCallback(async () => {
+  const loadBooks = useCallback(async (append = false) => {
     if (!currentUser) return; // Don't load if not authenticated
-    setIsLoading(true);
+    if (!append) setIsLoading(true);
+    
     try {
-      const params: Parameters<typeof fetchBooks>[0] = { limit: 2000 };
+      const currentOffset = append ? offset : 0;
+      const params: Parameters<typeof fetchBooks>[0] = { limit: 50, offset: currentOffset };
 
       if (activeFormat !== 'all') params.format = activeFormat;
       if (activeLanguage !== 'all') params.language = activeLanguage;
@@ -149,12 +158,14 @@ export default function App() {
       }
 
       if (searchQuery.trim()) params.search = searchQuery.trim();
-      // Don't send favorite filter to server anymore — we filter client-side
       if (activeSection.startsWith('cat-')) {
         params.category_id = parseInt(activeSection.replace('cat-', ''));
       }
       if (activeSection.startsWith('col-')) {
         params.collection_id = parseInt(activeSection.replace('col-', ''));
+      }
+      if (activeSection === 'favorites' || activeSection === 'reading') {
+        params.section = activeSection;
       }
 
       // Fetch books + user's favorites + reading progress in parallel
@@ -164,7 +175,7 @@ export default function App() {
         fetchUserReadingMap(),
       ]);
 
-      let mapped = result.books.map((b: ApiBook) => {
+      const mapped = result.books.map((b: ApiBook) => {
         const userProgress = readingMap[b.id];
         return {
           ...mapBook(b),
@@ -174,28 +185,18 @@ export default function App() {
         };
       });
 
-      // Client-side section filtering
-      if (activeSection === 'favorites') {
-        mapped = mapped.filter((b) => b.favorite);
-      } else if (activeSection === 'reading') {
-        mapped = mapped.filter((b) => b.readingProgress > 0 && b.readingProgress < 1);
-      } else if (activeSection === 'recent') {
-        mapped.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
-        mapped = mapped.slice(0, 50);
-      }
+      setTotalBooks(result.total || 0);
+      setHasMore(mapped.length === 50);
+      setBooks(prev => append ? [...prev, ...mapped] : mapped);
+      setOffset(currentOffset + 50);
 
-      setBooks(mapped);
-      setTotalBooks(result.total);
-      setConnectionError(null); // Clear error on success
     } catch (err) {
-      if (err instanceof ApiConnectionError) {
-        setConnectionError(err.message);
-      }
-      console.error('Failed to load books:', err);
+      console.error('Error fetching books:', err);
+      setConnectionError('No se pudo conectar con la biblioteca.');
     } finally {
       setIsLoading(false);
     }
-  }, [activeSection, activeFormat, activeLanguage, activeLength, searchQuery, currentUser]);
+  }, [currentUser, activeFormat, activeLanguage, activeLength, searchQuery, activeSection, offset]);
 
   // Load stats, categories, and collections
   const loadMeta = useCallback(async () => {
@@ -219,7 +220,12 @@ export default function App() {
     }
   }, [currentUser]);
 
-  useEffect(() => { loadBooks(); }, [loadBooks]);
+  useEffect(() => {
+    // Only fetch if offset is 0 to avoid duplicate fetches on initial load
+    if (offset === 0) {
+      loadBooks(false);
+    }
+  }, [loadBooks, offset]);
   useEffect(() => { loadMeta(); }, [loadMeta]);
 
   // Auto-retry on connection error
@@ -530,7 +536,9 @@ export default function App() {
               onReadBook={handleOpenReader}
               onBookDetail={(book) => setDetailBook(book)}
               onToggleFavorite={handleToggleFavorite}
-              onScan={handleScan}
+              onScan={() => { setSidebarOpen(true); setTimeout(() => document.getElementById('scan-btn')?.click(), 100); }}
+              hasMore={hasMore}
+              onLoadMore={() => loadBooks(true)}
               showBack={activeSection !== 'all' && activeSection !== 'home'}
               onBack={() => setActiveSection('home')}
             />

@@ -23,6 +23,7 @@
 | 18 | Filtros Avanzados (Idioma, Extension) y Soporte Nativo EPUB | ✅ Done |
 | 19 | DOC/EPUB Reader Overhaul (pdf-lib, portadas, AI/TTS) | ✅ Done |
 | 20 | UX Sprint: Auth scroll, back navigation (9 secciones), path exposure | ✅ Done |
+| 20.5 | Auditoría 360° (OOM, Multi-tenant, PayPal, React.lazy, Sentry) | ✅ Done |
 
 ---
 
@@ -43,13 +44,13 @@
 ### Fase 22 — Auditoría Mobile + Aislamiento Multi-usuario
 > Auditoría completa de mobile + seguridad de datos entre usuarios
 
-| Item | Descripción |
-|------|-------------|
-| M2: Nav mobile | Flujo completo: sidebar, reader, bookdetail, comunidad |
-| M3: Responsive | Verificar 375px-428px (iPhone SE → Pro Max) |
-| M4: Reader UX | Gestos swipe, botones, tamaño texto en móvil |
-| Aislamiento | Bookmarks, conversaciones AI, colecciones → `WHERE user_id = $1` |
-| Datos cruzados | Auditar cada query que toca datos de usuario |
+| Item | Descripción | Estado |
+|------|-------------|--------|
+| M2: Nav mobile | Flujo completo: sidebar, reader, bookdetail, comunidad | ✅ Done |
+| M3: Responsive | Verificar 375px-428px (iPhone SE → Pro Max) | ✅ Done |
+| M4: Reader UX | Gestos swipe, botones, tamaño texto en móvil | ✅ Done |
+| Aislamiento | Bookmarks, conversaciones AI, colecciones → `WHERE user_id = $1` | ✅ Done |
+| Datos cruzados | Auditar cada query que toca datos de usuario | ✅ Done |
 
 ---
 
