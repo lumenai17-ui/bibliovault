@@ -9,6 +9,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1047.0",
     "@aws-sdk/s3-request-presigner": "^3.1048.0",
+    "@sentry/node": "^10.53.1",
+    "@sentry/profiling-node": "^10.53.1",
     "@supabase/supabase-js": "^2.105.4",
     "adm-zip": "^0.5.17",
     "bcryptjs": "^3.0.3",

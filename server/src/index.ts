@@ -1,4 +1,18 @@
 import 'dotenv/config';
+import * as Sentry from '@sentry/node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+      nodeProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+  });
+}
+
 import express from 'express';
 import cors from 'cors';
 import { join, dirname } from 'path';
@@ -2940,3 +2954,9 @@ app.post('/api/votes', async (req, res) => {
     res.status(500).json({ error: 'Failed to vote' });
   }
 });
+
+// Sentry Error Handler (must be after all controllers)
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
