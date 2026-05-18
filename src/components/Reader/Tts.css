@@ -146,8 +146,6 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   z-index: 100;
-  animation: fadeInUp 200ms var(--ease-out);
-  overflow: hidden;
 }
 
 .reader-sepia .tts-panel {
