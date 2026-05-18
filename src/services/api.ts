@@ -756,16 +756,17 @@ export interface UserProfile {
 }
 
 export async function fetchProfile(): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/profile`, { credentials: 'include' });
-  return res.json();
+  const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+  const data = await res.json();
+  return data.user;
 }
 
 export async function updateProfile(data: { display_name?: string; bio?: string; avatar_url?: string }): Promise<void> {
-  await fetch(`${API_BASE}/profile`, {
+  await fetch(`${API_BASE}/auth/me`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify(data),
+    body: JSON.stringify({ displayName: data.display_name, avatar_url: data.avatar_url, bio: data.bio }),
   });
 }
 
