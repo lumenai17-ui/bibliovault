@@ -20,7 +20,7 @@ export function getPgPool(): pg.Pool {
       ssl: {
         rejectUnauthorized: false,
       },
-      max: 10,
+      max: 4, // Supabase free tier PgBouncer limit is 15. Keeping it at 4 prevents EMAXCONNSESSION.
       idleTimeoutMillis: 30000,
     });
     pool.on('error', (err) => {
