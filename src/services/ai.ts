@@ -157,3 +157,43 @@ export async function streamAiChat(
     onError(err instanceof Error ? err.message : 'Connection failed');
   }
 }
+
+/** D1: Log token usage for a single AI interaction */
+export async function logAiUsage(bookId: number, usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/ai/usage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ book_id: bookId, ...usage }),
+    });
+  } catch {
+    // Silent fail — usage logging is non-critical
+  }
+}
+
+/** D1: Get AI usage dashboard data */
+export async function getAiUsage(): Promise<{ today: { tokens: number; messages: number }; total: { tokens: number; messages: number } }> {
+  try {
+    const res = await fetch(`${API_BASE}/ai/usage`, { credentials: 'include' });
+    return res.json();
+  } catch {
+    return { today: { tokens: 0, messages: 0 }, total: { tokens: 0, messages: 0 } };
+  }
+}
+
+/** D4: Research mode — parallel web + library search */
+export async function aiResearch(query: string): Promise<{ web: { formatted: string; count: number }; library: { formatted: string; count: number } }> {
+  try {
+    const res = await fetch(`${API_BASE}/ai/research`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) return { web: { formatted: '', count: 0 }, library: { formatted: '', count: 0 } };
+    return res.json();
+  } catch {
+    return { web: { formatted: '', count: 0 }, library: { formatted: '', count: 0 } };
+  }
+}

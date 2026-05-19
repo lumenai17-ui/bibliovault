@@ -152,6 +152,39 @@ if (isPostgres()) {
 }
 console.log('📦 Database initialized');
 
+// D1: Initialize AI usage tracking table
+if (isPostgres()) {
+  const pool = getPgPool();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_usage_log (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      book_id INTEGER,
+      prompt_tokens INTEGER DEFAULT 0,
+      completion_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      model TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_user ON ai_usage_log(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_date ON ai_usage_log(created_at);
+  `);
+} else {
+  const { getDb: getInitDb2 } = await import('./database.js');
+  getInitDb2().prepare(`
+    CREATE TABLE IF NOT EXISTS ai_usage_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      book_id INTEGER,
+      prompt_tokens INTEGER DEFAULT 0,
+      completion_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      model TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+}
+
 // Rate limiter for AI requests (simple in-memory tracker)
 const aiRateLimit = new Map<string, number[]>();
 
@@ -1465,6 +1498,100 @@ app.post('/api/organizer/chat', optionalAuth, async (req, res) => {
 app.get('/api/ai/health', async (_req, res) => {
   const online = await checkHermesHealth();
   res.json({ online });
+});
+
+// D1: Log token usage per message
+app.post('/api/ai/usage', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.userId || 'anonymous';
+    const { book_id, prompt_tokens, completion_tokens, total_tokens, model } = req.body;
+    
+    if (isPostgres()) {
+      const pool = getPgPool();
+      await pool.query(
+        'INSERT INTO ai_usage_log (user_id, book_id, prompt_tokens, completion_tokens, total_tokens, model) VALUES ($1, $2, $3, $4, $5, $6)',
+        [userId, book_id || null, prompt_tokens || 0, completion_tokens || 0, total_tokens || 0, model || '']
+      );
+    } else {
+      const db = (await import('./database.js')).getDb();
+      db.prepare(
+        'INSERT INTO ai_usage_log (user_id, book_id, prompt_tokens, completion_tokens, total_tokens, model) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(userId, book_id || null, prompt_tokens || 0, completion_tokens || 0, total_tokens || 0, model || '');
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to log AI usage:', err);
+    res.json({ success: false });
+  }
+});
+
+// D1: Get usage dashboard for current user
+app.get('/api/ai/usage', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.userId || 'anonymous';
+    
+    if (isPostgres()) {
+      const pool = getPgPool();
+      const { rows: today } = await pool.query(
+        `SELECT COALESCE(SUM(total_tokens), 0) as tokens, COUNT(*) as messages
+         FROM ai_usage_log WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`,
+        [userId]
+      );
+      const { rows: total } = await pool.query(
+        'SELECT COALESCE(SUM(total_tokens), 0) as tokens, COUNT(*) as messages FROM ai_usage_log WHERE user_id = $1',
+        [userId]
+      );
+      res.json({
+        today: { tokens: Number(today[0].tokens), messages: Number(today[0].messages) },
+        total: { tokens: Number(total[0].tokens), messages: Number(total[0].messages) },
+      });
+    } else {
+      const db = (await import('./database.js')).getDb();
+      const todayRow = db.prepare(
+        `SELECT COALESCE(SUM(total_tokens), 0) as tokens, COUNT(*) as messages
+         FROM ai_usage_log WHERE user_id = ? AND created_at > datetime('now', '-24 hours')`
+      ).get(userId) as any;
+      const totalRow = db.prepare(
+        'SELECT COALESCE(SUM(total_tokens), 0) as tokens, COUNT(*) as messages FROM ai_usage_log WHERE user_id = ?'
+      ).get(userId) as any;
+      res.json({
+        today: { tokens: Number(todayRow?.tokens || 0), messages: Number(todayRow?.messages || 0) },
+        total: { tokens: Number(totalRow?.tokens || 0), messages: Number(totalRow?.messages || 0) },
+      });
+    }
+  } catch (err) {
+    console.error('Failed to get AI usage:', err);
+    res.json({ today: { tokens: 0, messages: 0 }, total: { tokens: 0, messages: 0 } });
+  }
+});
+
+// D4: Research mode — combine web + library search in one call
+app.post('/api/ai/research', optionalAuth, async (req, res) => {
+  const { query } = req.body as { query: string };
+  if (!query?.trim()) return res.status(400).json({ error: 'query required' });
+
+  try {
+    // Parallel: web search + library search
+    const [webResults, libraryResults] = await Promise.all([
+      searchWeb(query.trim(), 5).catch(() => []),
+      getAllBooks(10, 0, { search: query.trim() }),
+    ]);
+
+    const webFormatted = formatSearchResults(webResults as any);
+    const libraryFormatted = libraryResults.books.length > 0
+      ? libraryResults.books.map((b: any) =>
+        `- [BOOK_ID:${b.id}] "${b.title}" por ${b.author || 'Desconocido'} (${b.category_name || 'Varios'})`
+      ).join('\n')
+      : '';
+
+    res.json({
+      web: { formatted: webFormatted, count: (webResults as any[]).length },
+      library: { formatted: libraryFormatted, count: libraryResults.books.length },
+    });
+  } catch (err) {
+    console.error('Research mode error:', err);
+    res.status(500).json({ error: 'Research failed' });
+  }
 });
 
 // ── Web Search (for AI context enrichment) ──

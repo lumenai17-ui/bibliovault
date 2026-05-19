@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX, Settings, RotateCcw } from 'lucide-react';
+import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX, Settings, RotateCcw, BookmarkPlus, Microscope } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
-import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks } from '../../services/api';
+import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, logAiUsage, aiResearch, type ChatMessage, type AiAction } from '../../services/ai';
+import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks, addBookmark } from '../../services/api';
 import type { Book } from '../../types';
 import './AiChat.css';
 
@@ -51,6 +51,8 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [savedNoteIndex, setSavedNoteIndex] = useState<number | null>(null);
+  const [isResearching, setIsResearching] = useState(false);
 
   // B1: Resizable panel
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -430,6 +432,8 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       (usage) => {
         if (usage?.total_tokens) {
           setSessionTokens((prev) => prev + usage.total_tokens);
+          // D1: Log to server
+          logAiUsage(book.id, usage).catch(() => {});
         }
       }
     );
@@ -567,6 +571,64 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     abortRef.current?.abort();
     setIsStreaming(false);
   };
+
+  // D3: Auto-summarize long conversations
+  const handleSummarize = useCallback(async () => {
+    if (messages.length < 6 || isStreaming) return;
+    
+    const summaryPrompt: ChatMessage = {
+      role: 'user',
+      content: `Por favor, genera un resumen ejecutivo de toda nuestra conversación hasta ahora. Incluye los puntos clave discutidos, las conclusiones principales y cualquier recomendación que hayas dado. Formato: Markdown con secciones.`,
+      timestamp: new Date().toISOString(),
+    };
+    const newMessages = [...messages, summaryPrompt];
+    setMessages(newMessages);
+    await processStream(newMessages);
+  }, [messages, isStreaming, processStream]);
+
+  // D4: Research mode — parallel web + library search
+  const handleResearchMode = useCallback(async (topic: string) => {
+    if (!topic.trim() || isStreaming) return;
+    setIsResearching(true);
+
+    const searchMsg: ChatMessage = {
+      role: 'assistant',
+      content: `🔬 Investigando "${topic}" en la web y en tu biblioteca...`,
+      timestamp: new Date().toISOString(),
+    };
+    let currentMessages = [...messages, searchMsg];
+    setMessages(currentMessages);
+
+    try {
+      const result = await aiResearch(topic);
+      
+      if (result.web.formatted) setWebSearchContext(result.web.formatted);
+      if (result.library.formatted) setLibraryContext(result.library.formatted);
+
+      currentMessages = currentMessages.map(m =>
+        m.timestamp === searchMsg.timestamp
+          ? { ...m, content: `📊 Encontré ${result.web.count} fuentes web y ${result.library.count} libros en tu biblioteca sobre "${topic}".` }
+          : m
+      );
+
+      const triggerMsg: ChatMessage = {
+        role: 'user',
+        content: `Acabo de investigar "${topic}". Analiza las fuentes web y los libros de mi biblioteca. Dame un informe comparativo: ¿qué dice la web? ¿qué libros de mi colección cubren este tema? ¿hay perspectivas únicas en mis libros que no aparecen en la web?`,
+        timestamp: new Date().toISOString(),
+      };
+      currentMessages = [...currentMessages, triggerMsg];
+      setMessages(currentMessages);
+
+      await processStream(currentMessages, result.web.formatted, result.library.formatted);
+    } catch {
+      currentMessages = currentMessages.map(m =>
+        m.timestamp === searchMsg.timestamp ? { ...m, content: 'Error al investigar. Intenta de nuevo.' } : m
+      );
+      setMessages(currentMessages);
+    } finally {
+      setIsResearching(false);
+    }
+  }, [messages, isStreaming, processStream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -817,10 +879,33 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
               >
                 Buscar en Biblioteca
               </button>
+              <button
+                className="ai-quick-btn"
+                style={{ borderColor: '#10b981', color: '#10b981' }}
+                onClick={() => {
+                  const topic = prompt('¿Qué tema quieres investigar?');
+                  if (topic) handleResearchMode(topic);
+                }}
+                disabled={isResearching}
+              >
+                <Microscope size={12} /> Investigar
+              </button>
             </div>
           </div>
         ) : (
           <div className="ai-messages" ref={chatContainerRef}>
+            {/* D3: Summarize banner for long conversations */}
+            {messages.length >= 10 && !isStreaming && (
+              <div style={{ textAlign: 'center', padding: '6px 0' }}>
+                <button
+                  className="ai-followup-btn"
+                  style={{ fontSize: '11px', opacity: 0.8 }}
+                  onClick={handleSummarize}
+                >
+                  📋 Resumir conversación ({messages.length} mensajes)
+                </button>
+              </div>
+            )}
             {messages.map((msg, i) => (
               <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
                 {msg.role === 'assistant' ? (
@@ -837,6 +922,20 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                           </button>
                           <button className="ai-msg-action-btn" onClick={() => handleShareMessage(msg.content)}>
                             <Share2 size={15} />
+                          </button>
+                          <button
+                            className={`ai-msg-action-btn ${savedNoteIndex === i ? 'active success' : ''}`}
+                            title="Guardar como nota"
+                            onClick={async () => {
+                              try {
+                                const label = `🤖 Hermes: ${msg.content.substring(0, 60).replace(/[#*`]/g, '')}...`;
+                                await addBookmark(book.id, currentPage, label, '#667eea');
+                                setSavedNoteIndex(i);
+                                setTimeout(() => setSavedNoteIndex(null), 2000);
+                              } catch { /* ignore */ }
+                            }}
+                          >
+                            {savedNoteIndex === i ? <Check size={15} /> : <BookmarkPlus size={15} />}
                           </button>
                         </div>
                       </div>
