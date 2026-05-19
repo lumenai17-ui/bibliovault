@@ -341,12 +341,15 @@
 /* ── AI Panel (placeholder for Phase 6) ── */
 .reader-ai-panel {
   width: 380px;
+  min-width: 280px;
+  max-width: 600px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   animation: slideInRight var(--duration-slow) var(--ease-out);
+  position: relative;
 }
 
 .reader-ai-header {
@@ -402,21 +405,25 @@
   border-top: 1px solid var(--glass-border);
   display: flex;
   gap: var(--space-sm);
+  align-items: flex-end;
 }
 
-.reader-ai-input input {
+.reader-ai-input textarea {
   flex: 1;
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-tertiary);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
   outline: none;
+  line-height: 1.5;
+  min-height: 36px;
+  max-height: 120px;
 }
 
-.reader-ai-input input:focus {
+.reader-ai-input textarea:focus {
   border-color: var(--accent-primary);
 }
 

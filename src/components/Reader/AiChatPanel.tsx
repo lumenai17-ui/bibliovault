@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX, Settings } from 'lucide-react';
+import { Send, Bot, Sparkles, X, StopCircle, BookOpen, Globe, ArrowRight, Search, Copy, Share2, Download, Check, Volume2, VolumeX, Settings, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { streamAiChat, checkAiHealth, searchWebForAi, parseAiActions, type ChatMessage, type AiAction } from '../../services/ai';
 import { fetchBookText, fetchAiChatHistory, saveAiChatHistory, fetchBooks } from '../../services/api';
@@ -46,11 +46,62 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+
+  // B1: Resizable panel
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('hermes-panel-width');
+    return saved ? parseInt(saved) : 380;
+  });
+  const isResizing = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      const panelRight = window.innerWidth;
+      const newWidth = Math.min(600, Math.max(280, panelRight - e.clientX));
+      setPanelWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        localStorage.setItem('hermes-panel-width', String(panelWidth));
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [panelWidth]);
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  // B2: New conversation
+  const handleNewConversation = useCallback(() => {
+    if (messages.length === 0) return;
+    if (!confirm('¿Iniciar una nueva conversación? El historial actual se perderá.')) return;
+    setMessages([]);
+    setWebSearchContext('');
+    setLibraryContext('');
+    setSuggestedFollowUps([]);
+    setPendingActions([]);
+    setSessionTokens(0);
+    saveAiChatHistory(book.id, []).catch(console.error);
+  }, [messages, book.id]);
 
   // Load voices (they load async in Chrome)
   useEffect(() => {
@@ -443,6 +494,14 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     }
   };
 
+  // B3: Auto-resize textarea
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  };
+
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -489,7 +548,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   };
 
   return (
-    <div className="reader-ai-panel" onClick={(e) => e.stopPropagation()}>
+    <div className="reader-ai-panel" ref={panelRef} style={{ width: panelWidth }} onClick={(e) => e.stopPropagation()}>
+      {/* B1: Resize handle */}
+      <div className="ai-resize-handle" onMouseDown={startResize} />
       {/* Header */}
       <div className="reader-ai-header">
         <h3><Sparkles size={14} /> {t('aiChat.title')}</h3>
@@ -524,6 +585,11 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
                 {sessionTokens.toLocaleString()} t
               </span>
             </div>
+          )}
+          {messages.length > 0 && (
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={handleNewConversation} title="Nueva conversación">
+              <RotateCcw size={14} />
+            </button>
           )}
           {messages.length > 0 && (
             <button className="btn btn-ghost btn-icon btn-sm" onClick={handleExportPdf} title="Exportar a PDF">
@@ -775,14 +841,15 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
           <Globe size={14} />
         </button>
 
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           placeholder={hermesOnline ? t('aiChat.inputPlaceholder') : t('aiChat.inputUnavailable')}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleTextareaInput}
           onKeyDown={handleKeyDown}
           disabled={!hermesOnline || isStreaming}
+          style={{ resize: 'none', overflow: 'hidden' }}
         />
         {isStreaming ? (
           <button className="btn btn-primary btn-icon btn-sm" onClick={handleStop} title={t('aiChat.tooltipStop')}>
