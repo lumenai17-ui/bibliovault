@@ -190,11 +190,14 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
           // Footer before new page
           doc.setFontSize(8);
           doc.setTextColor(120);
-          doc.text('Generado por Hermes AI \u2022 Lectura Arcana \u2022 BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
+          doc.text('Generado por Hermes AI - Lectura Arcana - BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
           doc.addPage();
           y = margin;
         }
       };
+
+      // Strip emojis (jsPDF default font can't render them)
+      const stripEmojis = (text: string) => text.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1FFFF}\u{2702}-\u{27B0}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').replace(/\s{2,}/g, ' ').trim();
 
       // ── Header ──
       doc.setFillColor(30, 30, 50);
@@ -204,7 +207,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       doc.text('LECTURA ARCANA', pageWidth / 2, 18, { align: 'center' });
       doc.setFontSize(11);
       doc.setTextColor(180, 180, 220);
-      doc.text('Informe de An\u00e1lisis con Hermes AI', pageWidth / 2, 27, { align: 'center' });
+      doc.text('Informe de Analisis con Hermes AI', pageWidth / 2, 27, { align: 'center' });
       doc.setFontSize(9);
       doc.setTextColor(150);
       doc.text(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }), pageWidth / 2, 35, { align: 'center' });
@@ -215,10 +218,11 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       doc.roundedRect(margin, y, contentWidth, 22, 3, 3, 'F');
       doc.setFontSize(11);
       doc.setTextColor(40);
-      doc.text(`\ud83d\udcd6  ${book.title}`, margin + 5, y + 8);
+      doc.text(stripEmojis(book.title), margin + 5, y + 8);
       doc.setFontSize(9);
       doc.setTextColor(100);
-      doc.text(`\u270d\ufe0f  ${book.author || 'Autor desconocido'}  \u2022  \ud83d\udcac ${messages.filter(m => m.role === 'user').length} preguntas  \u2022  ${sessionTokens.toLocaleString()} tokens`, margin + 5, y + 16);
+      const userQs = messages.filter(m => m.role === 'user').length;
+      doc.text(`${book.author || 'Autor desconocido'}  |  ${userQs} preguntas  |  ${sessionTokens.toLocaleString()} tokens`, margin + 5, y + 16);
       y += 30;
 
       // ── Separator ──
@@ -238,8 +242,8 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       for (const msg of messages) {
         if (msg.role === 'system') continue;
         const isUser = msg.role === 'user';
-        const label = isUser ? '\ud83d\udc64 Usuario' : '\ud83e\udd16 Hermes';
-        const cleanText = stripMarkdown(msg.content);
+        const label = isUser ? '[Usuario]' : '[Hermes]';
+        const cleanText = stripEmojis(stripMarkdown(msg.content));
         if (!cleanText) continue;
 
         addPageIfNeeded(20);
@@ -265,7 +269,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       // ── Final footer ──
       doc.setFontSize(8);
       doc.setTextColor(120);
-      doc.text('Generado por Hermes AI \u2022 Lectura Arcana \u2022 BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
+      doc.text('Generado por Hermes AI - Lectura Arcana - BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
       doc.save(`Hermes_${book.title.replace(/[^\w\s]/g, '').replace(/\s+/g, '_').substring(0, 40)}.pdf`);
     } catch (err) {

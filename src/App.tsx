@@ -291,16 +291,18 @@ export default function App() {
         setActiveSection('all');
         break;
       case 'category': {
-        // Find category by name (case-insensitive)
+        // Find category by name (case-insensitive, accent-insensitive)
+        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const target = normalize(action.value);
         const cat = categories.find(
-          (c) => (c as any).name?.toLowerCase() === action.value.toLowerCase()
+          (c) => normalize((c as any).name || '') === target
+        ) || categories.find(
+          (c) => normalize((c as any).name || '').includes(target) || target.includes(normalize((c as any).name || ''))
         );
         if (cat) {
           setActiveSection(`cat-${cat.id}`);
-        } else {
-          // Fallback: use search
-          setSearchQuery(action.value);
         }
+        // If category not found, silently ignore — don't pollute search
         break;
       }
       case 'open': {

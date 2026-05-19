@@ -12,6 +12,8 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--glass-border);
   transition: all 250ms var(--ease-out);
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .tts-bar-active {
