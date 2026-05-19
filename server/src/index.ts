@@ -213,10 +213,57 @@ if (!isPostgres()) {
       updated++;
     }
   }
-  if (updated > 0) console.log(`ðŸ–¼ï¸  Cover sync: updated ${updated} book cover paths`);
+  if (updated > 0) console.log(`🖼️  Cover sync: updated ${updated} book cover paths`);
 }
 
-// â”€â”€ Scan state â”€â”€
+// Startup cover migration for PostgreSQL: upload local covers to Supabase Storage
+if (isPostgres()) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (supabaseUrl && supabaseKey) {
+    const pool = getPgPool();
+    const { rows: localCovers } = await pool.query(`
+      SELECT id, cover_path FROM books 
+      WHERE cover_path IS NOT NULL 
+      AND cover_path != '' 
+      AND cover_path NOT LIKE 'http%'
+    `);
+    
+    if (localCovers.length > 0) {
+      console.log(`📸 Found ${localCovers.length} books with local cover paths — migrating to Supabase...`);
+      const { createClient } = await import('@supabase/supabase-js');
+      const sb = createClient(supabaseUrl, supabaseKey);
+      let migrated = 0;
+      
+      for (const row of localCovers) {
+        if (existsSync(row.cover_path)) {
+          try {
+            const ext = row.cover_path.split('.').pop()?.toLowerCase() || 'jpg';
+            const filename = `${row.id}.${ext}`;
+            const contentType = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : 'image/jpeg';
+            const coverBuffer = readFileSync(row.cover_path);
+            
+            const { error } = await sb.storage.from('covers').upload(filename, coverBuffer, {
+              contentType,
+              upsert: true,
+            });
+            
+            if (!error) {
+              const permanentUrl = `${supabaseUrl}/storage/v1/object/public/covers/${filename}`;
+              await pool.query('UPDATE books SET cover_path = $1 WHERE id = $2', [permanentUrl, row.id]);
+              migrated++;
+            }
+          } catch { /* skip individual failures */ }
+        }
+      }
+      
+      if (migrated > 0) console.log(`✅ Migrated ${migrated}/${localCovers.length} covers to Supabase Storage`);
+    }
+  }
+}
+
+// —— Scan state ——
 let currentScan: ScanProgress | null = null;
 let scanRunning = false;
 
@@ -1156,7 +1203,7 @@ app.get('/api/books/:id/file', async (req, res) => {
   res.status(404).json({ error: 'File not found' });
 });
 
-// â”€â”€ Cover serving (supports JPG from API/PDF and SVG fallback) â”€â”€
+// ── Cover serving (supports JPG from API/PDF and SVG fallback) ──
 app.get('/api/books/:id/cover', async (req, res) => {
   const bookId = parseInt(req.params.id);
   const book = await getBookById(bookId) as Record<string, unknown> | undefined;
@@ -1171,6 +1218,40 @@ app.get('/api/books/:id/cover', async (req, res) => {
     return res.sendFile(path, (err: any) => { if (err && !res.headersSent) res.status(404).json({ error: 'Cover not found' }); });
   };
 
+  // Helper: upload a local cover file to Supabase and persist the URL in DB
+  const persistToSupabase = async (localPath: string, source: string): Promise<string | null> => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey || !existsSync(localPath)) return null;
+
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const sb = createClient(supabaseUrl, supabaseKey);
+      const ext = localPath.split('.').pop()?.toLowerCase() || 'jpg';
+      const filename = `${bookId}.${ext}`;
+      const coverBuffer = readFileSync(localPath);
+      const contentType = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : 'image/jpeg';
+
+      const { error } = await sb.storage.from('covers').upload(filename, coverBuffer, {
+        contentType,
+        upsert: true,
+      });
+
+      if (error) {
+        console.error(`Supabase cover upload error (book ${bookId}):`, error.message);
+        return null;
+      }
+
+      const permanentUrl = `${supabaseUrl}/storage/v1/object/public/covers/${filename}`;
+      await updateBook(bookId, { cover_path: permanentUrl, cover_source: source } as any);
+      console.log(`📸 Cover persisted to Supabase: ${filename} (${source})`);
+      return permanentUrl;
+    } catch (err) {
+      console.error(`Supabase cover upload failed (book ${bookId}):`, err);
+      return null;
+    }
+  };
+
   // 1. Try R2 cover first (production)
   const r2CoverKey = (book as any).r2_cover_key as string;
   if (isR2Configured && r2CoverKey) {
@@ -1181,35 +1262,40 @@ app.get('/api/books/:id/cover', async (req, res) => {
     }
   }
 
-  // 2. Check existing cover_path (could be API jpg, PDF jpg, SVG, or Supabase URL)
+  // 2. Check existing cover_path — if it's a URL (Supabase/external), redirect
   const coverPath = book.cover_path as string;
   if (coverPath && coverPath.startsWith('http')) {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.redirect(coverPath);
   }
+
+  // 3. If cover_path is a local path, check if file exists
   if (coverPath && existsSync(coverPath)) {
+    // File exists locally — serve it AND persist to Supabase in background
+    persistToSupabase(coverPath, (book.cover_source as string) || 'local').catch(() => {});
     return serveImage(coverPath);
   }
 
-  // 2. Check if a downloaded API cover exists
+  // 4. Check for API-downloaded covers on disk
   const jpgPath = join(COVERS_DIR, `${bookId}.jpg`);
   const pngPath = join(COVERS_DIR, `${bookId}.png`);
   if (existsSync(jpgPath)) {
-    await updateBook(bookId, { cover_path: jpgPath, cover_source: 'api' } as any);
+    persistToSupabase(jpgPath, 'api').catch(() => {});
     return serveImage(jpgPath);
   }
   if (existsSync(pngPath)) {
-    await updateBook(bookId, { cover_path: pngPath, cover_source: 'api' } as any);
+    persistToSupabase(pngPath, 'api').catch(() => {});
     return serveImage(pngPath);
   }
 
-  // 3. Check if a PDF-extracted cover exists
+  // 5. Check for PDF-extracted cover
   const pdfCoverPath = join(COVERS_DIR, `${bookId}_pdf.jpg`);
   if (existsSync(pdfCoverPath)) {
-    await updateBook(bookId, { cover_path: pdfCoverPath, cover_source: 'pdf' } as any);
+    persistToSupabase(pdfCoverPath, 'pdf').catch(() => {});
     return serveImage(pdfCoverPath);
   }
 
-  // 4. Generate SVG fallback
+  // 6. Generate SVG fallback
   const originalFilePath = book.file_path as string;
   try {
     const newCoverPath = await generateCover(
