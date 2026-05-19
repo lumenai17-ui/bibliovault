@@ -160,12 +160,12 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     }
   };
 
-  // Check Hermes health
+  // Check Hermes health (every 60s, not while streaming)
   useEffect(() => {
     checkAiHealth().then(setHermesOnline);
     const interval = setInterval(() => {
       if (!isStreaming) checkAiHealth().then(setHermesOnline);
-    }, 15000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [isStreaming]);
 
@@ -214,6 +214,9 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   }, [showSearchInput]);
 
   // Helper for triggering LLM stream
+  // Only send the last N messages to the LLM to keep token costs under control
+  const MAX_CONTEXT_MESSAGES = 20;
+
   const processStream = useCallback(async (
     messagesToSend: ChatMessage[],
     overrideWebCtx?: string,
@@ -233,7 +236,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     let fullResponse = '';
 
     await streamAiChat(
-      messagesToSend.map((m) => ({ role: m.role, content: m.content })),
+      messagesToSend.slice(-MAX_CONTEXT_MESSAGES).map((m) => ({ role: m.role, content: m.content })),
       book.title,
       book.author,
       pageContext || undefined,

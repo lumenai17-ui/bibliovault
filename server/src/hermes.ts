@@ -157,9 +157,12 @@ export async function streamChat(req: Request, res: Response) {
     userLanguage,
   );
 
+  // Server-side safeguard: limit history to last 30 messages to prevent token overflow
+  const trimmedMessages = messages.length > 30 ? messages.slice(-30) : messages;
+
   const fullMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    ...messages,
+    ...trimmedMessages,
   ];
 
   try {

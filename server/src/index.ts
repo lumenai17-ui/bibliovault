@@ -122,7 +122,38 @@ app.use('/covers', express.static(COVERS_DIR));
 await initDatabase();
 await initFtsSchema();
 await seedOfficialForums();
-console.log('ðŸ“¦ Database initialized');
+
+// Initialize AI conversations table (once at startup, not per-request)
+if (isPostgres()) {
+  const pool = getPgPool();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id SERIAL PRIMARY KEY,
+      book_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      messages JSONB DEFAULT '[]',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (book_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_conv_lookup ON ai_conversations(book_id, user_id);
+  `);
+} else {
+  const { getDb: getInitDb } = await import('./database.js');
+  getInitDb().prepare(`
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      book_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      messages TEXT DEFAULT '[]',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (book_id, user_id)
+    )
+  `).run();
+}
+console.log('📦 Database initialized');
+
+// Rate limiter for AI requests (simple in-memory tracker)
+const aiRateLimit = new Map<string, number[]>();
 
 // Sync cover paths on startup â€” only for local SQLite mode
 if (!isPostgres()) {
@@ -1355,6 +1386,17 @@ app.get('/api/health', async (_req, res) => {
 // â”€â”€ AI Chat (Groq / Hermes proxy) â”€â”€
 
 app.post('/api/ai/chat', optionalAuth, async (req, res) => {
+  // Rate limiting: 30 messages per hour per user
+  const userId = req.userId || 'anonymous';
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const timestamps = aiRateLimit.get(userId) || [];
+  const recent = timestamps.filter(t => t > oneHourAgo);
+  if (recent.length >= 30) {
+    return res.status(429).json({ error: 'Has alcanzado el limite de mensajes de IA por hora (30). Intenta de nuevo mas tarde.' });
+  }
+  recent.push(now);
+  aiRateLimit.set(userId, recent);
   streamChat(req, res);
 });
 
@@ -1464,15 +1506,6 @@ app.get('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
 
     if (isPostgres()) {
       const pool = getPgPool();
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS ai_conversations (
-          id SERIAL PRIMARY KEY,
-          book_id INTEGER NOT NULL,
-          user_id TEXT NOT NULL,
-          messages JSONB DEFAULT '[]',
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
       const { rows } = await pool.query(
         'SELECT messages FROM ai_conversations WHERE book_id = $1 AND user_id = $2',
         [bookId, userId]
@@ -1480,15 +1513,6 @@ app.get('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
       res.json(rows[0] ? rows[0].messages : []);
     } else {
       const db = (await import('./database.js')).getDb();
-      db.prepare(`
-        CREATE TABLE IF NOT EXISTS ai_conversations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          book_id INTEGER NOT NULL,
-          user_id TEXT NOT NULL,
-          messages TEXT DEFAULT '[]',
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `).run();
       const row = db.prepare('SELECT messages FROM ai_conversations WHERE book_id = ? AND user_id = ?').get(bookId, userId) as any;
       res.json(row ? JSON.parse(row.messages) : []);
     }
@@ -1507,16 +1531,6 @@ app.post('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
     if (isPostgres()) {
       const pool = getPgPool();
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS ai_conversations (
-          id SERIAL PRIMARY KEY,
-          book_id INTEGER NOT NULL,
-          user_id TEXT NOT NULL,
-          messages JSONB DEFAULT '[]',
-          updated_at TIMESTAMPTZ DEFAULT NOW(),
-          UNIQUE (book_id, user_id)
-        )
-      `);
-      await pool.query(`
         INSERT INTO ai_conversations (book_id, user_id, messages, updated_at)
         VALUES ($1, $2, $3::jsonb, NOW())
         ON CONFLICT (book_id, user_id) DO UPDATE SET messages = EXCLUDED.messages, updated_at = NOW()
@@ -1524,16 +1538,6 @@ app.post('/api/books/:id/ai-chat-history', optionalAuth, async (req, res) => {
       res.json({ success: true });
     } else {
       const db = (await import('./database.js')).getDb();
-      db.prepare(`
-        CREATE TABLE IF NOT EXISTS ai_conversations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          book_id INTEGER NOT NULL,
-          user_id TEXT NOT NULL,
-          messages TEXT DEFAULT '[]',
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE (book_id, user_id)
-        )
-      `).run();
       db.prepare(`
         INSERT INTO ai_conversations (book_id, user_id, messages) 
         VALUES (?, ?, ?)
