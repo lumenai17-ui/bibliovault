@@ -1375,7 +1375,6 @@ app.get('/api/scan/status', async (_req, res) => {
   }
   res.json(currentScan);
 });
-
 // â”€â”€ Health â”€â”€
 app.get('/api/health', async (_req, res) => {
   const aiOnline = await checkHermesHealth();
@@ -1406,31 +1405,53 @@ app.post('/api/organizer/chat', optionalAuth, async (req, res) => {
   // RAG Intermediary: Extract last user message to find relevant books
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content || '';
   
-  // Simple keyword extraction (remove common words)
-  const keywords = lastUserMessage
+  // Improved keyword extraction: keep multi-word phrases, remove common stop words
+  const stopWords = new Set(['que', 'de', 'la', 'el', 'los', 'las', 'un', 'una', 'en', 'con', 'por', 'para', 'del', 'al', 'es', 'son', 'hay', 'como', 'mas', 'pero', 'este', 'esta', 'estos', 'esos', 'ese', 'esa', 'libro', 'libros', 'buscar', 'busca', 'dame', 'quiero', 'tiene', 'tienes', 'sobre', 'recomienda', 'recomiendame', 'cual', 'cuales']);
+  const words = lastUserMessage
     .replace(/[^\w\s\u00C0-\u017F]/gi, '')
     .split(/\s+/)
-    .filter(w => w.length > 3)
-    .slice(0, 3)
-    .join(' ');
-    
-  // Query local database for relevance
-  let libraryContext = '';
-  if (keywords) {
-    const searchResult = await getAllBooks(20, 0, { search: keywords });
-    if (searchResult.books.length > 0) {
-      libraryContext = searchResult.books.map((b: any) => 
-        `- ID [BOOK_ID:${b.id}] | TÃ­tulo: "${b.title}" | Autor: ${b.author || 'Desconocido'} | CategorÃ­a: ${b.category_name || 'Sin categorÃ­a'}\n  Sinopsis: ${b.ai_summary ? b.ai_summary.substring(0, 150) + '...' : 'Sin sinopsis'}`
-      ).join('\n\n');
+    .filter(w => w.length > 2 && !stopWords.has(w.toLowerCase()));
+  
+  const allResults = new Map<number, any>();
+  
+  // Strategy 1: Search by full phrase (first 5 keywords joined)
+  const fullPhrase = words.slice(0, 5).join(' ');
+  if (fullPhrase) {
+    const sr = await getAllBooks(15, 0, { search: fullPhrase });
+    sr.books.forEach((b: any) => allResults.set(b.id, b));
+  }
+  
+  // Strategy 2: Search by individual keywords (if <5 results so far)
+  if (allResults.size < 5 && words.length > 0) {
+    for (const word of words.slice(0, 4)) {
+      if (allResults.size >= 15) break;
+      const sr = await getAllBooks(10, 0, { search: word });
+      sr.books.forEach((b: any) => { if (!allResults.has(b.id)) allResults.set(b.id, b); });
     }
   }
+  
+  // Strategy 3: Search by detected category name in the message
+  const categoryKeywords = lastUserMessage.toUpperCase().match(/\b(ESOTERISMO|MAGIA|ALQUIMIA|FILOSOF[IÍ]A|CIENCIA|RELIGI[OÓ]N|ASTROLOG[IÍ]A|TAROT|C[AÁ]BALA|KABBALAH|HERMETI[SC]MO|OCULTISMO|PSICOLOG[IÍ]A|METAF[IÍ]SICA|MEDITACI[OÓ]N|YOGA|BUDISMO|HINDUISMO)\b/i);
+  if (categoryKeywords && allResults.size < 10) {
+    const catSearch = await getAllBooks(10, 0, { search: categoryKeywords[1] });
+    catSearch.books.forEach((b: any) => { if (!allResults.has(b.id)) allResults.set(b.id, b); });
+  }
+  
+  // Format enriched context
+  let libraryContext = '';
+  const books = Array.from(allResults.values()).slice(0, 15);
+  if (books.length > 0) {
+    libraryContext = books.map((b: any) => 
+      `- [BOOK_ID:${b.id}] "${b.title}" | ${b.author || 'Desconocido'} | ${b.category_name || 'Sin categoría'} | ${b.total_pages || '?'} págs | ${b.format || '?'}\n  ${b.ai_summary ? b.ai_summary.substring(0, 400) : 'Sin sinopsis disponible'}`
+    ).join('\n\n');
+  }
 
-  // If no direct keyword match, provide a random sample of uncategorized books
+  // If still no results, provide a sample from the library
   if (!libraryContext) {
-    const uncategorized = await getAllBooks(10, 0, { category_id: 46 }); // 46 is usually 'Sin categorÃ­a'
-    if (uncategorized.books.length > 0) {
-      libraryContext = 'Libros recientes "Sin categorÃ­a" para organizar:\n' + uncategorized.books.map((b: any) => 
-        `- ID [BOOK_ID:${b.id}] | TÃ­tulo: "${b.title}"`
+    const sample = await getAllBooks(10, 0, {});
+    if (sample.books.length > 0) {
+      libraryContext = 'Muestra general de la biblioteca:\n' + sample.books.map((b: any) => 
+        `- [BOOK_ID:${b.id}] "${b.title}" | ${b.author || 'Desconocido'} | ${b.category_name || 'Sin categoria'}`
       ).join('\n');
     }
   }

@@ -173,17 +173,99 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
   }, []);
 
   const handleExportPdf = async () => {
-    if (!chatContainerRef.current) return;
+    if (messages.length === 0) return;
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const opt = {
-        margin:       10,
-        filename:     `Hermes_Chat_${book.title.replace(/\s+/g, '_')}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const addPageIfNeeded = (requiredSpace: number) => {
+        if (y + requiredSpace > pageHeight - 25) {
+          // Footer before new page
+          doc.setFontSize(8);
+          doc.setTextColor(120);
+          doc.text('Generado por Hermes AI \u2022 Lectura Arcana \u2022 BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
+          doc.addPage();
+          y = margin;
+        }
       };
-      html2pdf().set(opt).from(chatContainerRef.current).save();
+
+      // ── Header ──
+      doc.setFillColor(30, 30, 50);
+      doc.rect(0, 0, pageWidth, 45, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(255);
+      doc.text('LECTURA ARCANA', pageWidth / 2, 18, { align: 'center' });
+      doc.setFontSize(11);
+      doc.setTextColor(180, 180, 220);
+      doc.text('Informe de An\u00e1lisis con Hermes AI', pageWidth / 2, 27, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setTextColor(150);
+      doc.text(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }), pageWidth / 2, 35, { align: 'center' });
+      y = 55;
+
+      // ── Book metadata ──
+      doc.setFillColor(245, 245, 255);
+      doc.roundedRect(margin, y, contentWidth, 22, 3, 3, 'F');
+      doc.setFontSize(11);
+      doc.setTextColor(40);
+      doc.text(`\ud83d\udcd6  ${book.title}`, margin + 5, y + 8);
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`\u270d\ufe0f  ${book.author || 'Autor desconocido'}  \u2022  \ud83d\udcac ${messages.filter(m => m.role === 'user').length} preguntas  \u2022  ${sessionTokens.toLocaleString()} tokens`, margin + 5, y + 16);
+      y += 30;
+
+      // ── Separator ──
+      doc.setDrawColor(200);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      // ── Conversation ──
+      const stripMarkdown = (text: string) => text
+        .replace(/@@ACTION:[^@]+@@/g, '')
+        .replace(/@@FOLLOW_UPS:\[.*?\]@@/g, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/#{1,3}\s/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .trim();
+
+      for (const msg of messages) {
+        if (msg.role === 'system') continue;
+        const isUser = msg.role === 'user';
+        const label = isUser ? '\ud83d\udc64 Usuario' : '\ud83e\udd16 Hermes';
+        const cleanText = stripMarkdown(msg.content);
+        if (!cleanText) continue;
+
+        addPageIfNeeded(20);
+
+        // Role label
+        doc.setFontSize(9);
+        doc.setTextColor(isUser ? 80 : 102, isUser ? 80 : 126, isUser ? 80 : 234);
+        doc.text(label, margin, y);
+        y += 5;
+
+        // Message content (word-wrapped)
+        doc.setFontSize(10);
+        doc.setTextColor(40);
+        const lines = doc.splitTextToSize(cleanText, contentWidth - 5);
+        for (const line of lines) {
+          addPageIfNeeded(6);
+          doc.text(line, margin + 3, y);
+          y += 5;
+        }
+        y += 4;
+      }
+
+      // ── Final footer ──
+      doc.setFontSize(8);
+      doc.setTextColor(120);
+      doc.text('Generado por Hermes AI \u2022 Lectura Arcana \u2022 BiblioVault', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+      doc.save(`Hermes_${book.title.replace(/[^\w\s]/g, '').replace(/\s+/g, '_').substring(0, 40)}.pdf`);
     } catch (err) {
       console.error('PDF Export error:', err);
     }
@@ -236,11 +318,11 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
     const loadContext = async () => {
       setContextLoading(true);
       try {
-        const startPage = Math.max(1, currentPage - 1);
-        const endPage = currentPage + 1;
+        const startPage = Math.max(1, currentPage - 3);
+        const endPage = currentPage + 3;
         const result = await fetchBookText(book.id, startPage, endPage);
         const text = result.fullText?.trim() || '';
-        setPageContext(text.length > 50 ? text.substring(0, 4000) : '');
+        setPageContext(text.length > 50 ? text.substring(0, 6000) : '');
       } catch {
         setPageContext('');
       } finally {
@@ -248,7 +330,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       }
     };
 
-    const timer = setTimeout(loadContext, 1000);
+    const timer = setTimeout(loadContext, 2000);
     return () => clearTimeout(timer);
   }, [book.id, currentPage, book.format]);
 
@@ -433,7 +515,7 @@ export default function AiChatPanel({ book, currentPage, onClose, onNavigate }: 
       }
       
       if (result.books && result.books.length > 0) {
-        const formatted = result.books.map(b => `- "${b.title}" por ${b.author} (Categoría: ${b.category?.name || 'Varios'})`).join('\n');
+        const formatted = result.books.map(b => `- [BOOK_ID:${b.id}] "${b.title}" por ${b.author || 'Desconocido'} (${b.category?.name || 'Varios'})`).join('\n');
         setLibraryContext(formatted);
 
         currentMessages = currentMessages.map(m => 
