@@ -1367,7 +1367,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
       
       // Fallback to OCR if empty
       if (!excerpt || excerpt.length < 50) {
-        console.log(`âš ï¸ Book "${book.title}" seems to be scanned. Running OCR for summary...`);
+        console.log(`⚠️ Book "${book.title}" seems to be scanned. Running OCR for summary...`);
         try {
           const { extractOcrText } = await import('./ocrExtractor.js');
           excerpt = await extractOcrText(filePath, 4);
@@ -1378,7 +1378,7 @@ app.post('/api/books/:id/summary', async (req, res) => {
     }
     
     if (!excerpt || excerpt.length < 50) {
-      return res.json({ summary: 'Este libro parece ser un escaneo de imÃ¡genes. No se pudo leer el texto ni siquiera con OCR.', cached: false });
+      return res.json({ summary: 'Este libro parece ser un escaneo de imágenes. No se pudo leer el texto ni siquiera con OCR.', cached: false });
     }
 
     // Ask LLM (Groq or Hermes) for a summary
@@ -1388,9 +1388,9 @@ app.post('/api/books/:id/summary', async (req, res) => {
     }
 
     const summary = await llmComplete(
-      'Eres un bibliotecario experto. Genera resÃºmenes concisos y Ãºtiles de libros. Responde en espaÃ±ol. El resumen debe tener 2-3 pÃ¡rrafos mÃ¡ximo.',
+      'Eres un bibliotecario experto de Lectura Arcana. Genera un resumen conciso y cautivador del libro en español (máximo 2 párrafos). IMPORTANTE: Al final del resumen, debes añadir siempre un último párrafo persuasivo invitando al lector a suscribirse al Club de Lectura Arcana. Explícale brevemente que al unirse podrá escuchar este libro narrado por IA, conversar directamente con sus páginas usando Hermes AI, y acceder a más de 1,400 textos esotéricos. Usa un tono misterioso, erudito y acogedor.',
       `Genera un resumen del siguiente libro titulado "${book.title}":\n\n${excerpt}`,
-      { temperature: 0.5, max_tokens: 500 },
+      { temperature: 0.7, max_tokens: 650 },
     );
 
     if (!summary) {
