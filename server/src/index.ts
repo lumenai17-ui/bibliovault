@@ -1387,10 +1387,21 @@ app.post('/api/books/:id/summary', async (req, res) => {
       return res.status(503).json({ error: 'AI no estÃ¡ disponible (ni Groq ni Hermes)' });
     }
 
+    const isMarketing = req.query.marketing === 'true';
+    let systemPrompt = 'Eres un bibliotecario experto. Genera resúmenes concisos y útiles de libros. Responde en español. El resumen debe tener 2-3 párrafos máximo.';
+    let maxTokens = 500;
+    let temp = 0.5;
+
+    if (isMarketing) {
+      systemPrompt = 'Eres un bibliotecario experto de Lectura Arcana. Genera un resumen conciso y cautivador del libro en español (máximo 2 párrafos). IMPORTANTE: Al final del resumen, debes añadir siempre un último párrafo persuasivo invitando al lector a suscribirse al Club de Lectura Arcana. Explícale brevemente que al unirse podrá escuchar este libro narrado por IA, conversar directamente con sus páginas usando Hermes AI, y acceder a más de 1,400 textos esotéricos. Usa un tono misterioso, erudito y acogedor.';
+      maxTokens = 650;
+      temp = 0.7;
+    }
+
     const summary = await llmComplete(
-      'Eres un bibliotecario experto de Lectura Arcana. Genera un resumen conciso y cautivador del libro en español (máximo 2 párrafos). IMPORTANTE: Al final del resumen, debes añadir siempre un último párrafo persuasivo invitando al lector a suscribirse al Club de Lectura Arcana. Explícale brevemente que al unirse podrá escuchar este libro narrado por IA, conversar directamente con sus páginas usando Hermes AI, y acceder a más de 1,400 textos esotéricos. Usa un tono misterioso, erudito y acogedor.',
+      systemPrompt,
       `Genera un resumen del siguiente libro titulado "${book.title}":\n\n${excerpt}`,
-      { temperature: 0.7, max_tokens: 650 },
+      { temperature: temp, max_tokens: maxTokens },
     );
 
     if (!summary) {
